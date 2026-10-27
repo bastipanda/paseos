@@ -1,0 +1,9 @@
+{
+  "name": "paseos",
+  "private": true,
+  "description": "App personal de rutas a pie y en Bike Itaú por calles tranquilas.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test \"tests/*.test.js\""
+  }
+}
