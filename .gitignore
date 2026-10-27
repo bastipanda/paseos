@@ -1,0 +1,14 @@
+# Secretos: nunca al repo
+.env
+.env.*
+!.env.example
+
+# Dependencias y builds
+node_modules/
+dist/
+
+# Archivos del sistema y editores
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
