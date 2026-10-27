@@ -1,0 +1,88 @@
+# Paseos: perfil en bici que prefiere ciclovías y calles de poco tráfico.
+# Evita avenidas sin ciclovía y calles peatonales (mucha gente o bici prohibida).
+# Costo 1 = ciclovía. Mientras más alto el costo, más la evita BRouter.
+
+---context:global
+
+assign validForBikes         1
+assign turnInstructionMode   0
+assign processUnusedTags     false
+
+# Las subidas cuestan un poco: el oriente de Santiago sube harto.
+assign downhillcost    0
+assign downhillcutoff  1.5
+assign uphillcost      40
+assign uphillcutoff    1.5
+
+---context:way
+
+assign defaultaccess  switch access=  not motorroad=yes  switch or access=private access=no  0  1
+
+assign bikeaccess
+       switch bicycle=
+              switch vehicle=
+                     defaultaccess
+                     switch or vehicle=private vehicle=no  0  1
+              not or bicycle=private or bicycle=no bicycle=dismount
+
+assign footaccess
+       switch foot=  defaultaccess  not foot=private|no
+
+# Sin acceso en bici pero sí a pie: se puede, empujando la bici, pero cuesta caro.
+assign accesspenalty  switch bikeaccess 0  switch footaccess 8  100000
+
+assign hascycleway  or highway=cycleway
+                    or bicycle=designated
+                       cycleway=lane|track|opposite|opposite_lane|opposite_track|shared_lane|share_busway
+
+assign oneway
+       switch oneway=
+              junction=roundabout
+              or oneway=yes or oneway=true oneway=1
+
+assign onewaypenalty
+       switch switch reversedirection=yes oneway oneway=-1
+              switch or cycleway=opposite|opposite_lane|opposite_track oneway:bicycle=no  0
+              100000
+              0
+
+assign turncost     10
+assign initialcost  switch route=ferry 10000 0
+
+assign noise_penalty
+       switch estimated_noise_class=   0
+       switch estimated_noise_class=1  0
+       switch estimated_noise_class=2  0.1
+       switch estimated_noise_class=3  0.2
+       switch estimated_noise_class=4  0.5
+       switch estimated_noise_class=5  0.9
+       switch estimated_noise_class=6  1.4  0
+
+assign basecost
+       if      ( and highway= not route=ferry )                  then 100000
+       else if highway=motorway|motorway_link                    then 100000
+       else if highway=proposed|abandoned|construction           then 100000
+       else if route=ferry                                       then 100000
+       else if highway=cycleway                                  then 1.0
+       else if highway=steps                                     then 40
+       else if highway=pedestrian                                then 4.0
+       else if ( and hascycleway highway=footway|path )          then 1.15
+       else if hascycleway                                       then 1.2
+       else if highway=living_street                             then 1.25
+       else if highway=residential                               then 1.3
+       else if highway=service                                   then 1.5
+       else if highway=track                                     then 1.8
+       else if highway=path                                      then 2.0
+       else if highway=footway                                   then 3.0
+       else if highway=unclassified                              then 1.6
+       else if highway=tertiary|tertiary_link                    then 2.5
+       else if highway=secondary|secondary_link                  then 4.0
+       else if highway=primary|primary_link                      then 6.0
+       else if highway=trunk|trunk_link                          then 15.0
+       else 2.0
+
+assign costfactor  add max onewaypenalty accesspenalty  add noise_penalty  basecost
+
+---context:node
+
+assign initialcost 0
