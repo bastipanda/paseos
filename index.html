@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Paseos</title>
+  <meta name="description" content="Rutas a pie y en Bike Itaú por calles tranquilas, a la medida de tus pasos.">
+  <meta name="theme-color" content="#1d6b4f">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icono.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icono.svg">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+  <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body>
+  <div id="mapa" aria-label="Mapa"></div>
+
+  <nav class="barra">
+    <button type="button" class="chip" data-ir="formulario" aria-label="Nuevo paseo">Paseos</button>
+    <span class="separador"></span>
+    <button type="button" class="chip" data-ir="lugares">Lugares</button>
+    <button type="button" class="chip" data-ir="ajustes" aria-label="Ajustes">Ajustes</button>
+  </nav>
+
+  <div id="aviso-mapa" class="aviso-mapa" hidden>
+    <span id="aviso-mapa-texto">Toca el mapa para marcar el punto</span>
+    <button type="button" id="aviso-mapa-cancelar" class="boton-texto">Cancelar</button>
+  </div>
+
+  <section id="panel" class="panel" aria-live="polite">
+    <button type="button" id="asa" class="asa" aria-label="Agrandar o achicar el panel"></button>
+
+    <!-- Nuevo paseo -->
+    <div class="vista" data-vista="formulario">
+      <h1>Nuevo paseo</h1>
+      <form id="formulario" novalidate>
+        <div class="campo">
+          <label for="partida-tipo">Partida</label>
+          <select id="partida-tipo"></select>
+          <div id="partida-extra" class="extra"></div>
+        </div>
+        <div class="campo">
+          <label for="termino-tipo">Término</label>
+          <select id="termino-tipo"></select>
+          <div id="termino-extra" class="extra"></div>
+        </div>
+
+        <fieldset class="campo">
+          <legend>Duración a pie</legend>
+          <div class="segmentado" role="radiogroup" aria-label="Unidad">
+            <label><input type="radio" name="unidad" value="pasos" checked><span>Pasos</span></label>
+            <label><input type="radio" name="unidad" value="minutos"><span>Minutos</span></label>
+            <label><input type="radio" name="unidad" value="km"><span>Km</span></label>
+          </div>
+          <div class="fila">
+            <label class="mini">Mínimo<input id="minimo" type="number" inputmode="decimal" min="0" step="any" placeholder="—" aria-label="Mínimo"></label>
+            <label class="mini">Máximo<input id="maximo" type="number" inputmode="decimal" min="0" step="any" placeholder="—" aria-label="Máximo"></label>
+          </div>
+          <p class="ayuda" id="ayuda-duracion"></p>
+        </fieldset>
+
+        <label class="interruptor">
+          <input type="checkbox" id="con-bici" aria-label="Volver en Bike Itaú">
+          <span>Volver en Bike Itaú</span>
+        </label>
+        <p class="ayuda" id="ayuda-bici" hidden>Caminas hasta una estación con bicis y pedaleas por calles
+          bike-friendly hasta la estación con anclajes libres más cercana al término.</p>
+
+        <button type="submit" class="boton-principal" id="buscar">Buscar rutas</button>
+        <p id="estado-busqueda" class="estado" role="status"></p>
+      </form>
+    </div>
+
+    <!-- Resultados -->
+    <div class="vista" data-vista="resultados" hidden>
+      <div class="cabecera-resultados">
+        <button type="button" class="boton-icono" id="anterior" aria-label="Opción anterior">‹</button>
+        <h2 id="titulo-opcion">Opción 1</h2>
+        <button type="button" class="boton-icono" id="siguiente" aria-label="Opción siguiente">›</button>
+      </div>
+      <div id="detalle-opcion"></div>
+      <div class="acciones">
+        <button type="button" class="boton-principal" id="empezar">Empezar</button>
+        <button type="button" class="boton-secundario" data-ir="formulario">Cambiar búsqueda</button>
+      </div>
+    </div>
+
+    <!-- Seguimiento en vivo -->
+    <div class="vista" data-vista="seguimiento" hidden>
+      <p class="modo-actual" id="modo-actual">Tramo a pie</p>
+      <p class="grande" id="faltan-principal">Buscando tu ubicación…</p>
+      <p id="faltan-detalle" class="secundario"></p>
+      <div class="progreso"><div id="barra-progreso"></div></div>
+      <p id="aviso-ruta" class="alerta" hidden></p>
+      <div class="acciones">
+        <button type="button" class="boton-secundario" id="centrar">Seguirme</button>
+        <button type="button" class="boton-peligro" id="terminar">Terminar</button>
+      </div>
+    </div>
+
+    <!-- Lugares guardados -->
+    <div class="vista" data-vista="lugares" hidden>
+      <h1>Lugares guardados</h1>
+      <ul id="lista-lugares" class="lista"></ul>
+      <details class="agregar" id="agregar-lugar">
+        <summary>Agregar un lugar</summary>
+        <label class="campo">Nombre<input id="nombre-lugar" type="text" maxlength="60" placeholder="Ej.: Casa, Pega, Parque"></label>
+        <div class="fila botones-fila">
+          <button type="button" class="boton-secundario" id="lugar-gps">Mi ubicación</button>
+          <button type="button" class="boton-secundario" id="lugar-mapa">Marcar en el mapa</button>
+        </div>
+        <div id="lugar-buscador"></div>
+      </details>
+      <h2>Respaldo</h2>
+      <p class="ayuda">Los lugares se guardan solo en este navegador. Descarga un respaldo de vez en cuando
+        para no perderlos si borras los datos del navegador o cambias de celular.</p>
+      <div class="fila botones-fila">
+        <button type="button" class="boton-secundario" id="exportar">Descargar respaldo</button>
+        <label class="boton-secundario boton-archivo">Restaurar respaldo<input type="file" id="importar" accept="application/json,.json"></label>
+      </div>
+      <p id="estado-lugares" class="estado" role="status"></p>
+    </div>
+
+    <!-- Ajustes -->
+    <div class="vista" data-vista="ajustes" hidden>
+      <h1>Ajustes</h1>
+      <form id="form-ajustes" novalidate>
+        <label class="campo">Largo de tu paso (metros)
+          <input id="largo-paso" type="number" inputmode="decimal" min="0.3" max="1.5" step="0.01">
+        </label>
+        <p class="ayuda">Para medirlo: camina 10 pasos normales, mide la distancia en metros y divídela por 10.</p>
+        <label class="campo">Velocidad caminando (km/h)
+          <input id="velocidad" type="number" inputmode="decimal" min="2" max="8" step="0.1">
+        </label>
+        <p class="ayuda">Se usa para convertir minutos en distancia. Un paso tranquilo es unos 4,5 km/h.</p>
+        <label class="interruptor">
+          <input type="checkbox" id="ver-estaciones">
+          <span>Mostrar estaciones Bike Itaú en el mapa</span>
+        </label>
+        <button type="submit" class="boton-principal">Guardar</button>
+        <p id="estado-ajustes" class="estado" role="status"></p>
+      </form>
+      <p class="creditos">Rutas: <a href="https://brouter.de" target="_blank" rel="noopener">BRouter</a>.
+        Mapa y calles: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>.
+        Búsqueda: Nominatim. Estaciones: feed público de Bike Itaú.</p>
+    </div>
+  </section>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

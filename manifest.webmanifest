@@ -1,0 +1,14 @@
+{
+  "name": "Paseos",
+  "short_name": "Paseos",
+  "description": "Rutas a pie y en Bike Itaú por calles tranquilas, a la medida de tus pasos.",
+  "lang": "es-CL",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1d6b4f",
+  "icons": [
+    { "src": "icono.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
