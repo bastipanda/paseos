@@ -4,7 +4,8 @@ App personal que arma rutas a medida para salir a caminar o pedalear en Santiago
 Uso propio de Bastián, no comercial. Se usa en el celular mientras camina.
 
 ## Estado
-v1 publicada y probada en terreno el 2026-10-27. v1.1 decidida y pendiente (ver `BACKLOG.md`).
+v1 publicada y probada en terreno el 2026-10-27. v1.1 construida el 2026-10-27 (plazas, explicaciones, guía giro a
+giro y GPX); falta probarla en terreno.
 
 ## Qué hace
 - **Partida y término libres:** cada uno puede ser la ubicación GPS, un lugar guardado o un punto del mapa.
@@ -14,8 +15,14 @@ v1 publicada y probada en terreno el 2026-10-27. v1.1 decidida y pendiente (ver 
 - **Vuelta en Bike Itaú (opcional, un interruptor):** se camina hasta una estación con bicis y se pedalea por calles
   bike-friendly hasta la estación con anclajes libres más cercana al término. De ahí se camina el último tramo.
   No hay "estación casa" fija: se elige según el término de cada paseo.
+- **Ir a una plaza y volver:** el término puede ser "una plaza"; la app elige plazas, plazoletas, parques o plazas
+  de juegos a la distancia justa y fuerza la vuelta por otras calles. No se combina con Bike Itaú (todavía).
+- **Explica cada opción:** por qué lugares pasa, por qué tipo de calles, tramos ruidosos y su motivo, y cuánto se
+  desvía respecto del camino más corto para evitar avenidas. Tocar un tramo del mapa dice qué es.
 - **Lugares guardados (opcional):** nombre + punto, para usarlos como partida o término.
-- **Seguimiento en vivo:** la ruta, tu posición y lo que falta. La pantalla no se apaga.
+- **Seguimiento en vivo:** la ruta, tu posición, lo que falta y la próxima indicación ("En 40 m, dobla a la
+  derecha"), con voz opcional del navegador. La pantalla no se apaga.
+- **Abrir en otra app:** GPX para OsmAnd u Organic Maps (menú de compartir o descarga).
 
 ## Definiciones
 - **Tranquila (a pie):** pasajes, calles residenciales, parques y senderos. Se evitan avenidas grandes.
@@ -35,6 +42,11 @@ v1 publicada y probada en terreno el 2026-10-27. v1.1 decidida y pendiente (ver 
 - **Largo de la ruta:** BRouter no recibe un largo objetivo, así que la app agrega puntos intermedios para
   alargar el recorrido. Genera varias candidatas, descarta las que no cumplen la duración y ordena el resto por
   qué tan tranquilas son (con las etiquetas de calle que devuelve BRouter).
+- **Giros:** BRouter los entrega con `timode=2` en la consulta. La app recalcula el ángulo con la geometría (por si
+  se recortó un espolón) y arma el texto ella misma.
+- **Comparación:** un tercer perfil, `paseo-corto.brf`, da el camino más corto con las mismas etiquetas de calle.
+- **Plazas:** `datos/plazas.json`, generado desde OSM con `node scripts/plazas.mjs` (Overpass). Se regenera cada
+  algunos meses; la app nunca consulta Overpass en vivo.
 - **Estaciones Bike Itaú:** feed público GBFS, leído directo desde el navegador.
 - **Búsqueda de direcciones:** Nominatim (OSM). Una búsqueda por cada vez que se aprieta "Buscar", nunca
   mientras se escribe, porque así lo piden sus reglas de uso.
@@ -50,6 +62,8 @@ v1 publicada y probada en terreno el 2026-10-27. v1.1 decidida y pendiente (ver 
 - Según prensa de junio 2026, Bike Itaú tiene 199 estaciones en Las Condes, Vitacura, Providencia,
   Independencia y Ñuñoa. Dejó Santiago Centro en 2025.
 - GitHub Pages en cuenta gratis solo publica desde repos **públicos** (según docs de GitHub).
+- Overpass (`overpass-api.de`) respondió el 2026-10-27 en la noche: 4.437 lugares, 1.930 con nombre, 200 KB.
+  En la mañana había fallado en tres servidores; por eso el script prueba varios.
 - Alternativas si BRouter falla: OpenRouteService (2.000 rutas al día gratis, pide clave; "green" y "quiet" eran solo
   para Alemania) o GraphHopper (500 créditos al día, no comercial).
 
@@ -61,7 +75,8 @@ La v1 no usa claves. Si algún día se agrega un servicio con clave, va en el na
 - `js/generador.js`: arma y ordena las opciones. `js/brouter.js`: habla con BRouter.
 - `js/tranquilidad.js`: clasifica calles. `js/geo.js`: cálculos de distancia. `js/duracion.js`: pasos/min/km.
 - `js/bikeitau.js`: estaciones. `js/almacen.js`: lugares y ajustes en el navegador. `js/seguimiento.js`: GPS.
-- `perfiles/*.brf`: qué calles prefiere BRouter a pie y en bici. `tests/`: pruebas automáticas.
+- `js/plazas.js`: lista de plazas. `js/explicar.js`: textos de "por qué". `js/guia.js`: giros y voz. `js/gpx.js`.
+- `perfiles/*.brf`: qué calles prefiere BRouter. `datos/plazas.json` + `scripts/plazas.mjs`. `tests/`: pruebas.
 
 ## Cómo probar y publicar
 - **Pruebas automáticas** (lógica, sin internet): `npm test`. Necesita Node.

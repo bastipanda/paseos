@@ -1,31 +1,15 @@
 # Backlog — Paseos
 
 ## Pendiente acordado
-**v1.1 (decidida 2026-10-27, tras probar la v1 en terreno).** Orden sugerido: 5 → 4 → 3 → 1 → 2.
-1. **Guía giro a giro en la app:** durante el seguimiento, mostrar "En 80 m, dobla a la derecha" con las
-   indicaciones de giro que entrega BRouter (`voicehints`), y voz opcional con la del navegador (gratis).
-   Ojo: al recortar espolones y al unir tramos cambian los índices de la ruta; hay que reubicar las indicaciones.
-2. **Descargar la ruta como GPX** (respaldo de lo anterior): un botón que baja el archivo para abrirlo en OsmAnd u
-   Organic Maps (gratis, sin anuncios, código abierto), con instrucciones cortas en la app. Sin Google Maps.
-3. **Explicar las rutas:**
-   - Tocar un tramo del mapa y ver qué es ("Avenida principal, ruido alto") y por qué tiene ese color.
-   - Un resumen en palabras por opción: plazas y parques por los que pasa, tipos de calle, y por qué hay tramos rojos.
-   - Comparar con la ruta más corta: cuánto se desvía y qué evita.
-   - Decir claro lo que la app no sabe: ambiente, belleza, comercio, gente, seguridad.
-4. **Ir a una plaza y volver:** nueva opción de término. La app elige una plaza a la distancia justa para la duración
-   pedida, vuelve por otras calles si se puede y permite pedir "otra plaza". Incluye plazas, plazoletas, parques y
-   plazas de juegos.
-5. **Lista de plazas y parques como archivo en el repo** (`datos/plazas.json`), generada desde OSM con un script y
-   actualizada cada algunos meses. Sirve para el punto 4 y para nombrar lugares en el punto 3.
+- Probar la v1.1 en terreno: voz de la guía en el celular, ir a una plaza, explicaciones y abrir el GPX en OsmAnd.
 - Calibrar el largo del paso (Ajustes) y anotar aquí el valor real.
+- Regenerar `datos/plazas.json` cada algunos meses (`node scripts/plazas.mjs`). Última vez: 2026-10-27.
 
 ## Por verificar
-- Tabla exacta de códigos de giro de BRouter. Probado el 2026-10-27: con `timode=2`, cada indicación viene como
-  `[índice del punto, código, salida de rotonda, distancia a la siguiente, ángulo]`.
-- Si OsmAnd guía con voz siguiendo un GPX importado, y si Organic Maps lo muestra. Según lo conocido, sí.
+- Si la voz del navegador suena bien en el celular de Bastián y sigue hablando con la pantalla encendida.
+- Si OsmAnd guía con voz siguiendo el GPX, y si Organic Maps lo muestra. Según lo conocido, sí.
+- Si el menú de compartir del celular acepta el archivo GPX o hay que usar la descarga.
 - Si BRouter entrega nombres de calles (para decir "evita Av. Irarrázaval" en vez de "evita una avenida").
-- De dónde sacar las plazas para el script: Overpass (consultas a OSM) falló en 3 servidores el 2026-10-27
-  (error 502 y sin respuesta). Reintentar otro día o usar un extracto de OSM descargado.
 - Qué tan bien calza el largo de las rutas con la duración pedida en distintas zonas de Santiago.
   Probado en Providencia y Ñuñoa el 2026-10-27: circular 8.000–10.000 pasos, A→B 60–75 min y Bike Itaú 4.000–6.000.
 - Si los puntos intermedios caen en zonas raras (cerros, autopistas) y dan rutas feas.
