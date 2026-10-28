@@ -13,6 +13,7 @@ import { evaluar, combinar } from './tranquilidad.js';
 
 export const PERFIL_PIE = 'paseo-tranquilo';
 export const PERFIL_BICI = 'bici-amigable';
+export const PERFIL_CORTO = 'paseo-corto';
 
 // Una ruta por calles suele medir ~30 % más que la línea recta entre sus puntos.
 const DESVIO_CALLES = 1.3;
@@ -145,6 +146,77 @@ export async function paseosAPie({ inicio, fin, rango, avance }) {
     enRango: c.enRango,
     repetida: c.repetida,
   }));
+}
+
+// Opciones de ir a una plaza (o parque, o plaza de juegos) y volver al punto de partida, con la duración pedida
+// para la ida y la vuelta juntas. La vuelta se fuerza por otras calles con un punto intermedio a un costado.
+export async function paseosAPlaza({ inicio, rango, plazas, avance = () => {} }) {
+  const meta = objetivo(rango);
+  const maxTotal = rango.max ?? meta * 1.5;
+  // Ida ≈ distancia × 1,3 y la vuelta algo más larga, por otras calles.
+  const ideal = meta / (2 * DESVIO_CALLES * 1.1);
+  const minimo = Math.max(150, meta / 4.5);
+  const maximo = maxTotal / (2 * 1.15);
+
+  // Una plaza por dirección (seis sectores), prefiriendo las que tienen nombre, son grandes y están a la distancia
+  // justa.
+  const porSector = new Map();
+  for (const plaza of plazas) {
+    const d = distancia(inicio, plaza.punto);
+    if (d < minimo || d > maximo) continue;
+    const sector = Math.floor(rumbo(inicio, plaza.punto) / 60);
+    const nota = Math.abs(d - ideal) / ideal - (plaza.nombre ? 0.35 : 0) - (Math.min(plaza.tamano, 400) / 400) * 0.3;
+    if (!porSector.has(sector) || nota < porSector.get(sector).nota) porSector.set(sector, { plaza, d, nota });
+  }
+  const elegidas = [...porSector.values()].sort((a, b) => a.nota - b.nota).slice(0, 4);
+  if (!elegidas.length) throw new ErrorDeRuta('No encontré plazas a una distancia que calce con la duración pedida.');
+
+  const pedir = async (plaza, angulo, sumaVuelta) => {
+    const lado = puntoEnElipse(plaza.punto, inicio, sumaVuelta, angulo);
+    const ruta = await intentar([inicio, plaza.punto, lado, inicio], PERFIL_PIE, avance);
+    return ruta ? { ruta, plaza, angulo, sumaVuelta } : null;
+  };
+  const sumaInicial = (d) => Math.max(d * 1.05, meta / DESVIO_CALLES - d);
+
+  const primera = (
+    await Promise.all(elegidas.flatMap((e) => [90, 270].map((a) => pedir(e.plaza, a, sumaInicial(e.d)))))
+  ).filter(Boolean);
+  const corregir = primera
+    .filter((r) => !cumple(r.ruta.metros, rango))
+    .sort((a, b) => desvio(a.ruta.metros, rango) - desvio(b.ruta.metros, rango))
+    .slice(0, 3);
+  const segunda = await Promise.all(
+    corregir.map((r) => {
+      const d = distancia(inicio, r.plaza.punto);
+      return pedir(r.plaza, r.angulo, Math.max(d * 1.02, r.sumaVuelta + (meta - r.ruta.metros) / DESVIO_CALLES));
+    }),
+  );
+
+  const evaluadas = [...primera, ...segunda.filter(Boolean)].map((r) => {
+    const evaluacion = evaluar(r.ruta.tramos, 'pie');
+    const repetida = fraccionRepetida(r.ruta.coords);
+    return {
+      partes: [{ modo: 'pie', ruta: r.ruta, evaluacion }],
+      metrosPie: r.ruta.metros,
+      metrosBici: 0,
+      evaluacionPie: evaluacion,
+      evaluacionBici: null,
+      enRango: cumple(r.ruta.metros, rango),
+      repetida,
+      nota: evaluacion.puntaje - repetida * CASTIGO_REPETIR,
+      plaza: r.plaza,
+    };
+  });
+  evaluadas.sort((a, b) => Number(b.enRango) - Number(a.enRango) || b.nota - a.nota);
+  // Una opción por plaza: las flechas del resultado sirven para "ver otra plaza".
+  const vistas = new Set();
+  return evaluadas.filter((o) => !vistas.has(o.plaza) && vistas.add(o.plaza)).slice(0, MAX_OPCIONES);
+}
+
+// El camino más corto a pie entre dos puntos, evaluado igual que las rutas tranquilas (para comparar).
+export async function caminoCorto(desde, hasta) {
+  const ruta = await intentar([desde, hasta], PERFIL_CORTO, () => {});
+  return ruta ? { metros: ruta.metros, evaluacion: evaluar(ruta.tramos, 'pie'), coords: ruta.coords } : null;
 }
 
 // Opciones con ida a pie hasta una estación Bike Itaú, vuelta en bici hasta la estación con anclajes libres
