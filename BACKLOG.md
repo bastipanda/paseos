@@ -35,6 +35,19 @@
 - Datos de delitos por calle o cuadra en Chile: ¿existen y son públicos? Lo que se conoce es por comuna.
 
 ## Ideas sin decidir
+- **Que la app sepa lo "humano" de una calle** (pedido 2026-10-27, conversarlo en una sesión propia): ambiente,
+  belleza, comercio, cuánta gente pasa y seguridad. Es lo que más le importa a Bastián, que no conoce Santiago.
+  Pistas a investigar, ninguna verificada todavía:
+  - Comercio, cafés y vida de barrio: los locales registrados en OSM (qué tan completos están en Santiago, por ver).
+  - Belleza y patrimonio: árboles y edificios históricos en OSM; monumentos y zonas típicas del Consejo de
+    Monumentos Nacionales (¿datos abiertos?); arbolado urbano municipal (¿datos abiertos?).
+  - Gente: aproximarla por densidad de locales, paraderos y estaciones de metro. Los datos de "horas concurridas" de
+    Google no son abiertos.
+  - Seguridad: estadísticas del CEAD (por comuna; ¿hay por cuadrante?) e iluminación (`lit=yes` en OSM) para paseos
+    de noche. Cuidado con estigmatizar barrios con datos gruesos.
+  - Lo propio de Bastián: calificar tramos o zonas después de cada paseo para que la app aprenda su gusto (datos que
+    no se regeneran: respaldo).
+  - Resúmenes escritos por IA: costarían plata (API), choca con costo cero.
 - Modo "segura", si aparecen datos confiables por calle.
 - A la plaza a pie y vuelta en Bike Itaú (combinar los puntos 4 y el modo bici).
 - Historial de paseos hechos (si se hace, pensar el respaldo).
