@@ -4,7 +4,7 @@ App personal que arma rutas a medida para salir a caminar o pedalear en Santiago
 Uso propio de Bastián, no comercial. Se usa en el celular mientras camina.
 
 ## Estado
-v1 construida el 2026-10-27, falta probarla en terreno con el celular.
+v1 publicada y probada en terreno el 2026-10-27. v1.1 decidida y pendiente (ver `BACKLOG.md`).
 
 ## Qué hace
 - **Partida y término libres:** cada uno puede ser la ubicación GPS, un lugar guardado o un punto del mapa.
@@ -86,3 +86,8 @@ La v1 no usa claves. Si algún día se agrega un servicio con clave, va en el na
   en vez de solo puntuar rutas después.
 - **Nada fijo.** Partida, término, duración y Bike Itaú se eligen en cada paseo. Los lugares guardados son atajos.
 - **Repo público `paseos`.** Lo exige GitHub Pages gratis. Nada privado va al repo.
+- **La app explica, no solo puntúa.** Bastián no conoce Santiago: cada ruta debe decir por qué es tranquila y qué
+  evita, sin inventar lo que los datos no dicen.
+- **Navegación dentro de la app + GPX, sin Google Maps.** Google Maps recalcula su propio camino y se pierde la ruta
+  tranquila; Bastián prefiere apps abiertas y sin anuncios.
+- **Plazas desde un archivo guardado, no en vivo.** El servicio de consultas a OSM (Overpass) se cae seguido.
