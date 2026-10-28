@@ -39,7 +39,8 @@ async function idDePerfil(nombre) {
 export async function pedirRuta(puntos, perfil, alternativa = 0, intento = 1) {
   const id = await idDePerfil(perfil);
   const lonlats = puntos.map((p) => `${p[1].toFixed(6)},${p[0].toFixed(6)}`).join('|');
-  const url = `${BASE}?lonlats=${lonlats}&profile=${id}&alternativeidx=${alternativa}&format=geojson`;
+  // timode=2 hace que BRouter incluya los giros (voicehints) en la respuesta.
+  const url = `${BASE}?lonlats=${lonlats}&profile=${id}&alternativeidx=${alternativa}&format=geojson&timode=2`;
   const resp = await enTurno(() => fetch(url));
   const texto = await resp.text();
   if (!resp.ok || !texto.trim().startsWith('{')) {
@@ -62,12 +63,17 @@ function traducirError(texto) {
   return `El servidor de rutas respondió: ${texto.slice(0, 160)}`;
 }
 
-// Convierte la respuesta GeoJSON de BRouter en { coords, metros, tramos }.
+// Convierte la respuesta GeoJSON de BRouter en { coords, metros, tramos, giros }.
 // Cada tramo es un pedazo de calle con sus etiquetas de OSM (highway, cycleway, etc.).
+// Cada giro es un cruce donde hay que decidir hacia dónde seguir (`voicehints` de BRouter: el primer valor es el
+// índice del punto en la ruta y el último, el ángulo del giro).
 export function leerRuta(geojson) {
   const f = geojson.features[0];
   const coords = f.geometry.coordinates.map(([lon, lat]) => [lat, lon]);
   const metros = Number(f.properties['track-length']);
+  const giros = (f.properties.voicehints || [])
+    .map((v) => ({ indice: Number(v[0]), angulo: Number(v[v.length - 1]) }))
+    .filter((g) => g.indice > 0 && g.indice < coords.length - 1);
   const tramos = [];
   const mensajes = f.properties.messages || [];
   if (mensajes.length > 1) {
@@ -89,7 +95,7 @@ export function leerRuta(geojson) {
       });
     }
   }
-  return { coords, metros, tramos };
+  return { coords, metros, tramos, giros };
 }
 
 // Recorta los "espolones": tramos donde la ruta entra a una calle y vuelve por el mismo camino, típicos cuando
@@ -124,10 +130,16 @@ export function quitarEspolones(ruta) {
       nuevosTramos.push({ origen: t, tags: tramos[t]?.tags || {}, desde: k - 1, hasta: k, metros: largos[k] });
     }
   }
+  // Los giros que estaban dentro de un espolón desaparecen; el resto se reubica en la ruta recortada.
+  const nuevoIndice = new Map(pila.map((original, k) => [original, k]));
+  const giros = (ruta.giros || [])
+    .filter((g) => nuevoIndice.has(g.indice))
+    .map((g) => ({ ...g, indice: nuevoIndice.get(g.indice) }));
   return {
     coords: nuevas,
     metros,
     tramos: nuevosTramos.map(({ origen, ...resto }) => resto),
+    giros,
   };
 }
 

@@ -5,7 +5,7 @@
 ---context:global
 
 assign validForFoot          1
-assign turnInstructionMode   0
+assign turnInstructionMode   1
 assign processUnusedTags     false
 
 # Sin costo por subidas: en paseos urbanos importa más el tipo de calle.

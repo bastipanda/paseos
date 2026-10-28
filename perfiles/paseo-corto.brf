@@ -1,0 +1,54 @@
+# Paseos: el camino más corto a pie, sin importar si las calles son tranquilas.
+# Solo sirve para comparar: "el camino más corto iría por tal avenida; esta ruta la evita".
+# Las etiquetas de ruido y verde se mencionan (con peso casi nulo) para que BRouter las devuelva en cada tramo.
+
+---context:global
+
+assign validForFoot          1
+assign turnInstructionMode   0
+
+assign downhillcost    0
+assign downhillcutoff  1.5
+assign uphillcost      0
+assign uphillcutoff    1.5
+
+---context:way
+
+assign defaultaccess  switch access=  not motorroad=yes  switch or access=private access=no  0  1
+
+assign bikeaccess
+       switch bicycle=
+              switch vehicle=
+                     defaultaccess
+                     switch or vehicle=private vehicle=no  0  1
+              not or bicycle=private or bicycle=no bicycle=dismount
+
+assign issidewalk  sidewalk=left|right|both|yes
+
+assign footaccess  or issidewalk
+                   or and bikeaccess  not foot=no|use_sidepath
+                   or bicycle=dismount
+                   switch foot=  defaultaccess  not foot=private|no|use_sidepath
+
+assign accesspenalty  switch footaccess 0  switch foot=use_sidepath 10  100000
+
+assign turncost     0
+assign initialcost  switch route=ferry 10000 0
+
+assign etiquetas
+       add switch estimated_noise_class=  0 1
+       add switch estimated_forest_class= 0 1
+           switch highway=residential|footway|path|primary|secondary|tertiary|cycleway 0 1
+
+assign basecost
+       if      ( and highway= not route=ferry )                  then 100000
+       else if highway=motorway|motorway_link                    then 100000
+       else if highway=proposed|abandoned|construction           then 100000
+       else if route=ferry                                       then 100000
+       else 1
+
+assign costfactor  add accesspenalty  add multiply 0.0001 etiquetas  basecost
+
+---context:node
+
+assign initialcost 0

@@ -2,21 +2,26 @@
 // También mantiene la pantalla encendida mientras dura el paseo (si el navegador lo permite).
 
 import { acumuladas, ubicarEnLinea } from './geo.js';
+import { crearInstrucciones, siguienteInstruccion } from './guia.js';
 
 const FUERA_DE_RUTA_M = 40;
 
+// Une las partes de una opción (a pie, en bici, a pie) en una sola línea, con los giros reubicados.
 export function unirPartes(partes) {
   const coords = [];
   const limites = [];
+  const giros = [];
   for (const parte of partes) {
     const inicio = Math.max(0, coords.length - 1);
     coords.push(...(coords.length ? parte.ruta.coords.slice(1) : parte.ruta.coords));
     limites.push({ modo: parte.modo, desdeIndice: inicio, hastaIndice: coords.length - 1 });
+    for (const g of parte.ruta.giros || []) giros.push({ ...g, indice: inicio + g.indice });
   }
   const acc = acumuladas(coords);
   return {
     coords,
     acc,
+    giros,
     total: acc[acc.length - 1] || 0,
     tramos: limites.map((l) => ({ modo: l.modo, desde: acc[l.desdeIndice], hasta: acc[l.hastaIndice] })),
   };
@@ -39,6 +44,7 @@ export function faltante(linea, recorrido) {
 export class Seguimiento {
   constructor(opcion, { alActualizar, alError }) {
     this.linea = unirPartes(opcion.partes);
+    this.instrucciones = crearInstrucciones(opcion, this.linea);
     this.alActualizar = alActualizar;
     this.alError = alError;
     this.indice = 0;
@@ -88,7 +94,9 @@ export class Seguimiento {
       this.indice = ubicacion.indice;
       this.recorrido = ubicacion.recorrido;
     }
+    const siguiente = siguienteInstruccion(this.instrucciones, this.recorrido);
     this.alActualizar({
+      siguiente: siguiente && { ...siguiente, distancia: siguiente.recorrido - this.recorrido },
       punto,
       precision: pos.coords.accuracy,
       fueraDeRuta: !ubicacion || ubicacion.distancia > FUERA_DE_RUTA_M,

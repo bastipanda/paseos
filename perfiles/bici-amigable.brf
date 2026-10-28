@@ -5,7 +5,7 @@
 ---context:global
 
 assign validForBikes         1
-assign turnInstructionMode   0
+assign turnInstructionMode   1
 assign processUnusedTags     false
 
 # Las subidas cuestan un poco: el oriente de Santiago sube harto.
