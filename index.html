@@ -81,19 +81,38 @@
       <div id="detalle-opcion"></div>
       <div class="acciones">
         <button type="button" class="boton-principal" id="empezar">Empezar</button>
+        <button type="button" class="boton-secundario" id="exportar-gpx">Abrir en otra app (GPX)</button>
         <button type="button" class="boton-secundario" data-ir="formulario">Cambiar búsqueda</button>
       </div>
+      <details class="ayuda-gpx">
+        <summary>¿Cómo abro la ruta en OsmAnd u Organic Maps?</summary>
+        <ol>
+          <li>Instala <a href="https://osmand.net" target="_blank" rel="noopener">OsmAnd</a> u
+            <a href="https://organicmaps.app" target="_blank" rel="noopener">Organic Maps</a> (gratis, sin anuncios,
+            código abierto).</li>
+          <li>Toca "Abrir en otra app (GPX)". Si aparece el menú de compartir, elige la app; si se descarga un archivo
+            <code>.gpx</code>, ábrelo desde la notificación de descarga o la carpeta Descargas.</li>
+          <li>La ruta aparece dibujada en esa app. En OsmAnd puedes usarla para navegar con voz.</li>
+        </ol>
+      </details>
     </div>
 
     <!-- Seguimiento en vivo -->
     <div class="vista" data-vista="seguimiento" hidden>
+      <div class="proximo" id="proximo" hidden>
+        <p class="proximo-distancia" id="proximo-distancia"></p>
+        <p class="proximo-texto" id="proximo-texto"></p>
+      </div>
       <p class="modo-actual" id="modo-actual">Tramo a pie</p>
       <p class="grande" id="faltan-principal">Buscando tu ubicación…</p>
       <p id="faltan-detalle" class="secundario"></p>
       <div class="progreso"><div id="barra-progreso"></div></div>
       <p id="aviso-ruta" class="alerta" hidden></p>
       <div class="acciones">
-        <button type="button" class="boton-secundario" id="centrar">Seguirme</button>
+        <div class="fila">
+          <button type="button" class="boton-secundario" id="centrar">Seguirme</button>
+          <button type="button" class="boton-secundario" id="voz" aria-pressed="true">Voz: sí</button>
+        </div>
         <button type="button" class="boton-peligro" id="terminar">Terminar</button>
       </div>
     </div>

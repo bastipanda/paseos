@@ -1,6 +1,8 @@
 // Todo lo que se dibuja en el mapa (Leaflet, cargado como script global `L` en index.html).
 
 import { categoria } from './tranquilidad.js';
+import { describirTramo } from './explicar.js';
+import { nombreLugar, tipoLugar } from './plazas.js';
 
 export const COLORES = { buena: '#1a9850', media: '#e0a100', mala: '#d73027' };
 const CENTRO_SANTIAGO = [-33.4372, -70.6106];
@@ -58,6 +60,11 @@ export class Mapa {
           lineCap: parte.modo === 'bici' ? 'butt' : 'round',
           interactive: false,
         }).addTo(this.capaRuta);
+        // Línea invisible y gruesa encima, para que sea fácil tocar el tramo con el dedo y ver qué es.
+        const { titulo, detalle } = describirTramo(t.tags, parte.modo);
+        L.polyline(tramo, { color: '#000', weight: 22, opacity: 0 })
+          .bindPopup(`<strong>${escapar(titulo)}${parte.modo === 'bici' ? ' (en bici)' : ''}</strong><br>${escapar(detalle)}`)
+          .addTo(this.capaRuta);
       }
       coords.forEach((c) => limites.extend(c));
     }
@@ -66,6 +73,16 @@ export class Mapa {
     L.marker(primera[0], { icon: icono('partida', 'A') }).addTo(this.capaRuta);
     if (!sonCercanos(primera[0], ultima[ultima.length - 1])) {
       L.marker(ultima[ultima.length - 1], { icon: icono('termino', 'B') }).addTo(this.capaRuta);
+    }
+    for (const l of (opcion.lugares || []).slice(0, 8)) {
+      L.marker(l.punto, { icon: icono('lugar-ruta', '', 14) })
+        .bindTooltip(escapar(nombreLugar(l)))
+        .addTo(this.capaRuta);
+    }
+    if (opcion.plaza) {
+      L.marker(opcion.plaza.punto, { icon: icono('plaza', '🌳') })
+        .bindPopup(`<strong>${escapar(nombreLugar(opcion.plaza))}</strong><br>Destino del paseo (${tipoLugar(opcion.plaza)})`)
+        .addTo(this.capaRuta);
     }
     for (const e of [opcion.estacionSalida, opcion.estacionLlegada].filter(Boolean)) {
       L.marker(e.punto, { icon: icono('estacion', '🚲') })
@@ -78,6 +95,18 @@ export class Mapa {
 
   limpiarRuta() {
     this.capaRuta.clearLayers();
+    this.ocultarCorto();
+  }
+
+  // El camino más corto, en gris punteado, para comparar con la ruta elegida.
+  mostrarCorto(coords) {
+    this.ocultarCorto();
+    this.lineaCorta = L.polyline(coords, { color: '#555', weight: 4, opacity: 0.7, dashArray: '2 8', interactive: false }).addTo(this.mapa);
+  }
+
+  ocultarCorto() {
+    this.lineaCorta?.remove();
+    this.lineaCorta = null;
   }
 
   // `margenes` deja espacio para el panel, que tapa parte del mapa (abajo en celular, a la izquierda en pantalla ancha).

@@ -4,8 +4,13 @@ import { Mapa, escapar, COLORES } from './mapa.js';
 import * as almacen from './almacen.js';
 import { buscarDireccion } from './busqueda.js';
 import { cargarEstaciones } from './bikeitau.js';
-import { paseosAPie, paseosConBici } from './generador.js';
+import { paseosAPie, paseosConBici, paseosAPlaza, caminoCorto } from './generador.js';
 import { ErrorDeRuta } from './brouter.js';
+import { cargarPlazas, lugaresEnRuta, nombreLugar, tipoLugar } from './plazas.js';
+import { resumir, textoComparacion } from './explicar.js';
+import { crearGpx, nombreArchivo } from './gpx.js';
+import { Voz, fraseHablada } from './guia.js';
+import { distancia } from './geo.js';
 import {
   aMetros,
   desdeMetros,
@@ -167,7 +172,10 @@ function llenarSelector(cual) {
     o.textContent = texto;
     padre.append(o);
   };
-  if (cual === 'termino') agregar(select, 'igual', 'Volver a la partida (circular)');
+  if (cual === 'termino') {
+    agregar(select, 'igual', 'Volver a la partida (circular)');
+    agregar(select, 'plaza', 'Ir a una plaza y volver');
+  }
   agregar(select, 'gps', 'Mi ubicación (GPS)');
   agregar(select, 'mapa', 'Marcar en el mapa');
   agregar(select, 'buscar', 'Buscar una dirección');
@@ -193,6 +201,10 @@ function pintarExtra(cual, enfocar = true) {
   caja.innerHTML = '';
   if (tipo === 'gps') {
     caja.innerHTML = '<p class="ayuda">Se usa tu ubicación al momento de buscar.</p>';
+  } else if (tipo === 'plaza') {
+    caja.innerHTML =
+      '<p class="ayuda">La app elige una plaza, plazoleta, parque o plaza de juegos a la distancia justa para tu ' +
+      'duración, y vuelves por otras calles. Con las flechas del resultado ves otras plazas.</p>';
   } else if (tipo === 'mapa') {
     caja.innerHTML = `<div class="punto-elegido"><span>${p ? 'Punto marcado en el mapa' : 'Aún no marcas el punto'}</span>
       <button type="button" class="boton-texto">${p ? 'Mover' : 'Tocar el mapa'}</button></div>`;
@@ -218,10 +230,21 @@ function pintarExtra(cual, enfocar = true) {
   }
 }
 
+// La vuelta en Bike Itaú todavía no se combina con "ir a una plaza" (quedó como idea en el backlog).
+function actualizarBici() {
+  const conPlaza = $('#termino-tipo').value === 'plaza';
+  const casilla = $('#con-bici');
+  casilla.disabled = conPlaza;
+  if (conPlaza) casilla.checked = false;
+  casilla.closest('label').title = conPlaza ? 'No disponible al ir a una plaza' : '';
+  $('#ayuda-bici').hidden = !casilla.checked;
+}
+
 function alCambiarTipo(cual) {
   const tipo = $(`#${cual}-tipo`).value;
   const p = estado.puntos[cual];
   if (p && p.origen !== tipo) estado.puntos[cual] = null;
+  if (cual === 'termino') actualizarBici();
   pintarExtra(cual);
   actualizarMarcadores();
   guardarFormulario();
@@ -352,7 +375,7 @@ function restaurarFormulario() {
     $('#maximo').value = 10000;
   }
   estado.unidad = unidadElegida();
-  $('#ayuda-bici').hidden = !$('#con-bici').checked;
+  actualizarBici();
   pintarExtra('partida', false);
   pintarExtra('termino', false);
   actualizarAyudaDuracion();
@@ -379,15 +402,25 @@ $('#formulario').addEventListener('submit', async (e) => {
   boton.textContent = 'Buscando…';
   try {
     mostrarEstado(aviso, 'Ubicando la partida y el término…');
+    const tipoTermino = $('#termino-tipo').value;
     const partida = await resolverPunto('partida');
-    const termino = $('#termino-tipo').value === 'igual' ? partida : await resolverPunto('termino');
+    const termino = tipoTermino === 'igual' || tipoTermino === 'plaza' ? partida : await resolverPunto('termino');
+    // Las plazas sirven para el modo "ir a una plaza" y para nombrar lugares en las explicaciones.
+    const plazas = cargarPlazas().catch((err) => {
+      console.error(err);
+      return [];
+    });
     let consultas = 0;
     const avance = () => {
       consultas++;
       mostrarEstado(aviso, `Calculando rutas… (${consultas} consultas)`);
     };
     let opciones;
-    if ($('#con-bici').checked) {
+    if (tipoTermino === 'plaza') {
+      const lista = await plazas;
+      if (!lista.length) throw new Error('No se pudo cargar la lista de plazas. Intenta de nuevo.');
+      opciones = await paseosAPlaza({ inicio: partida.punto, rango, plazas: lista, avance });
+    } else if ($('#con-bici').checked) {
       mostrarEstado(aviso, 'Revisando las estaciones Bike Itaú…');
       const estaciones = await cargarEstaciones({ forzar: true });
       opciones = await paseosConBici({ inicio: partida.punto, fin: termino.punto, rango, estaciones, avance });
@@ -395,6 +428,13 @@ $('#formulario').addEventListener('submit', async (e) => {
       opciones = await paseosAPie({ inicio: partida.punto, fin: termino.punto, rango, avance });
     }
     if (!opciones.length) throw new ErrorDeRuta('No encontré rutas. Prueba con otra duración o con otro punto.');
+    const lista = await plazas;
+    for (const o of opciones) {
+      o.lugares = lugaresEnRuta(o.partes.flatMap((p) => p.ruta.coords), lista).filter((l) => l.nombre && l !== o.plaza);
+      o.explicacion = resumir(o, lista);
+    }
+    estado.plazas = lista;
+    estado.comparaciones = new Map();
     estado.opciones = opciones;
     estado.indice = 0;
     mostrarEstado(aviso, '');
@@ -444,6 +484,16 @@ function mostrarOpcion() {
       o.metrosBici ? ` · ${formatearDistancia(o.metrosBici)} en bici` : ''
     }</p>`;
   if (!o.enRango) html += '<p class="alerta">No encontré una ruta dentro del rango pedido. Esta es la más cercana.</p>';
+  if (o.plaza) {
+    html += `<div class="bloque"><h3>Destino: ${escapar(nombreLugar(o.plaza))}</h3>
+      <p>${escapar(tipoLugar(o.plaza)).replace(/^./, (c) => c.toUpperCase())}. Con las flechas de arriba ves otras plazas.</p></div>`;
+  }
+  if (o.explicacion?.length) {
+    html += `<div class="bloque"><h3>Por qué esta ruta</h3>
+      <ul class="explicacion">${o.explicacion.map((f) => `<li>${escapar(f)}</li>`).join('')}</ul>
+      <p class="nota-limites">La app sabe el tipo de calle, el ruido estimado, el verde cercano y las ciclovías. Todavía no sabe
+        el ambiente, el comercio, cuánta gente pasa ni la seguridad.</p></div>`;
+  }
   html += bloqueCalidad('A pie', o.evaluacionPie, 'pie');
   if (o.evaluacionBici) html += bloqueCalidad('En bici', o.evaluacionBici, 'bici');
   if (o.estacionSalida) {
@@ -452,16 +502,107 @@ function mostrarOpcion() {
       <p>La dejas en <strong>${escapar(o.estacionLlegada.nombre)}</strong> (${o.estacionLlegada.anclajes} anclajes libres ahora).</p>
       <p class="ayuda">La disponibilidad cambia minuto a minuto.</p></div>`;
   }
-  if (o.repetida > 0.15) html += '<p class="alerta">Parte de la ruta va y vuelve por la misma calle.</p>';
+  if (o.repetida > 0.15 && !o.plaza) html += '<p class="alerta">Parte de la ruta va y vuelve por la misma calle.</p>';
+  html += '<div class="bloque" id="comparacion" hidden></div>';
   html += `<div class="leyenda">
     <span><i style="background:${COLORES.buena}"></i>Tranquila</span>
     <span><i style="background:${COLORES.media}"></i>Intermedia</span>
     <span><i style="background:${COLORES.mala}"></i>Avenida o sin ciclovía</span>
     ${o.metrosBici ? '<span>- - - en bici</span>' : ''}
-  </div>`;
+  </div>
+  <p class="ayuda">Toca un tramo de la ruta en el mapa para ver qué tipo de calle es.</p>`;
   $('#detalle-opcion').innerHTML = html;
   mapa.dibujarOpcion(o, margenesPanel());
+  mostrarComparacion(o);
 }
+
+// Qué se compara con el camino más corto: toda la ruta (A→B), la ida y vuelta a la plaza, o la caminata hasta la
+// estación Bike Itaú. En un paseo circular no hay "camino más corto" con qué comparar.
+function datosComparacion(o) {
+  const coords = o.partes[0].ruta.coords;
+  if (o.plaza) {
+    return {
+      desde: coords[0],
+      hasta: o.plaza.punto,
+      factor: 2,
+      ruta: { metros: o.metrosPie, evaluacion: o.evaluacionPie },
+      destino: ' a la plaza',
+      etiqueta: 'Esta ruta, ida y vuelta,',
+    };
+  }
+  if (o.estacionSalida) {
+    const ida = { metros: o.partes[0].ruta.metros, evaluacion: o.partes[0].evaluacion };
+    return {
+      desde: coords[0],
+      hasta: o.estacionSalida.punto,
+      factor: 1,
+      ruta: ida,
+      destino: ' hasta la estación',
+      etiqueta: 'Tu caminata hasta la estación',
+    };
+  }
+  const fin = coords[coords.length - 1];
+  if (distancia(coords[0], fin) < 80) return null;
+  return { desde: coords[0], hasta: fin, factor: 1, ruta: { metros: o.metrosPie, evaluacion: o.evaluacionPie }, destino: '' };
+}
+
+async function mostrarComparacion(o) {
+  const datos = datosComparacion(o);
+  const caja = $('#comparacion');
+  if (!datos || !caja) return;
+  const clave = datos.desde.concat(datos.hasta).map((x) => x.toFixed(5)).join(',');
+  caja.hidden = false;
+  caja.innerHTML = '<h3>Comparado con el camino más corto</h3><p class="ayuda">Calculando…</p>';
+  try {
+    if (!estado.comparaciones.has(clave)) estado.comparaciones.set(clave, caminoCorto(datos.desde, datos.hasta));
+    const corto = await estado.comparaciones.get(clave);
+    if (estado.opciones[estado.indice] !== o) return;
+    if (!corto) {
+      caja.hidden = true;
+      return;
+    }
+    const frases = textoComparacion({ corto, ...datos });
+    caja.innerHTML = `<h3>Comparado con el camino más corto</h3>
+      <ul class="explicacion">${frases.map((f) => `<li>${escapar(f)}</li>`).join('')}</ul>
+      <button type="button" class="boton-texto" id="ver-corto">Ver el camino más corto en el mapa</button>`;
+    $('#ver-corto').addEventListener('click', (e) => {
+      if (mapa.lineaCorta) {
+        mapa.ocultarCorto();
+        e.target.textContent = 'Ver el camino más corto en el mapa';
+      } else {
+        mapa.mostrarCorto(corto.coords);
+        e.target.textContent = 'Ocultar el camino más corto';
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    caja.hidden = true;
+  }
+}
+
+// ---------- Exportar a otra app (GPX) ----------
+
+$('#exportar-gpx').addEventListener('click', async () => {
+  const o = estado.opciones[estado.indice];
+  const fecha = new Date();
+  const nombre = o.plaza ? `Paseo a ${nombreLugar(o.plaza)}` : 'Paseo';
+  const texto = crearGpx(o, { nombre, fecha });
+  const archivo = new File([texto], nombreArchivo(fecha), { type: 'application/gpx+xml' });
+  // En el celular se intenta abrir el menú de compartir para elegir OsmAnd u Organic Maps directamente.
+  if (navigator.canShare?.({ files: [archivo] })) {
+    try {
+      await navigator.share({ files: [archivo], title: nombre });
+      return;
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+    }
+  }
+  const enlace = document.createElement('a');
+  enlace.href = URL.createObjectURL(archivo);
+  enlace.download = archivo.name;
+  enlace.click();
+  setTimeout(() => URL.revokeObjectURL(enlace.href), 1000);
+});
 
 $('#anterior').addEventListener('click', () => {
   if (estado.indice > 0) {
@@ -488,6 +629,11 @@ $('#empezar').addEventListener('click', () => {
   $('#faltan-principal').textContent = 'Buscando tu ubicación…';
   $('#faltan-detalle').textContent = '';
   $('#barra-progreso').style.width = '0';
+  $('#proximo').hidden = true;
+  estado.anunciadas = new Set();
+  pintarBotonVoz();
+  // Hablar dentro del toque en "Empezar" deja la voz habilitada en el celular para el resto del paseo.
+  if (vozActiva()) voz.decir('Comienza el paseo');
   estado.seguimiento = new Seguimiento(opcion, {
     alActualizar: actualizarSeguimiento,
     alError: (mensaje) => {
@@ -517,6 +663,7 @@ function actualizarSeguimiento(d) {
     $('#faltan-detalle').textContent = '';
   }
   $('#barra-progreso').style.width = `${d.total ? Math.min(100, (d.recorrido / d.total) * 100) : 0}%`;
+  mostrarProximo(d.siguiente);
   const aviso = $('#aviso-ruta');
   if (d.fueraDeRuta) {
     aviso.textContent = d.distanciaARuta
@@ -525,6 +672,41 @@ function actualizarSeguimiento(d) {
     aviso.hidden = false;
   } else {
     aviso.hidden = true;
+  }
+}
+
+// ---------- Guía giro a giro ----------
+
+const voz = new Voz();
+const vozActiva = () => voz.disponible && almacen.ajustes().voz !== false;
+
+function pintarBotonVoz() {
+  const boton = $('#voz');
+  boton.hidden = !voz.disponible;
+  boton.textContent = vozActiva() ? 'Voz: sí' : 'Voz: no';
+  boton.setAttribute('aria-pressed', String(vozActiva()));
+}
+
+$('#voz').addEventListener('click', () => {
+  almacen.guardarAjustes({ voz: !vozActiva() });
+  if (!vozActiva()) voz.callar();
+  pintarBotonVoz();
+});
+
+// Muestra la próxima indicación y la dice en voz alta una vez, cuando falta poco para llegar a ella.
+function mostrarProximo(siguiente) {
+  const caja = $('#proximo');
+  if (!siguiente) {
+    caja.hidden = true;
+    return;
+  }
+  caja.hidden = false;
+  $('#proximo-distancia').textContent = siguiente.distancia < 15 ? 'Ahora' : `En ${formatearDistancia(siguiente.distancia)}`;
+  $('#proximo-texto').textContent = siguiente.texto;
+  const umbral = siguiente.tipo === 'giro' ? 45 : 35;
+  if (siguiente.distancia <= umbral && !estado.anunciadas.has(siguiente.recorrido)) {
+    estado.anunciadas.add(siguiente.recorrido);
+    if (vozActiva()) voz.decir(fraseHablada(siguiente, siguiente.distancia));
   }
 }
 
@@ -541,6 +723,7 @@ $('#centrar').addEventListener('click', () => {
 });
 
 function terminarSeguimiento(volver = true) {
+  voz.callar();
   estado.seguimiento?.detener();
   estado.seguimiento = null;
   mapa.ocultarYo();

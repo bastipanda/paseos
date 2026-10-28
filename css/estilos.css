@@ -275,7 +275,26 @@ button { font: inherit; }
 .leyenda i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
 .alerta { background: var(--alerta-fondo); color: var(--alerta-texto); border-radius: 10px; padding: 8px 12px; font-size: 14px; margin: 8px 0; }
 
+.explicacion { margin: 6px 0 0; padding-left: 18px; font-size: 14px; }
+.explicacion li { margin: 4px 0; }
+.nota-limites { font-size: 12px; color: var(--texto-suave); margin: 8px 0 0; }
+.ayuda-gpx { margin-top: 12px; font-size: 14px; }
+.ayuda-gpx summary { cursor: pointer; color: var(--acento); font-weight: 600; min-height: 44px; padding: 10px 0; }
+.ayuda-gpx ol { padding-left: 20px; margin: 0; }
+.ayuda-gpx li { margin: 6px 0; }
+.ayuda-gpx a { color: var(--acento); }
+
 /* Seguimiento */
+.proximo {
+  background: var(--acento);
+  color: var(--acento-texto);
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin: 0 0 10px;
+}
+.proximo p { margin: 0; }
+.proximo-distancia { font-size: 14px; font-weight: 600; opacity: 0.9; }
+.proximo-texto { font-size: 22px; font-weight: 800; line-height: 1.2; }
 .modo-actual { margin: 0; font-weight: 700; color: var(--acento); text-transform: uppercase; font-size: 13px; letter-spacing: 0.04em; }
 .grande { font-size: 28px; font-weight: 800; margin: 2px 0; }
 .progreso { height: 8px; background: var(--fondo-suave); border-radius: 4px; overflow: hidden; margin: 8px 0; }
@@ -303,6 +322,8 @@ button { font: inherit; }
 .marcador.termino { background: #263238; }
 .marcador.estacion { background: var(--itau); font-size: 15px; }
 .marcador.lugar { background: #5e35b1; width: 24px; height: 24px; font-size: 12px; }
+.marcador.plaza { background: #2e7d32; font-size: 15px; }
+.marcador.lugar-ruta { width: 14px; height: 14px; background: #66bb6a; border-width: 2px; }
 .punto-estacion {
   width: 14px; height: 14px; border-radius: 50%; background: var(--itau);
   border: 2px solid #fff; box-shadow: 0 0 3px rgba(0, 0, 0, 0.4);
