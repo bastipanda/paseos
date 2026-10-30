@@ -319,16 +319,19 @@ function redondear(valor, unidad) {
 }
 
 // Al cambiar de unidad se convierten los valores ya escritos (8.000 pasos pasan a 6 km, por ejemplo).
-// Las calorías necesitan el peso: sin él se vuelve a la unidad anterior y se avisa.
+// Las calorías necesitan el peso: sin él se vuelve a la unidad anterior y se pide el peso ahí mismo.
 document.querySelectorAll('input[name="unidad"]').forEach((radio) =>
   radio.addEventListener('change', () => {
     const nueva = unidadElegida();
     const aj = almacen.ajustes();
     if (nueva === 'kcal' && !tienePeso(aj)) {
       document.querySelector(`input[name="unidad"][value="${estado.unidad}"]`).checked = true;
-      mostrarEstado($('#estado-busqueda'), 'Para usar calorías, anota tu peso en Ajustes.', true);
+      $('#pedir-peso').hidden = false;
+      mostrarEstado($('#error-peso'), '');
+      $('#peso-rapido').focus();
       return;
     }
+    $('#pedir-peso').hidden = true;
     for (const id of ['minimo', 'maximo']) {
       const entrada = $(`#${id}`);
       if (entrada.value === '') continue;
@@ -341,6 +344,28 @@ document.querySelectorAll('input[name="unidad"]').forEach((radio) =>
     guardarFormulario();
   }),
 );
+
+// Guarda el peso escrito junto al selector de unidad y cambia a calorías.
+function usarCalorias() {
+  const peso = Number($('#peso-rapido').value);
+  if (!(peso >= 30 && peso <= 250)) {
+    mostrarEstado($('#error-peso'), 'Escribe un peso entre 30 y 250 kg.', true);
+    return;
+  }
+  almacen.guardarAjustes({ peso });
+  $('#pedir-peso').hidden = true;
+  const kcal = document.querySelector('input[name="unidad"][value="kcal"]');
+  kcal.checked = true;
+  kcal.dispatchEvent(new Event('change'));
+}
+
+$('#usar-kcal').addEventListener('click', usarCalorias);
+$('#peso-rapido').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    usarCalorias();
+  }
+});
 
 function actualizarAyudaDuracion() {
   const aj = almacen.ajustes();

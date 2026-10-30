@@ -282,6 +282,11 @@ button { font: inherit; }
 .alerta { background: var(--alerta-fondo); color: var(--alerta-texto); border-radius: 10px; padding: 8px 12px; font-size: 14px; margin: 8px 0; }
 
 .opcional { font-weight: 400; color: var(--texto-suave); font-size: 14px; }
+.pedir-peso { background: var(--fondo-suave); border-radius: 12px; padding: 10px 12px; margin: 0 0 10px; }
+.pedir-peso p { margin: 0 0 8px; font-size: 14px; }
+.pedir-peso .fila { align-items: flex-end; }
+.pedir-peso .fila button { flex: 0 0 auto; }
+.pedir-peso .estado { margin: 4px 0 0; min-height: 0; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip-opcion { cursor: pointer; }
 .chip-opcion input { position: absolute; opacity: 0; pointer-events: none; }

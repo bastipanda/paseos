@@ -54,6 +54,14 @@
             <label><input type="radio" name="unidad" value="km"><span>Km</span></label>
             <label><input type="radio" name="unidad" value="kcal"><span>Kcal</span></label>
           </div>
+          <div id="pedir-peso" class="pedir-peso" hidden>
+            <p>Para calcular calorías necesito tu peso. Queda guardado solo en este celular.</p>
+            <div class="fila">
+              <label class="mini">Peso (kg)<input id="peso-rapido" type="number" inputmode="decimal" min="30" max="250" step="0.5" aria-label="Peso en kilos"></label>
+              <button type="button" class="boton-secundario" id="usar-kcal">Usar calorías</button>
+            </div>
+            <p id="error-peso" class="estado error"></p>
+          </div>
           <div class="fila">
             <label class="mini">Mínimo<input id="minimo" type="number" inputmode="decimal" min="0" step="any" placeholder="—" aria-label="Mínimo"></label>
             <label class="mini">Máximo<input id="maximo" type="number" inputmode="decimal" min="0" step="any" placeholder="—" aria-label="Máximo"></label>
