@@ -1,6 +1,13 @@
 # Backlog — Paseos
 
 ## Pendiente acordado
+**v1.2 (decidida 2026-10-30), en este orden:**
+1. Estilos de paseo: Tranquilo, Con vida y Noche (iluminado y transitado, sin callejones).
+2. "Pasar por…": lugares interesantes, cafés y tiendas, plazas (puntos intermedios reales en vez de geométricos).
+3. Calorías como cuarta unidad de duración (con el peso, solo en el celular).
+4. Clima y calidad del aire antes de salir (Open-Meteo, gratis) y opción de evitar subidas.
+5. Modo explorar con registro manual: marcar paseos hechos, rutas conocidas o zonas en el mapa.
+6. Bebederos y baños cerca de la ruta.
 - Probar la v1.1 en terreno: voz de la guía en el celular, ir a una plaza, explicaciones y abrir el GPX en OsmAnd.
 - Calibrar el largo del paso (Ajustes) y anotar aquí el valor real.
 - Regenerar `datos/plazas.json` cada algunos meses (`node scripts/plazas.mjs`). Última vez: 2026-10-27.

@@ -25,8 +25,13 @@ giro y GPX); falta probarla en terreno.
 - **Abrir en otra app:** GPX para OsmAnd u Organic Maps (menú de compartir o descarga).
 
 ## Definiciones
-- **Tranquila (a pie):** pasajes, calles residenciales, parques y senderos. Se evitan avenidas grandes.
-  Se calcula con el tipo de calle que registra OpenStreetMap (OSM).
+- **Qué quiere decir Bastián con "tranquila":** caminar sin miedo a que le roben. Muchas veces eso significa calles
+  con gente e iluminadas, no calles vacías. Por eso hay tres **estilos** (2026-10-30), cada uno con su perfil:
+  - **Tranquilo** (`paseo-tranquilo.brf`): poco ruido y verde. Pasajes, calles residenciales, parques y senderos.
+  - **Con vida** (`paseo-vida.brf`): calles con gente y comercio. Veredas de avenidas, paseos peatonales.
+  - **Noche** (`paseo-noche.brf`): iluminado y transitado a cualquier hora. Evita callejones, pasajes de servicio,
+    senderos, parques oscuros y escaleras. Solo ~30 % de las calles de OSM dice si está iluminada.
+  Ninguno usa datos de delitos (no existen por calle): son aproximaciones con OSM y hay que decirlo.
 - **Bike-friendly (en bici):** prefiere ciclovías y calles de poco tráfico. Evita avenidas sin ciclovía y calles
   peatonales o con mucha gente. **No** se trata de reducir virajes. OSM no mide flujo de gente, así que se aproxima
   con el tipo de calle (por ejemplo, `highway=pedestrian` o una avenida sin ciclovía).
@@ -106,3 +111,6 @@ La v1 no usa claves. Si algún día se agrega un servicio con clave, va en el na
 - **Navegación dentro de la app + GPX, sin Google Maps.** Google Maps recalcula su propio camino y se pierde la ruta
   tranquila; Bastián prefiere apps abiertas y sin anuncios.
 - **Plazas desde un archivo guardado, no en vivo.** El servicio de consultas a OSM (Overpass) se cae seguido.
+- **Estilos en vez de una sola "tranquila"** (2026-10-30). Ver "Definiciones".
+- **Explorar se registra a mano.** Bastián revisa muchas opciones antes de elegir: solo cuenta como conocido lo que
+  él marca (un paseo hecho, una ruta o una zona tocada en el mapa).

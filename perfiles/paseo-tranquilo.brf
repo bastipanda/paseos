@@ -8,10 +8,11 @@ assign validForFoot          1
 assign turnInstructionMode   1
 assign processUnusedTags     false
 
-# Sin costo por subidas: en paseos urbanos importa más el tipo de calle.
+# Subidas: sin costo, salvo que la app pida evitarlas (consulta con profile:evitar_subidas=1).
+assign evitar_subidas  = false
 assign downhillcost    0
 assign downhillcutoff  1.5
-assign uphillcost      0
+assign uphillcost      if evitar_subidas then 60 else 0
 assign uphillcutoff    1.5
 
 ---context:way

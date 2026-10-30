@@ -38,6 +38,8 @@ assign initialcost  switch route=ferry 10000 0
 assign etiquetas
        add switch estimated_noise_class=  0 1
        add switch estimated_forest_class= 0 1
+       add switch lit=yes 0 1
+       add switch footway=sidewalk 0 1
            switch highway=residential|footway|path|primary|secondary|tertiary|cycleway 0 1
 
 assign basecost

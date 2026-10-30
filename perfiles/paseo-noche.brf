@@ -1,0 +1,83 @@
+# Paseos: perfil a pie "noche". Prefiere calles iluminadas y transitadas a cualquier hora: calles principales con
+# vereda y lugares con movimiento. Evita callejones, pasajes de servicio, senderos y parques oscuros, y escaleras.
+# Solo el ~30 % de las calles de OSM dice si está iluminada: sin dato se trata como neutro.
+# Costo 1 = calle ideal. Mientras más alto el costo, más la evita BRouter.
+
+---context:global
+
+assign validForFoot          1
+assign turnInstructionMode   1
+assign processUnusedTags     false
+
+assign evitar_subidas  = false
+assign downhillcost    0
+assign downhillcutoff  1.5
+assign uphillcost      if evitar_subidas then 60 else 0
+assign uphillcutoff    1.5
+
+---context:way
+
+assign defaultaccess  switch access=  not motorroad=yes  switch or access=private access=no  0  1
+
+assign bikeaccess
+       switch bicycle=
+              switch vehicle=
+                     defaultaccess
+                     switch or vehicle=private vehicle=no  0  1
+              not or bicycle=private or bicycle=no bicycle=dismount
+
+assign issidewalk  sidewalk=left|right|both|yes
+
+assign footaccess  or issidewalk
+                   or and bikeaccess  not foot=no|use_sidepath
+                   or bicycle=dismount
+                   switch foot=  defaultaccess  not foot=private|no|use_sidepath
+
+assign accesspenalty  switch footaccess 0  switch foot=use_sidepath 10  100000
+
+assign turncost     0
+assign initialcost  switch route=ferry 10000 0
+
+assign esvereda  and highway=footway footway=sidewalk
+
+# Iluminación: con luz baja el costo; sin luz lo sube mucho; sin dato, neutro.
+assign lit_penalty  switch lit=yes -0.15  switch lit=no 2.5  0
+
+# Muy silencioso = probablemente solitario. Ruido medio = movimiento.
+assign noise_penalty
+       switch estimated_noise_class=   0.3
+       switch estimated_noise_class=1  0.6
+       switch estimated_noise_class=2  0.3
+       switch estimated_noise_class=6  0.3  0
+
+# Mucho verde de noche suele ser parque o plaza oscura.
+assign dark_green_penalty
+       switch estimated_forest_class=5  0.6
+       switch estimated_forest_class=6  1.0  0
+
+assign basecost
+       if      ( and highway= not route=ferry )                  then 100000
+       else if highway=motorway|motorway_link                    then 100000
+       else if highway=proposed|abandoned|construction           then 100000
+       else if route=ferry                                       then 100000
+       else if esvereda                                          then 1.0
+       else if highway=tertiary|tertiary_link                    then ( switch issidewalk 1.0 1.2 )
+       else if highway=secondary|secondary_link                  then ( switch issidewalk 1.0 1.3 )
+       else if highway=primary|primary_link                      then ( switch issidewalk 1.05 1.5 )
+       else if highway=pedestrian                                then 1.1
+       else if highway=living_street                             then 1.3
+       else if highway=residential                               then 1.35
+       else if highway=unclassified                              then 1.5
+       else if highway=cycleway                                  then 2.0
+       else if highway=footway                                   then 2.5
+       else if highway=steps                                     then 2.5
+       else if highway=service                                   then 3.0
+       else if highway=path|track|bridleway                      then 4.0
+       else if highway=trunk|trunk_link                          then ( switch issidewalk 2.5 8.0 )
+       else 2.0
+
+assign costfactor  max 0.8  add accesspenalty  add lit_penalty  add noise_penalty  add dark_green_penalty  basecost
+
+---context:node
+
+assign initialcost 0
