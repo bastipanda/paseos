@@ -1,22 +1,32 @@
-// Plazas, plazoletas, parques y plazas de juegos del Gran Santiago. Vienen de datos/plazas.json, generado desde
-// OpenStreetMap con scripts/plazas.mjs.
+// Lugares con punto en el mapa, desde los archivos de datos/ (generados desde OpenStreetMap con scripts/):
+// plazas, plazoletas, parques y plazas de juegos; lugares interesantes; bebederos y baños.
 
 import { distancia, muestrear } from './geo.js';
 
-const NOMBRE_TIPO = { plaza: 'Plaza', parque: 'Parque', juegos: 'Plaza de juegos' };
-
-let cache = null;
+const NOMBRE_TIPO = {
+  plaza: 'Plaza',
+  parque: 'Parque',
+  juegos: 'Plaza de juegos',
+  museo: 'Museo',
+  mirador: 'Mirador',
+  arte: 'Obra de arte',
+  cultura: 'Lugar cultural',
+  historia: 'Lugar histórico',
+  atraccion: 'Atractivo',
+  agua: 'Bebedero',
+  baño: 'Baño público',
+};
 
 export function leerPlazas(json) {
   return json.lugares.map(([lat, lon, nombre, tipo, tamano]) => ({ punto: [lat, lon], nombre, tipo, tamano }));
 }
 
-export async function cargarPlazas() {
-  if (cache) return cache;
-  const resp = await fetch(new URL('../datos/plazas.json', import.meta.url));
-  if (!resp.ok) throw new Error('No se pudo cargar la lista de plazas.');
-  cache = leerPlazas(await resp.json());
-  return cache;
+export function leerInteres(json) {
+  return json.lugares.map(([lat, lon, nombre, tipo, wikipedia]) => ({ punto: [lat, lon], nombre, tipo, tamano: 0, wikipedia }));
+}
+
+export function leerServicios(json) {
+  return json.lugares.map(([lat, lon, tipo, nombre]) => ({ punto: [lat, lon], nombre, tipo, tamano: 0 }));
 }
 
 export function nombreLugar(lugar) {
@@ -28,9 +38,9 @@ export function tipoLugar(lugar) {
 }
 
 // Lugares por los que pasa una ruta, en el orden en que aparecen. Se considera que la ruta "pasa por" un lugar si
-// algún punto de ella queda dentro de su radio aproximado (la mitad de su tamaño, mínimo 35 m).
-export function lugaresEnRuta(coords, lugares) {
-  if (!coords.length) return [];
+// algún punto de ella queda dentro de su radio aproximado (la mitad de su tamaño, mínimo `radioMinimo` metros).
+export function lugaresEnRuta(coords, lugares, radioMinimo = 35) {
+  if (!coords.length || !lugares.length) return [];
   const muestras = muestrear(coords, 25);
   let [sur, oeste, norte, este] = [90, 180, -90, -180];
   for (const { p } of muestras) {
@@ -44,7 +54,7 @@ export function lugaresEnRuta(coords, lugares) {
   for (const l of lugares) {
     const [lat, lon] = l.punto;
     if (lat < sur - margen || lat > norte + margen || lon < oeste - margen || lon > este + margen) continue;
-    const radio = Math.max(35, l.tamano * 0.45);
+    const radio = Math.max(radioMinimo, l.tamano * 0.45);
     const cerca = muestras.find((m) => distancia(m.p, l.punto) <= radio);
     if (cerca) encontrados.push({ lugar: l, d: cerca.d });
   }

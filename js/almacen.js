@@ -7,6 +7,7 @@ import { AJUSTES_POR_DEFECTO } from './duracion.js';
 const CLAVE_LUGARES = 'paseos.lugares';
 const CLAVE_AJUSTES = 'paseos.ajustes';
 const CLAVE_FORMULARIO = 'paseos.formulario';
+const CLAVE_CONOCIDAS = 'paseos.conocidas';
 
 function leer(clave, porDefecto) {
   try {
@@ -73,14 +74,40 @@ export function guardarFormulario(datos) {
   escribir(CLAVE_FORMULARIO, datos);
 }
 
-// Respaldo: un archivo JSON con los lugares y ajustes.
+// Modo explorar: cuadros de ~50 m que Bastián marcó como conocidos (ver explorar.js).
+export function conocidas() {
+  const lista = leer(CLAVE_CONOCIDAS, []);
+  return new Set(Array.isArray(lista) ? lista.filter((c) => typeof c === 'string') : []);
+}
+
+// Devuelve solo los cuadros que eran nuevos, para poder deshacer exactamente lo que se agregó.
+export function agregarConocidas(celdas) {
+  const set = conocidas();
+  const nuevas = celdas.filter((c) => !set.has(c));
+  for (const c of nuevas) set.add(c);
+  escribir(CLAVE_CONOCIDAS, [...set]);
+  return nuevas;
+}
+
+export function quitarConocidas(celdas) {
+  const set = conocidas();
+  for (const c of celdas) set.delete(c);
+  escribir(CLAVE_CONOCIDAS, [...set]);
+}
+
+export function borrarConocidas() {
+  escribir(CLAVE_CONOCIDAS, []);
+}
+
+// Respaldo: un archivo JSON con los lugares, los ajustes y lo que ya conoces.
 export function respaldo() {
   return {
     app: 'paseos',
-    version: 1,
+    version: 2,
     fecha: new Date().toISOString(),
     lugares: lugares(),
     ajustes: ajustes(),
+    conocidas: [...conocidas()],
   };
 }
 
@@ -101,5 +128,6 @@ export function restaurar(datos) {
   }
   escribir(CLAVE_LUGARES, actuales);
   if (datos.ajustes) guardarAjustes(datos.ajustes);
+  if (Array.isArray(datos.conocidas)) agregarConocidas(datos.conocidas.filter((c) => typeof c === 'string'));
   return agregados;
 }

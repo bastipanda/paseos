@@ -117,9 +117,14 @@ test('resume una opción con lugares, tipos de calle y tramos ruidosos', () => {
     { metros: 300, tags: { highway: 'residential', estimated_forest_class: '4' }, desde: 0, hasta: 1 },
     { metros: 100, tags: { highway: 'primary' }, desde: 1, hasta: 1 },
   ];
-  const opcion = { partes: [{ modo: 'pie', ruta: { coords: [a, b], tramos } }], repetida: 0 };
   const lugares = leerPlazas({ lugares: [[destino(a, 90, 200)[0], destino(a, 90, 200)[1], 'Plaza Prueba', 'plaza', 60]] });
-  const frases = resumir(opcion, lugares);
+  const opcion = {
+    partes: [{ modo: 'pie', ruta: { coords: [a, b], tramos } }],
+    repetida: 0,
+    estilo: 'tranquilo',
+    extras: { plazas: lugaresEnRuta([a, b], lugares), interes: [], servicios: [], comercio: 0, novedad: null },
+  };
+  const frases = resumir(opcion);
   assert.ok(frases.some((f) => f.includes('Pasa por Plaza Prueba')));
   assert.ok(frases.some((f) => f.includes('calles residenciales y pasajes (75 %)')));
   assert.ok(frases.some((f) => f.includes('áreas verdes')));

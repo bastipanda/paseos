@@ -1,19 +1,50 @@
-// Conversión entre pasos, minutos y kilómetros, y manejo del rango pedido (mínimo y/o máximo).
+// Conversión entre pasos, minutos, kilómetros y calorías, y manejo del rango pedido (mínimo y/o máximo).
 
 export const UNIDADES = {
   pasos: { nombre: 'pasos', corto: 'pasos' },
   minutos: { nombre: 'minutos', corto: 'min' },
   km: { nombre: 'kilómetros', corto: 'km' },
+  kcal: { nombre: 'calorías', corto: 'kcal' },
 };
 
-export const AJUSTES_POR_DEFECTO = { largoPaso: 0.75, velocidadKmh: 4.5 };
+export const AJUSTES_POR_DEFECTO = { largoPaso: 0.75, velocidadKmh: 4.5, peso: null };
 
 const metrosPorMinuto = (ajustes) => (ajustes.velocidadKmh * 1000) / 60;
+
+// Intensidad de caminar en terreno plano (MET) según la velocidad, aproximada con valores del Compendio de
+// Actividades Físicas (ediciones 2011 y 2024). Entre los puntos se interpola.
+const MET_POR_VELOCIDAD = [
+  [3.2, 2.8],
+  [4.0, 3.0],
+  [5.0, 3.8],
+  [6.0, 4.8],
+  [6.4, 5.0],
+];
+
+export function met(velocidadKmh) {
+  const tabla = MET_POR_VELOCIDAD;
+  if (velocidadKmh <= tabla[0][0]) return tabla[0][1];
+  for (let i = 1; i < tabla.length; i++) {
+    const [v1, m1] = tabla[i - 1];
+    const [v2, m2] = tabla[i];
+    if (velocidadKmh <= v2) return m1 + ((m2 - m1) * (velocidadKmh - v1)) / (v2 - v1);
+  }
+  return tabla[tabla.length - 1][1];
+}
+
+export const tienePeso = (ajustes) => Number(ajustes.peso) > 0;
+
+// kcal = MET × peso (kg) × horas. Con velocidad fija, las calorías son proporcionales a la distancia.
+function kcalPorMetro(ajustes) {
+  if (!tienePeso(ajustes)) throw new Error('Para usar calorías, anota tu peso en Ajustes.');
+  return (met(ajustes.velocidadKmh) * Number(ajustes.peso)) / (ajustes.velocidadKmh * 1000);
+}
 
 export function aMetros(valor, unidad, ajustes) {
   if (unidad === 'pasos') return valor * ajustes.largoPaso;
   if (unidad === 'minutos') return valor * metrosPorMinuto(ajustes);
   if (unidad === 'km') return valor * 1000;
+  if (unidad === 'kcal') return valor / kcalPorMetro(ajustes);
   throw new Error(`Unidad desconocida: ${unidad}`);
 }
 
@@ -21,6 +52,7 @@ export function desdeMetros(metros, unidad, ajustes) {
   if (unidad === 'pasos') return metros / ajustes.largoPaso;
   if (unidad === 'minutos') return metros / metrosPorMinuto(ajustes);
   if (unidad === 'km') return metros / 1000;
+  if (unidad === 'kcal') return metros * kcalPorMetro(ajustes);
   throw new Error(`Unidad desconocida: ${unidad}`);
 }
 
@@ -75,6 +107,7 @@ export function resumen(metros, ajustes) {
     pasos: Math.round(desdeMetros(metros, 'pasos', ajustes)),
     minutos: Math.round(desdeMetros(metros, 'minutos', ajustes)),
     km: metros / 1000,
+    kcal: tienePeso(ajustes) ? Math.round(desdeMetros(metros, 'kcal', ajustes)) : null,
   };
 }
 
@@ -87,6 +120,10 @@ export function formatearPasos(pasos) {
 
 export function formatearDistancia(metros) {
   return metros < 1000 ? `${numero.format(Math.round(metros / 10) * 10)} m` : `${decimal.format(metros / 1000)} km`;
+}
+
+export function formatearKcal(kcal) {
+  return `${numero.format(Math.round(kcal / 10) * 10)} kcal`;
 }
 
 export function formatearMinutos(minutos) {

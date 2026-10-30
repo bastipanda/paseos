@@ -36,18 +36,21 @@ async function idDePerfil(nombre) {
 
 // `puntos` es una lista de [lat, lon]: partida, puntos intermedios y término.
 // `alternativa` (0 a 3) pide a BRouter otra ruta distinta entre los mismos puntos.
-export async function pedirRuta(puntos, perfil, alternativa = 0, intento = 1) {
+// `evitarSubidas` activa la variable del mismo nombre en los perfiles a pie (profile:evitar_subidas=1).
+export async function pedirRuta(puntos, perfil, { alternativa = 0, evitarSubidas = false } = {}, intento = 1) {
   const id = await idDePerfil(perfil);
   const lonlats = puntos.map((p) => `${p[1].toFixed(6)},${p[0].toFixed(6)}`).join('|');
   // timode=2 hace que BRouter incluya los giros (voicehints) en la respuesta.
-  const url = `${BASE}?lonlats=${lonlats}&profile=${id}&alternativeidx=${alternativa}&format=geojson&timode=2`;
+  const url =
+    `${BASE}?lonlats=${lonlats}&profile=${id}&alternativeidx=${alternativa}&format=geojson&timode=2` +
+    (evitarSubidas ? '&profile:evitar_subidas=1' : '');
   const resp = await enTurno(() => fetch(url));
   const texto = await resp.text();
   if (!resp.ok || !texto.trim().startsWith('{')) {
     // El servidor borra cada cierto tiempo los perfiles subidos: se vuelve a subir y se reintenta una vez.
     if (intento === 1 && /profile/i.test(texto)) {
       idsDePerfil.delete(perfil);
-      return pedirRuta(puntos, perfil, alternativa, 2);
+      return pedirRuta(puntos, perfil, { alternativa, evitarSubidas }, 2);
     }
     throw new ErrorDeRuta(traducirError(texto));
   }
@@ -71,6 +74,7 @@ export function leerRuta(geojson) {
   const f = geojson.features[0];
   const coords = f.geometry.coordinates.map(([lon, lat]) => [lat, lon]);
   const metros = Number(f.properties['track-length']);
+  const subida = Number(f.properties['filtered ascend'] || 0);
   const giros = (f.properties.voicehints || [])
     .map((v) => ({ indice: Number(v[0]), angulo: Number(v[v.length - 1]) }))
     .filter((g) => g.indice > 0 && g.indice < coords.length - 1);
@@ -95,7 +99,7 @@ export function leerRuta(geojson) {
       });
     }
   }
-  return { coords, metros, tramos, giros };
+  return { coords, metros, tramos, giros, subida };
 }
 
 // Recorta los "espolones": tramos donde la ruta entra a una calle y vuelve por el mismo camino, típicos cuando
@@ -140,6 +144,7 @@ export function quitarEspolones(ruta) {
     metros,
     tramos: nuevosTramos.map(({ origen, ...resto }) => resto),
     giros,
+    subida: ruta.subida,
   };
 }
 
