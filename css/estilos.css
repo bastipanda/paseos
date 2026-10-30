@@ -38,6 +38,12 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 
+html {
+  /* Evita que Chrome en Android agrande solo algunos textos del panel ("text autosizing"). */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 html, body {
   margin: 0;
   height: 100%;
@@ -312,7 +318,7 @@ button { font: inherit; }
 .proximo-distancia { font-size: 14px; font-weight: 600; opacity: 0.9; }
 .proximo-texto { font-size: 22px; font-weight: 800; line-height: 1.2; }
 .modo-actual { margin: 0; font-weight: 700; color: var(--acento); text-transform: uppercase; font-size: 13px; letter-spacing: 0.04em; }
-.grande { font-size: 28px; font-weight: 800; margin: 2px 0; }
+.texto-grande { font-size: 28px; font-weight: 800; margin: 2px 0; }
 .progreso { height: 8px; background: var(--fondo-suave); border-radius: 4px; overflow: hidden; margin: 8px 0; }
 #barra-progreso { height: 100%; width: 0; background: var(--acento); transition: width 0.4s ease; }
 
