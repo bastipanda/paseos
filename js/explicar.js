@@ -186,7 +186,8 @@ export function resumir(opcion, { pasarPor = {} } = {}) {
     }
 
     const rojos = bloques(tramosPie, 'pie', 'mala', estilo);
-    if (rojos.n) {
+    // Menos de 10 m en rojo (un cruce, una esquina) no vale la pena mencionarlo.
+    if (rojos.n && rojos.metros >= 10) {
       const motivo =
         estilo === 'tranquilo'
           ? `, ${[...rojos.calles].some((c) => /^(primary|secondary|trunk)$/.test(c)) ? 'junto a avenidas grandes' : 'cerca de calles con mucho tráfico'}`

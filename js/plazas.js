@@ -22,7 +22,9 @@ export function leerPlazas(json) {
 }
 
 export function leerInteres(json) {
-  return json.lugares.map(([lat, lon, nombre, tipo, wikipedia]) => ({ punto: [lat, lon], nombre, tipo, tamano: 0, wikipedia }));
+  return json.lugares
+    .filter(([, , nombre]) => !/^bibliometro/i.test(nombre))
+    .map(([lat, lon, nombre, tipo, wikipedia]) => ({ punto: [lat, lon], nombre, tipo, tamano: 0, wikipedia }));
 }
 
 export function leerServicios(json) {
