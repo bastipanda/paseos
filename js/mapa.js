@@ -53,7 +53,7 @@ export class Mapa {
         const tramo = coords.slice(t.desde, t.hasta + 1);
         if (tramo.length < 2) continue;
         L.polyline(tramo, {
-          color: COLORES[categoria(t.tags, parte.modo)],
+          color: COLORES[categoria(t.tags, parte.modo, opcion.estilo)],
           weight: 5,
           opacity: 0.95,
           dashArray: parte.modo === 'bici' ? '10 7' : null,
@@ -61,7 +61,7 @@ export class Mapa {
           interactive: false,
         }).addTo(this.capaRuta);
         // Línea invisible y gruesa encima, para que sea fácil tocar el tramo con el dedo y ver qué es.
-        const { titulo, detalle } = describirTramo(t.tags, parte.modo);
+        const { titulo, detalle } = describirTramo(t.tags, parte.modo, opcion.estilo);
         L.polyline(tramo, { color: '#000', weight: 22, opacity: 0 })
           .bindPopup(`<strong>${escapar(titulo)}${parte.modo === 'bici' ? ' (en bici)' : ''}</strong><br>${escapar(detalle)}`)
           .addTo(this.capaRuta);
@@ -74,9 +74,20 @@ export class Mapa {
     if (!sonCercanos(primera[0], ultima[ultima.length - 1])) {
       L.marker(ultima[ultima.length - 1], { icon: icono('termino', 'B') }).addTo(this.capaRuta);
     }
-    for (const l of (opcion.lugares || []).slice(0, 8)) {
+    const extras = opcion.extras || {};
+    for (const l of (extras.plazas || []).filter((p) => p !== opcion.plaza).slice(0, 8)) {
       L.marker(l.punto, { icon: icono('lugar-ruta', '', 14) })
         .bindTooltip(escapar(nombreLugar(l)))
+        .addTo(this.capaRuta);
+    }
+    for (const l of (extras.interes || []).slice(0, 10)) {
+      L.marker(l.punto, { icon: icono('interes', '★', 22) })
+        .bindPopup(() => popupInteres(l))
+        .addTo(this.capaRuta);
+    }
+    for (const s of extras.servicios || []) {
+      L.marker(s.punto, { icon: icono('servicio', s.tipo === 'agua' ? '💧' : '🚻', 22) })
+        .bindTooltip(escapar(s.nombre || nombreLugar(s)))
         .addTo(this.capaRuta);
     }
     if (opcion.plaza) {
@@ -96,6 +107,21 @@ export class Mapa {
   limpiarRuta() {
     this.capaRuta.clearLayers();
     this.ocultarCorto();
+  }
+
+  // Modo explorar: los cuadros que ya conoces, en morado transparente.
+  mostrarConocidas(rectangulos) {
+    if (!this.capaConocidas) this.capaConocidas = L.layerGroup();
+    this.capaConocidas.clearLayers();
+    const renderer = this.rendererCanvas || (this.rendererCanvas = L.canvas({ padding: 0.3 }));
+    for (const r of rectangulos) {
+      L.rectangle(r, { renderer, stroke: false, fillColor: '#7e57c2', fillOpacity: 0.35, interactive: false }).addTo(this.capaConocidas);
+    }
+    this.capaConocidas.addTo(this.mapa);
+  }
+
+  ocultarConocidas() {
+    this.capaConocidas?.remove();
   }
 
   // El camino más corto, en gris punteado, para comparar con la ruta elegida.
@@ -169,6 +195,35 @@ export class Mapa {
   invalidar() {
     this.mapa.invalidateSize();
   }
+}
+
+// Popup de un lugar interesante. Si tiene artículo en Wikipedia, se carga el resumen al abrirlo.
+function popupInteres(lugar) {
+  const div = document.createElement('div');
+  div.innerHTML = `<strong>${escapar(nombreLugar(lugar))}</strong><br><span>${escapar(tipoLugar(lugar))}</span>`;
+  const m = /^(\w{2,3}):(.+)$/.exec(lugar.wikipedia || '');
+  if (m) {
+    const resumen = document.createElement('p');
+    resumen.className = 'resumen-wiki';
+    resumen.textContent = 'Cargando resumen de Wikipedia…';
+    div.append(resumen);
+    const [, idioma, titulo] = m;
+    fetch(`https://${idioma}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(titulo.replace(/ /g, '_'))}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.status))))
+      .then((j) => {
+        resumen.textContent = j.extract ? `${j.extract.slice(0, 280)}${j.extract.length > 280 ? '…' : ''}` : '';
+        if (j.content_urls?.mobile?.page) {
+          const a = document.createElement('a');
+          a.href = j.content_urls.mobile.page;
+          a.target = '_blank';
+          a.rel = 'noopener';
+          a.textContent = ' Leer en Wikipedia';
+          resumen.append(a);
+        }
+      })
+      .catch(() => resumen.remove());
+  }
+  return div;
 }
 
 function sonCercanos(a, b) {

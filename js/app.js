@@ -6,19 +6,24 @@ import { buscarDireccion } from './busqueda.js';
 import { cargarEstaciones } from './bikeitau.js';
 import { paseosAPie, paseosConBici, paseosAPlaza, caminoCorto } from './generador.js';
 import { ErrorDeRuta } from './brouter.js';
-import { cargarPlazas, lugaresEnRuta, nombreLugar, tipoLugar } from './plazas.js';
-import { resumir, textoComparacion } from './explicar.js';
+import { nombreLugar, tipoLugar } from './plazas.js';
+import { cargarDatos } from './datos.js';
+import { resumir, textoComparacion, TEXTOS_ESTILO } from './explicar.js';
 import { crearGpx, nombreArchivo } from './gpx.js';
 import { Voz, fraseHablada } from './guia.js';
 import { distancia } from './geo.js';
+import { consultarClima, leerClima } from './clima.js';
+import { celdasDeRuta, celdasDeZona, claveCelda, limitesCelda } from './explorar.js';
 import {
   aMetros,
   desdeMetros,
   rangoEnMetros,
   resumen,
+  tienePeso,
   formatearPasos,
   formatearDistancia,
   formatearMinutos,
+  formatearKcal,
 } from './duracion.js';
 import { Seguimiento, ubicacionActual } from './seguimiento.js';
 
@@ -42,7 +47,9 @@ const estado = {
 // ---------- Vistas y panel ----------
 
 function irA(vista) {
+  if (estado.esperando) terminarEspera();
   if (estado.seguimiento && vista !== 'seguimiento') terminarSeguimiento(false);
+  $('#marcar-caminado').hidden = true;
   estado.vista = vista;
   document.querySelectorAll('.vista').forEach((v) => {
     v.hidden = v.dataset.vista !== vista;
@@ -83,17 +90,23 @@ function mensajeDeError(err) {
 
 // ---------- Elegir puntos en el mapa ----------
 
-function esperarClic(destino, texto) {
+function esperarClic(destino, texto, textoBoton = 'Cancelar') {
   estado.esperando = destino;
   $('#aviso-mapa-texto').textContent = texto;
+  $('#aviso-mapa-cancelar').textContent = textoBoton;
   $('#aviso-mapa').hidden = false;
   panel.classList.add('chico');
 }
 
 function terminarEspera() {
+  const eraConocidas = estado.esperando === 'conocidas';
   estado.esperando = null;
   $('#aviso-mapa').hidden = true;
   panel.classList.remove('chico');
+  if (eraConocidas) {
+    mapa.ocultarConocidas();
+    mostrarResumenConocidas();
+  }
 }
 
 $('#aviso-mapa-cancelar').addEventListener('click', terminarEspera);
@@ -101,6 +114,14 @@ $('#aviso-mapa-cancelar').addEventListener('click', terminarEspera);
 mapa.alTocar((punto) => {
   const destino = estado.esperando;
   if (!destino) return;
+  if (destino === 'conocidas') {
+    // Modo pintar: cada toque marca una zona (~120 m) o la desmarca si ya estaba marcada. Sigue activo hasta "Listo".
+    const zona = celdasDeZona(punto, 120);
+    if (almacen.conocidas().has(claveCelda(punto))) almacen.quitarConocidas(zona);
+    else almacen.agregarConocidas(zona);
+    dibujarConocidas();
+    return;
+  }
   terminarEspera();
   if (destino === 'lugar') {
     guardarLugar(punto, 'Punto en el mapa');
@@ -293,14 +314,21 @@ function unidadElegida() {
 function redondear(valor, unidad) {
   if (unidad === 'pasos') return Math.round(valor / 100) * 100;
   if (unidad === 'minutos') return Math.round(valor);
+  if (unidad === 'kcal') return Math.round(valor / 10) * 10;
   return Math.round(valor * 10) / 10;
 }
 
 // Al cambiar de unidad se convierten los valores ya escritos (8.000 pasos pasan a 6 km, por ejemplo).
+// Las calorías necesitan el peso: sin él se vuelve a la unidad anterior y se avisa.
 document.querySelectorAll('input[name="unidad"]').forEach((radio) =>
   radio.addEventListener('change', () => {
     const nueva = unidadElegida();
     const aj = almacen.ajustes();
+    if (nueva === 'kcal' && !tienePeso(aj)) {
+      document.querySelector(`input[name="unidad"][value="${estado.unidad}"]`).checked = true;
+      mostrarEstado($('#estado-busqueda'), 'Para usar calorías, anota tu peso en Ajustes.', true);
+      return;
+    }
     for (const id of ['minimo', 'maximo']) {
       const entrada = $(`#${id}`);
       if (entrada.value === '') continue;
@@ -308,6 +336,7 @@ document.querySelectorAll('input[name="unidad"]').forEach((radio) =>
       entrada.value = redondear(desdeMetros(metros, nueva, aj), nueva);
     }
     estado.unidad = nueva;
+    mostrarEstado($('#estado-busqueda'), '');
     actualizarAyudaDuracion();
     guardarFormulario();
   }),
@@ -320,16 +349,58 @@ function actualizarAyudaDuracion() {
   for (const [id, nombre] of [['minimo', 'mín.'], ['maximo', 'máx.']]) {
     const v = $(`#${id}`).value;
     if (v === '' || Number(v) <= 0) continue;
+    if (unidad === 'kcal' && !tienePeso(aj)) continue;
     const r = resumen(aMetros(Number(v), unidad, aj), aj);
     const equivalentes = [
       unidad !== 'pasos' && formatearPasos(r.pasos),
       unidad !== 'km' && formatearDistancia(r.metros),
       unidad !== 'minutos' && formatearMinutos(r.minutos),
+      unidad !== 'kcal' && r.kcal !== null && formatearKcal(r.kcal),
     ].filter(Boolean);
     partes.push(`${nombre} ≈ ${equivalentes.join(' · ')}`);
   }
   $('#ayuda-duracion').textContent = partes.join(' — ');
 }
+
+// ---------- Formulario: estilo, "Pasar por…", subidas y explorar ----------
+
+const AYUDA_ESTILO = {
+  tranquilo: 'Poco ruido y verde: pasajes, calles residenciales, parques y senderos.',
+  vida: 'Calles con gente y comercio: veredas de avenidas y paseos peatonales. Evita senderos y callejones aislados.',
+  noche:
+    'Iluminado y transitado, a cualquier hora: calles principales con luz. Evita callejones, pasajes, senderos, ' +
+    'parques oscuros y escaleras. No hay datos de delitos: es una aproximación.',
+};
+
+const estiloElegido = () => document.querySelector('input[name="estilo"]:checked').value;
+const pasarPorElegido = () =>
+  Object.fromEntries([...document.querySelectorAll('input[name="pasar"]')].map((c) => [c.value, c.checked]));
+
+function actualizarAyudaEstilo() {
+  $('#ayuda-estilo').textContent = AYUDA_ESTILO[estiloElegido()];
+}
+
+function actualizarAyudaExplorar() {
+  const ayuda = $('#ayuda-explorar');
+  ayuda.hidden = !$('#explorar').checked;
+  const n = almacen.conocidas().size;
+  ayuda.textContent = n
+    ? `Prefiere calles fuera de lo que marcaste como conocido (${n} cuadras).`
+    : 'Todavía no marcas nada como conocido. Hazlo al terminar un paseo, con "Ya conozco esta ruta" o en Lugares.';
+}
+
+document.querySelectorAll('input[name="estilo"]').forEach((r) =>
+  r.addEventListener('change', () => {
+    actualizarAyudaEstilo();
+    guardarFormulario();
+  }),
+);
+document.querySelectorAll('input[name="pasar"]').forEach((c) => c.addEventListener('change', guardarFormulario));
+$('#evitar-subidas').addEventListener('change', guardarFormulario);
+$('#explorar').addEventListener('change', () => {
+  actualizarAyudaExplorar();
+  guardarFormulario();
+});
 
 for (const id of ['minimo', 'maximo']) {
   $(`#${id}`).addEventListener('input', () => {
@@ -352,6 +423,10 @@ function guardarFormulario() {
     partidaTipo: $('#partida-tipo').value,
     terminoTipo: $('#termino-tipo').value,
     puntos: estado.puntos,
+    estilo: estiloElegido(),
+    pasarPor: pasarPorElegido(),
+    evitarSubidas: $('#evitar-subidas').checked,
+    explorar: $('#explorar').checked,
   });
 }
 
@@ -370,11 +445,20 @@ function restaurarFormulario() {
       if ([...select.options].some((o) => o.value === tipo)) select.value = tipo;
     }
     if (f.puntos) estado.puntos = { partida: f.puntos.partida || null, termino: f.puntos.termino || null };
+    const estilo = document.querySelector(`input[name="estilo"][value="${f.estilo}"]`);
+    if (estilo) estilo.checked = true;
+    for (const c of document.querySelectorAll('input[name="pasar"]')) c.checked = Boolean(f.pasarPor?.[c.value]);
+    $('#evitar-subidas').checked = Boolean(f.evitarSubidas);
+    $('#explorar').checked = Boolean(f.explorar);
+    // Si se borró el peso, las calorías ya no se pueden usar.
+    if (f.unidad === 'kcal' && !tienePeso(almacen.ajustes())) document.querySelector('input[name="unidad"][value="pasos"]').checked = true;
   } else {
     $('#minimo').value = 8000;
     $('#maximo').value = 10000;
   }
   estado.unidad = unidadElegida();
+  actualizarAyudaEstilo();
+  actualizarAyudaExplorar();
   actualizarBici();
   pintarExtra('partida', false);
   pintarExtra('termino', false);
@@ -405,11 +489,16 @@ $('#formulario').addEventListener('submit', async (e) => {
     const tipoTermino = $('#termino-tipo').value;
     const partida = await resolverPunto('partida');
     const termino = tipoTermino === 'igual' || tipoTermino === 'plaza' ? partida : await resolverPunto('termino');
-    // Las plazas sirven para el modo "ir a una plaza" y para nombrar lugares en las explicaciones.
-    const plazas = cargarPlazas().catch((err) => {
-      console.error(err);
-      return [];
-    });
+    // Plazas, lugares interesantes, comercio y servicios: para "Pasar por…", las explicaciones y el modo plaza.
+    mostrarEstado(aviso, 'Cargando lugares…');
+    const datos = await cargarDatos();
+    const prefs = {
+      estilo: estiloElegido(),
+      evitarSubidas: $('#evitar-subidas').checked,
+      pasarPor: pasarPorElegido(),
+      datos,
+      conocidas: $('#explorar').checked ? almacen.conocidas() : null,
+    };
     let consultas = 0;
     const avance = () => {
       consultas++;
@@ -417,23 +506,17 @@ $('#formulario').addEventListener('submit', async (e) => {
     };
     let opciones;
     if (tipoTermino === 'plaza') {
-      const lista = await plazas;
-      if (!lista.length) throw new Error('No se pudo cargar la lista de plazas. Intenta de nuevo.');
-      opciones = await paseosAPlaza({ inicio: partida.punto, rango, plazas: lista, avance });
+      if (!datos.plazas.length) throw new Error('No se pudo cargar la lista de plazas. Intenta de nuevo.');
+      opciones = await paseosAPlaza({ inicio: partida.punto, rango, plazas: datos.plazas, avance, prefs });
     } else if ($('#con-bici').checked) {
       mostrarEstado(aviso, 'Revisando las estaciones Bike Itaú…');
       const estaciones = await cargarEstaciones({ forzar: true });
-      opciones = await paseosConBici({ inicio: partida.punto, fin: termino.punto, rango, estaciones, avance });
+      opciones = await paseosConBici({ inicio: partida.punto, fin: termino.punto, rango, estaciones, avance, prefs });
     } else {
-      opciones = await paseosAPie({ inicio: partida.punto, fin: termino.punto, rango, avance });
+      opciones = await paseosAPie({ inicio: partida.punto, fin: termino.punto, rango, avance, prefs });
     }
     if (!opciones.length) throw new ErrorDeRuta('No encontré rutas. Prueba con otra duración o con otro punto.');
-    const lista = await plazas;
-    for (const o of opciones) {
-      o.lugares = lugaresEnRuta(o.partes.flatMap((p) => p.ruta.coords), lista).filter((l) => l.nombre && l !== o.plaza);
-      o.explicacion = resumir(o, lista);
-    }
-    estado.plazas = lista;
+    for (const o of opciones) o.explicacion = resumir(o, { pasarPor: prefs.pasarPor });
     estado.comparaciones = new Map();
     estado.opciones = opciones;
     estado.indice = 0;
@@ -452,14 +535,11 @@ $('#formulario').addEventListener('submit', async (e) => {
 
 // ---------- Resultados ----------
 
-const TEXTOS_CALIDAD = {
-  pie: { buena: 'tranquilas', media: 'intermedias', mala: 'avenidas o ruidosas' },
-  bici: { buena: 'ciclovías o calles tranquilas', media: 'con algo de tráfico', mala: 'sin ciclovía, peatonales o avenidas' },
-};
+const TEXTOS_BICI = { buena: 'ciclovías o calles tranquilas', media: 'con algo de tráfico', mala: 'sin ciclovía, peatonales o avenidas' };
 
-function bloqueCalidad(titulo, evaluacion, modo) {
+function bloqueCalidad(titulo, evaluacion, modo, estilo) {
   const pct = (k) => (evaluacion.total ? (evaluacion.metros[k] / evaluacion.total) * 100 : 0);
-  const textos = TEXTOS_CALIDAD[modo];
+  const textos = modo === 'bici' ? TEXTOS_BICI : TEXTOS_ESTILO[estilo] || TEXTOS_ESTILO.tranquilo;
   const barras = ['buena', 'media', 'mala']
     .map((k) => `<span style="width:${pct(k).toFixed(1)}%;background:${COLORES[k]}"></span>`)
     .join('');
@@ -478,11 +558,21 @@ function mostrarOpcion() {
   $('#anterior').disabled = estado.indice === 0;
   $('#siguiente').disabled = estado.indice === total - 1;
 
+  const estilo = o.estilo || 'tranquilo';
+  const textosEstilo = TEXTOS_ESTILO[estilo];
   const pie = resumen(o.metrosPie, aj);
+  const subida = o.partes.filter((p) => p.modo === 'pie').reduce((s, p) => s + (p.ruta.subida || 0), 0);
+  const detalles = [
+    `${formatearDistancia(pie.metros)} a pie`,
+    `${formatearMinutos(pie.minutos)} caminando`,
+    pie.kcal !== null && `≈ ${formatearKcal(pie.kcal)}`,
+    o.metrosBici && `${formatearDistancia(o.metrosBici)} en bici`,
+    subida >= 10 && `sube ${Math.round(subida)} m`,
+  ].filter(Boolean);
   let html = `<p class="cifras">${formatearPasos(pie.pasos)}</p>
-    <p class="secundario">${formatearDistancia(pie.metros)} a pie · ${formatearMinutos(pie.minutos)} caminando${
-      o.metrosBici ? ` · ${formatearDistancia(o.metrosBici)} en bici` : ''
-    }</p>`;
+    <p class="secundario">${detalles.join(' · ')} · estilo ${escapar(ESTILO_NOMBRE[estilo])}</p>`;
+  const clima = estado.clima && leerClima(estado.clima);
+  if (clima?.avisos.length) html += `<p class="alerta">${clima.avisos.map(escapar).join(' ')}</p>`;
   if (!o.enRango) html += '<p class="alerta">No encontré una ruta dentro del rango pedido. Esta es la más cercana.</p>';
   if (o.plaza) {
     html += `<div class="bloque"><h3>Destino: ${escapar(nombreLugar(o.plaza))}</h3>
@@ -491,10 +581,9 @@ function mostrarOpcion() {
   if (o.explicacion?.length) {
     html += `<div class="bloque"><h3>Por qué esta ruta</h3>
       <ul class="explicacion">${o.explicacion.map((f) => `<li>${escapar(f)}</li>`).join('')}</ul>
-      <p class="nota-limites">La app sabe el tipo de calle, el ruido estimado, el verde cercano y las ciclovías. Todavía no sabe
-        el ambiente, el comercio, cuánta gente pasa ni la seguridad.</p></div>`;
+      <p class="nota-limites">${escapar(textosEstilo.limites)}</p></div>`;
   }
-  html += bloqueCalidad('A pie', o.evaluacionPie, 'pie');
+  html += bloqueCalidad('A pie', o.evaluacionPie, 'pie', estilo);
   if (o.evaluacionBici) html += bloqueCalidad('En bici', o.evaluacionBici, 'bici');
   if (o.estacionSalida) {
     html += `<div class="bloque"><h3>Estaciones Bike Itaú</h3>
@@ -505,16 +594,21 @@ function mostrarOpcion() {
   if (o.repetida > 0.15 && !o.plaza) html += '<p class="alerta">Parte de la ruta va y vuelve por la misma calle.</p>';
   html += '<div class="bloque" id="comparacion" hidden></div>';
   html += `<div class="leyenda">
-    <span><i style="background:${COLORES.buena}"></i>Tranquila</span>
-    <span><i style="background:${COLORES.media}"></i>Intermedia</span>
-    <span><i style="background:${COLORES.mala}"></i>Avenida o sin ciclovía</span>
+    <span><i style="background:${COLORES.buena}"></i>${escapar(mayuscula(textosEstilo.buena))}</span>
+    <span><i style="background:${COLORES.media}"></i>${escapar(mayuscula(textosEstilo.media))}</span>
+    <span><i style="background:${COLORES.mala}"></i>${escapar(mayuscula(textosEstilo.mala))}</span>
     ${o.metrosBici ? '<span>- - - en bici</span>' : ''}
+    ${o.extras?.interes?.length ? '<span>★ lugar interesante</span>' : ''}
   </div>
   <p class="ayuda">Toca un tramo de la ruta en el mapa para ver qué tipo de calle es.</p>`;
   $('#detalle-opcion').innerHTML = html;
+  mostrarEstado($('#estado-resultados'), '');
   mapa.dibujarOpcion(o, margenesPanel());
   mostrarComparacion(o);
 }
+
+const ESTILO_NOMBRE = { tranquilo: 'Tranquilo', vida: 'Con vida', noche: 'Noche' };
+const mayuscula = (t) => t.charAt(0).toUpperCase() + t.slice(1);
 
 // Qué se compara con el camino más corto: toda la ruta (A→B), la ida y vuelta a la plaza, o la caminata hasta la
 // estación Bike Itaú. En un paseo circular no hay "camino más corto" con qué comparar.
@@ -550,18 +644,19 @@ async function mostrarComparacion(o) {
   const datos = datosComparacion(o);
   const caja = $('#comparacion');
   if (!datos || !caja) return;
-  const clave = datos.desde.concat(datos.hasta).map((x) => x.toFixed(5)).join(',');
+  const estilo = o.estilo || 'tranquilo';
+  const clave = `${estilo}:${datos.desde.concat(datos.hasta).map((x) => x.toFixed(5)).join(',')}`;
   caja.hidden = false;
   caja.innerHTML = '<h3>Comparado con el camino más corto</h3><p class="ayuda">Calculando…</p>';
   try {
-    if (!estado.comparaciones.has(clave)) estado.comparaciones.set(clave, caminoCorto(datos.desde, datos.hasta));
+    if (!estado.comparaciones.has(clave)) estado.comparaciones.set(clave, caminoCorto(datos.desde, datos.hasta, estilo));
     const corto = await estado.comparaciones.get(clave);
     if (estado.opciones[estado.indice] !== o) return;
     if (!corto) {
       caja.hidden = true;
       return;
     }
-    const frases = textoComparacion({ corto, ...datos });
+    const frases = textoComparacion({ corto, ...datos, estilo });
     caja.innerHTML = `<h3>Comparado con el camino más corto</h3>
       <ul class="explicacion">${frases.map((f) => `<li>${escapar(f)}</li>`).join('')}</ul>
       <button type="button" class="boton-texto" id="ver-corto">Ver el camino más corto en el mapa</button>`;
@@ -724,15 +819,88 @@ $('#centrar').addEventListener('click', () => {
 
 function terminarSeguimiento(volver = true) {
   voz.callar();
-  estado.seguimiento?.detener();
+  const seguimiento = estado.seguimiento;
+  seguimiento?.detener();
   estado.seguimiento = null;
   mapa.ocultarYo();
   document.body.classList.remove('siguiendo');
   if (volver) {
     irA('resultados');
     mostrarOpcion();
+    ofrecerMarcarCaminado(seguimiento);
   }
 }
+
+// ---------- Explorar: lo que ya conoces (solo se marca a mano) ----------
+
+function marcarConocidas(coords, mensaje) {
+  const nuevas = almacen.agregarConocidas(celdasDeRuta(coords));
+  estado.ultimasMarcadas = nuevas;
+  const aviso = $('#estado-resultados');
+  aviso.innerHTML = '';
+  aviso.append(`${mensaje} (${nuevas.length} cuadras nuevas). `);
+  if (nuevas.length) {
+    const deshacer = document.createElement('button');
+    deshacer.type = 'button';
+    deshacer.className = 'boton-texto';
+    deshacer.textContent = 'Deshacer';
+    deshacer.addEventListener('click', () => {
+      almacen.quitarConocidas(estado.ultimasMarcadas || []);
+      estado.ultimasMarcadas = [];
+      mostrarEstado(aviso, 'Listo, se deshizo.');
+      actualizarAyudaExplorar();
+    });
+    aviso.append(deshacer);
+  }
+  actualizarAyudaExplorar();
+}
+
+$('#ya-conozco').addEventListener('click', () => {
+  const o = estado.opciones[estado.indice];
+  marcarConocidas(o.partes.flatMap((p) => p.ruta.coords), 'Marcada como conocida');
+});
+
+// Al terminar un paseo se pregunta si marcar lo caminado. Solo la parte recorrida, y solo si fue una parte real.
+function ofrecerMarcarCaminado(seguimiento) {
+  const caja = $('#marcar-caminado');
+  caja.hidden = true;
+  if (!seguimiento || seguimiento.recorrido < 200) return;
+  const coords = seguimiento.linea.coords.slice(0, seguimiento.indice + 2);
+  $('#marcar-caminado-texto').textContent =
+    `Caminaste unos ${formatearDistancia(seguimiento.recorrido)}. ¿Los marco como conocidos para el modo explorar?`;
+  caja.hidden = false;
+  $('#marcar-caminado-si').onclick = () => {
+    caja.hidden = true;
+    marcarConocidas(coords, 'Marcado lo que caminaste');
+  };
+  $('#marcar-caminado-no').onclick = () => {
+    caja.hidden = true;
+  };
+}
+
+function dibujarConocidas() {
+  mapa.mostrarConocidas([...almacen.conocidas()].map(limitesCelda));
+}
+
+function mostrarResumenConocidas() {
+  const n = almacen.conocidas().size;
+  // Cada cuadro mide ~50 × 50 m = 0,0025 km².
+  $('#resumen-conocidas').textContent = n
+    ? `Tienes marcadas ${n} cuadras como conocidas (unos ${(n * 0.0025).toLocaleString('es-CL', { maximumFractionDigits: 1 })} km²).`
+    : 'Todavía no marcas nada como conocido.';
+  actualizarAyudaExplorar();
+}
+
+$('#pintar-conocidas').addEventListener('click', () => {
+  dibujarConocidas();
+  esperarClic('conocidas', 'Toca para marcar zonas que conoces (toca de nuevo para quitar)', 'Listo');
+});
+
+$('#borrar-conocidas').addEventListener('click', () => {
+  if (!confirm('¿Borrar todo lo que marcaste como conocido? No se puede deshacer (salvo con un respaldo).')) return;
+  almacen.borrarConocidas();
+  mostrarResumenConocidas();
+});
 
 $('#terminar').addEventListener('click', () => terminarSeguimiento(true));
 
@@ -768,6 +936,7 @@ function mostrarLugares() {
     ul.append(li);
   }
   mapa.mostrarLugares(lista);
+  mostrarResumenConocidas();
 }
 
 function alCambiarLugares() {
@@ -818,7 +987,11 @@ $('#importar').addEventListener('change', async (e) => {
   try {
     const agregados = almacen.restaurar(JSON.parse(await archivo.text()));
     alCambiarLugares();
-    mostrarEstado(aviso, agregados === 1 ? 'Se agregó 1 lugar.' : `Se agregaron ${agregados} lugares.`);
+    mostrarEstado(
+      aviso,
+      `${agregados === 1 ? 'Se agregó 1 lugar' : `Se agregaron ${agregados} lugares`}. ` +
+        `Tienes ${almacen.conocidas().size} cuadras marcadas como conocidas.`,
+    );
   } catch (err) {
     mostrarEstado(aviso, err instanceof SyntaxError ? 'El archivo no es un respaldo válido.' : err.message, true);
   }
@@ -831,6 +1004,7 @@ function cargarAjustes() {
   $('#largo-paso').value = aj.largoPaso;
   $('#velocidad').value = aj.velocidadKmh;
   $('#ver-estaciones').checked = Boolean(aj.verEstaciones);
+  $('#peso').value = aj.peso ?? '';
   mostrarEstado($('#estado-ajustes'), '');
 }
 
@@ -847,7 +1021,13 @@ $('#form-ajustes').addEventListener('submit', (e) => {
     mostrarEstado(aviso, 'La velocidad debe estar entre 2 y 8 km/h.', true);
     return;
   }
-  almacen.guardarAjustes({ largoPaso, velocidadKmh, verEstaciones: $('#ver-estaciones').checked });
+  const textoPeso = $('#peso').value.trim();
+  const peso = textoPeso === '' ? null : Number(textoPeso);
+  if (peso !== null && !(peso >= 30 && peso <= 250)) {
+    mostrarEstado(aviso, 'El peso debe estar entre 30 y 250 kg, o quedar vacío.', true);
+    return;
+  }
+  almacen.guardarAjustes({ largoPaso, velocidadKmh, peso, verEstaciones: $('#ver-estaciones').checked });
   aplicarEstaciones();
   actualizarAyudaDuracion();
   mostrarEstado(aviso, 'Guardado.');
@@ -865,6 +1045,24 @@ async function aplicarEstaciones() {
   }
 }
 
+// ---------- Clima y aire ----------
+
+// Se consulta una vez al abrir la app (en tu ubicación si ya diste permiso, si no en el centro del mapa) y se
+// muestra arriba del formulario. Si falla, la app sigue sin el dato.
+async function mostrarClima(punto) {
+  const caja = $('#clima');
+  try {
+    estado.clima = await consultarClima(punto);
+    const { linea, avisos, nivel } = leerClima(estado.clima);
+    if (!linea) return;
+    caja.className = `clima ${nivel}`;
+    caja.innerHTML = `<p><strong>Ahora:</strong> ${escapar(linea)}</p>${avisos.map((a) => `<p>${escapar(a)}</p>`).join('')}`;
+    caja.hidden = false;
+  } catch (err) {
+    console.error(err);
+  }
+}
+
 // ---------- Inicio ----------
 
 restaurarFormulario();
@@ -872,9 +1070,14 @@ irA('formulario');
 aplicarEstaciones();
 
 // Si el permiso de ubicación ya estaba dado, centra el mapa en ti sin preguntar.
-navigator.permissions
-  ?.query({ name: 'geolocation' })
-  .then((p) => {
-    if (p.state === 'granted') return ubicacionActual().then((punto) => mapa.centrarEn(punto, 15));
+const centroInicial = () => {
+  const c = mapa.mapa.getCenter();
+  return [c.lat, c.lng];
+};
+(navigator.permissions?.query({ name: 'geolocation' }) ?? Promise.reject(new Error('sin permisos')))
+  .then((p) => (p.state === 'granted' ? ubicacionActual() : Promise.reject(new Error('sin permiso'))))
+  .then((punto) => {
+    mapa.centrarEn(punto, 15);
+    mostrarClima(punto);
   })
-  .catch(() => {});
+  .catch(() => mostrarClima(puntoConocido('partida') || centroInicial()));
