@@ -5,7 +5,11 @@
   peso visual y el panel tapa el mapa. Bastián **no usa la voz**: mira el mapa un segundo y se orienta. Tres
   sesiones, cada una probada y publicada antes de seguir:
   1. **Barra de pestañas abajo** (Hoy, Armar, Dex, Más; en "Más": Historial, Lugares, Ajustes) en vez de los
-     botones flotantes. **Hoy y Dex como páginas propias, sin mapa detrás.**
+     botones flotantes. **Hoy y Dex como páginas propias, sin mapa detrás.** Decidido el 2026-10-31: "Más" lleva
+     Historial, Lugares, **Respaldo como fila propia** (al cambiar de celular es lo que se busca) y Ajustes, con los
+     créditos al pie; la barra se **esconde en Resultados, Paseo y Resumen** (cada una tiene su salida); tocar el
+     anillo de Hoy abre el Historial; "Ver en el mapa" desde una página muestra el mapa completo con "Volver".
+     **Construida y publicada el 2026-10-31**; falta probarla en el iPhone.
   2. **Pantallas con mapa** (Armar, Resultados, Paseo). Regla de Bastián: el mapa nunca debe quedar tapado sin
      forma de verlo completo; el panel se pliega del todo (queda una franja delgada) y la barra se esconde.
      Armar: a la vista solo partida, término y duración; el resto en "Más opciones". Resultados: tarjeta con lo
@@ -58,6 +62,9 @@
   (43 comunas, ~230 mil cuadros con calles; Overpass falló en varios pedazos y el script reintentó solo).
 
 ## Por verificar
+- **En el iPhone (v1.4, sesión 1):** que la barra de pestañas no choque con la rayita de abajo (en Safari y en la app
+  de la pantalla de inicio), que "Ver en el mapa" y "Volver" respondan bien al dedo y que tocar un punto de la Dex en
+  el mapa abra su ficha (los puntos son chicos).
 - **En el iPhone (v1.3):** si el evento `.ics` abre el calendario con "Añadir todo" (en Safari y en la app de la
   pantalla de inicio); si el metrónomo suena con el interruptor de silencio activado; si la pantalla se mantiene
   encendida en la app de la pantalla de inicio; si la postal se comparte por WhatsApp; si el iPhone deja sacar la

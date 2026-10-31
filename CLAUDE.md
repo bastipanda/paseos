@@ -6,9 +6,11 @@ Meta de fondo (2026-10-30): caminar más para bajar de peso y dejar el sedentari
 
 ## Estado
 v1 y v1.1 publicadas el 2026-10-27; v1.2 el 2026-10-30. v1.3 ("salir más y conocer Santiago") construida el
-2026-10-30. Falta probar v1.1, v1.2 y v1.3 en terreno (ver `BACKLOG.md`).
+2026-10-30. v1.4 ("interfaz limpia", tres sesiones): la 1 (barra de pestañas) publicada el 2026-10-31. Falta probar
+v1.1 a v1.4 en terreno (ver `BACKLOG.md`).
 
 ## Qué hace
+- **Barra de pestañas abajo:** Hoy, Armar, Dex y Más (Historial, Lugares, Respaldo, Ajustes y créditos).
 - **Hoy** (inicio): anillo con los minutos caminados de la semana y la meta semanal, semanas cumplidas, propuesta de
   subir la meta 10 % (o bajarla), mejor hora para salir hoy, **Salir ahora** (15/30/45/60 min, ida y vuelta desde
   el GPS), **Sorpresa** (paseo misterio a un lugar sin capturar), rutas favoritas y aviso mensual de respaldo.
@@ -45,6 +47,10 @@ v1 y v1.1 publicadas el 2026-10-27; v1.2 el 2026-10-30. v1.3 ("salir más y cono
 ## Arquitectura
 - **Web app estática** (HTML, CSS y JS sin compilación ni servidor). `js/app.js` conecta todo; las pantallas nuevas
   van en `js/pantalla-*.js` y reciben lo que necesitan al iniciarse (`iniciarHoy`, `iniciarHistorial`, `iniciarDex`).
+- **Vistas:** todas viven en el `#panel` y se cambian con `irA()`. Las **páginas** (`PAGINAS`: Hoy, Dex, Más y lo
+  que cuelga de ahí) ocupan toda la pantalla y tapan el mapa; Armar, Resultados, Paseo y Resumen son el mapa con el
+  panel abajo. Resultados, Paseo y Resumen esconden la barra (`SIN_PESTANAS`). Desde una página, `verEnMapa(título)`
+  deja el mapa entero con "Volver" arriba (el mapa siempre está cargado detrás: Leaflet falla si nace escondido).
 - **Mapa:** Leaflet con teselas de OSM y la atribución visible.
 - **Rutas:** servidor público de BRouter (`brouter.de`) con perfiles propios (`perfiles/*.brf`). La app agrega
   puntos intermedios para calzar la duración, evalúa y ordena. Giros con `timode=2`. `profile:evitar_subidas=1`.
