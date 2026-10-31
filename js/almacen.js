@@ -159,7 +159,8 @@ export function renombrarFavorita(id, nombre) {
   );
 }
 
-// Santiagodex: { capturados: { id: { fecha, como: 'gps' | 'mano' } }, vistos: { id: fecha } }.
+// Santiagodex: { capturados: { id: { fecha, como: 'gps' | 'mano' | 'foto', foto?: fecha } }, vistos: { id: fecha } }.
+// Sin `foto` el lugar está como "falta la foto". Las fotos mismas van en IndexedDB (fotos.js).
 export function dex() {
   const d = leer(CLAVE_DEX, null);
   return { capturados: d?.capturados || {}, vistos: d?.vistos || {} };
@@ -186,11 +187,12 @@ export function borrarPaseoEnCurso() {
   }
 }
 
-// Respaldo: un archivo JSON con todo lo que no se puede regenerar.
+// Respaldo: un archivo JSON con todo lo que no se puede regenerar. Las fotos de la Santiagodex las agrega app.js
+// (vienen de IndexedDB, que es asíncrono).
 export function respaldo() {
   return {
     app: 'paseos',
-    version: 3,
+    version: 4,
     fecha: new Date().toISOString(),
     lugares: lugares(),
     ajustes: ajustes(),
@@ -236,7 +238,10 @@ export function restaurar(datos) {
 
   if (datos.dex) {
     const d = dex();
-    for (const [id, c] of Object.entries(datos.dex.capturados || {})) if (!d.capturados[id]) d.capturados[id] = c;
+    // Una captura con foto del respaldo gana a la misma sin foto en este celular.
+    for (const [id, c] of Object.entries(datos.dex.capturados || {})) {
+      if (!d.capturados[id] || (c?.foto && !d.capturados[id].foto)) d.capturados[id] = c;
+    }
     for (const [id, f] of Object.entries(datos.dex.vistos || {})) if (!d.vistos[id]) d.vistos[id] = f;
     guardarDex(d);
   }

@@ -311,31 +311,46 @@
 
     <!-- Santiagodex y tu mapa de Santiago -->
     <div class="vista" data-vista="dex" hidden>
-      <h1>Santiagodex</h1>
-      <p class="secundario" id="dex-resumen">Cargando…</p>
-      <div class="progreso"><div id="dex-barra"></div></div>
-      <p class="ayuda">Lugares de Santiago para coleccionar caminando. Se capturan solos al llegar en un paseo con
-        seguimiento (o a mano, si ya los conocías). Si pasas cerca sin llegar, quedan como vistos.</p>
-      <div class="segmentado" role="radiogroup" aria-label="Mostrar">
-        <label><input type="radio" name="dex-filtro" value="todos" checked><span>Todos</span></label>
-        <label><input type="radio" name="dex-filtro" value="faltan"><span>Por capturar</span></label>
-        <label><input type="radio" name="dex-filtro" value="capturados"><span>Capturados</span></label>
+      <!-- El álbum. La ficha de un lugar reemplaza al álbum (pantalla completa) y "‹ Dex" vuelve al mismo punto. -->
+      <div id="dex-album">
+        <h1>Santiagodex</h1>
+        <p class="secundario" id="dex-resumen">Cargando…</p>
+        <div class="progreso"><div id="dex-barra"></div></div>
+        <details class="agregar">
+          <summary>¿Cómo se captura?</summary>
+          <p class="ayuda">Llegas al lugar y le sacas <strong>tu foto</strong>: sin foto no hay captura. Si llegas en un
+            paseo con seguimiento, la app te avisa; si no es buen momento, queda como "falta la foto" y la subes
+            después desde la galería. Los lugares que ya conocías también se capturan subiendo una foto. Si pasas a
+            menos de 150 m sin llegar, quedan como vistos.</p>
+        </details>
+        <input type="search" id="dex-buscar" placeholder="Buscar por nombre" aria-label="Buscar un lugar por nombre" enterkeyhint="search">
+        <div class="segmentado dex-filtros" role="radiogroup" aria-label="Mostrar">
+          <label><input type="radio" name="dex-filtro" value="todos" checked><span>Todos</span></label>
+          <label><input type="radio" name="dex-filtro" value="faltan"><span>Faltan</span></label>
+          <label><input type="radio" name="dex-filtro" value="falta"><span>Sin foto</span></label>
+          <label><input type="radio" name="dex-filtro" value="capturados"><span>Tengo</span></label>
+        </div>
+        <div class="fila">
+          <select id="dex-tipo" aria-label="Tipo de lugar"></select>
+          <select id="dex-comuna" aria-label="Comuna"></select>
+        </div>
+        <label class="interruptor"><input type="checkbox" id="dex-cerca"><span>Los más cercanos a mí primero</span></label>
+        <button type="button" class="boton-secundario boton-ancho" id="dex-ver-mapa">Ver estos lugares en el mapa</button>
+        <p id="estado-dex" class="estado" role="status"></p>
+        <div id="dex-cartas" class="album"></div>
+        <button type="button" class="boton-secundario boton-ancho" id="dex-mas" hidden>Ver más</button>
+        <h2 class="separado">Regiones</h2>
+        <p class="ayuda">Cada comuna es una región: ganas una insignia al capturar el 25 %, el 50 % y el 100 % de sus
+          lugares. Toca una para ver sus cartas.</p>
+        <ul id="dex-regiones" class="lista regiones"></ul>
+        <button type="button" class="boton-texto" id="dex-todas-regiones" hidden>Ver todas las comunas</button>
+        <h2 class="separado">Tu mapa de Santiago</h2>
+        <p class="ayuda">Lo que caminaste con la app (azul) y lo que marcaste como conocido (morado), y qué parte de las
+          calles de cada comuna conoces.</p>
+        <button type="button" class="boton-secundario boton-ancho" id="ver-mi-mapa">Ver tu mapa</button>
+        <ul id="avance-comunas" class="lista avance"></ul>
       </div>
-      <div class="fila">
-        <select id="dex-tipo" aria-label="Tipo de lugar"></select>
-        <select id="dex-comuna" aria-label="Comuna"></select>
-      </div>
-      <label class="interruptor"><input type="checkbox" id="dex-cerca"><span>Los más cercanos a mí primero</span></label>
-      <button type="button" class="boton-secundario boton-ancho" id="dex-ver-mapa">Ver estos lugares en el mapa</button>
-      <div id="dex-ficha" class="bloque ficha" hidden></div>
-      <ul id="dex-lista" class="lista dex"></ul>
-      <button type="button" class="boton-secundario boton-ancho" id="dex-mas" hidden>Ver más</button>
-      <h2 class="separado">Tu mapa de Santiago</h2>
-      <p class="ayuda">Lo que caminaste con la app (azul) y lo que marcaste como conocido (morado), y qué parte de las
-        calles de cada comuna conoces.</p>
-      <button type="button" class="boton-secundario boton-ancho" id="ver-mi-mapa">Ver tu mapa</button>
-      <ul id="avance-comunas" class="lista avance"></ul>
-      <p id="estado-dex" class="estado" role="status"></p>
+      <div id="dex-ficha" class="ficha" hidden></div>
     </div>
 
     <!-- Más: el resto de las secciones -->
@@ -383,9 +398,9 @@
     <div class="vista" data-vista="respaldo" hidden>
       <button type="button" class="volver" data-ir="mas">‹ Más</button>
       <h1>Respaldo</h1>
-      <p class="ayuda">Tus paseos, la meta, la Santiagodex, los lugares, las favoritas y lo que ya conoces se guardan
-        solo en este navegador. Descarga un respaldo de vez en cuando para no perderlos si borras los datos del
-        navegador o cambias de celular.</p>
+      <p class="ayuda">Tus paseos, la meta, la Santiagodex (con tus fotos), los lugares, las favoritas y lo que ya
+        conoces se guardan solo en este navegador. Descarga un respaldo de vez en cuando para no perderlos si borras los
+        datos del navegador o cambias de celular. Con fotos pesa más: unos 4 MB cada 100 fotos.</p>
       <div class="fila botones-fila">
         <button type="button" class="boton-secundario" id="exportar">Descargar respaldo</button>
         <label class="boton-secundario boton-archivo">Restaurar respaldo<input type="file" id="importar" accept="application/json,.json"></label>
@@ -426,6 +441,12 @@
           <input type="checkbox" id="ver-estaciones">
           <span>Mostrar estaciones Bike Itaú en el mapa</span>
         </label>
+        <label class="interruptor">
+          <input type="checkbox" id="ver-nombres-dex">
+          <span>Santiagodex: ver los nombres de lo que no has encontrado</span>
+        </label>
+        <p class="ayuda">Apagado, los lugares que no has visto aparecen como siluetas con "?" (solo el tipo y la
+          distancia), como en un álbum.</p>
         <button type="submit" class="boton-principal">Guardar</button>
         <p id="estado-ajustes" class="estado" role="status"></p>
       </form>
@@ -451,6 +472,11 @@
       <p id="estado-agenda" class="estado" role="status"></p>
     </div>
   </section>
+
+  <!-- Foto propia de la Santiagodex: una abre la cámara directo; la otra deja elegir de la galería. Quedan fuera del
+       panel y sin display:none para que el iPhone deje abrirlas desde cualquier pantalla (también en el paseo). -->
+  <input type="file" id="foto-camara" class="archivo-oculto" accept="image/*" capture="environment" tabindex="-1" aria-hidden="true">
+  <input type="file" id="foto-galeria" class="archivo-oculto" accept="image/*" tabindex="-1" aria-hidden="true">
 
   <!-- Paseo, arriba del mapa: la próxima indicación con su flecha, el aviso de fuera de ruta y "Seguirme". -->
   <div class="arriba-paseo">

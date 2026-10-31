@@ -3,8 +3,9 @@
 // plazas de juegos con nombre. El número de cada lugar sale de su distancia a Plaza Baquedano: los primeros son los
 // del centro y van creciendo hacia afuera.
 //
-// "Visto": pasaste a menos de 150 m en un paseo con seguimiento. "Capturado": llegaste (a menos de ~40 m, o dentro
-// de una plaza o parque grande), o lo marcaste a mano porque ya lo conocías. Las búsquedas no cuentan.
+// "Visto": pasaste a menos de 150 m en un paseo con seguimiento. "Falta la foto": llegaste (a menos de ~40 m, o
+// dentro de una plaza o parque grande), o lo marcaste a mano antes de la v1.4. "Capturado": tiene tu foto (sacada ahí
+// o subida desde la galería; la app no revisa que la foto sea del lugar). Las búsquedas no cuentan.
 
 import { distancia, muestrear } from './geo.js';
 import { comunaDe } from './territorio.js';
@@ -99,17 +100,30 @@ export function anotarRecorrido(estado, revision, fecha = new Date().toISOString
   return { nuevosCapturados, nuevosVistos };
 }
 
+// 'capturado' (con foto), 'falta' (llegaste, pero falta la foto), 'visto' o 'nuevo'.
 export function estadoDe(lugar, estado) {
-  if (estado.capturados[lugar.id]) return 'capturado';
+  const c = estado.capturados[lugar.id];
+  if (c) return c.foto ? 'capturado' : 'falta';
   if (estado.vistos[lugar.id]) return 'visto';
   return 'nuevo';
 }
 
-// Avance por tipo y por comuna: { total, capturados } de cada uno.
+// Anota la foto propia de un lugar: con eso queda capturado. Si ya habías llegado, se mantiene esa fecha.
+export function capturarConFoto(estado, lugar, fecha = new Date().toISOString()) {
+  const previa = estado.capturados[lugar.id];
+  estado.capturados[lugar.id] = { fecha: previa?.fecha || fecha, como: previa?.como || 'foto', foto: fecha };
+}
+
+// Insignias de una comuna ("región") según la fracción capturada: al 25, 50 y 100 %.
+export const INSIGNIAS = [25, 50, 100];
+export const insigniasDe = (fraccion) => INSIGNIAS.filter((p) => fraccion * 100 >= p);
+
+// Avance por tipo y por comuna: { total, capturados } de cada uno. Solo cuenta lo capturado con foto.
 export function avanceDex(dex, estado) {
   const porTipo = {};
   const porComuna = {};
   let capturados = 0;
+  let faltaFoto = 0;
   let vistos = 0;
   for (const l of dex) {
     const e = estadoDe(l, estado);
@@ -123,7 +137,8 @@ export function avanceDex(dex, estado) {
     if (e === 'capturado') {
       t.capturados++;
       capturados++;
-    } else if (e === 'visto') vistos++;
+    } else if (e === 'falta') faltaFoto++;
+    else if (e === 'visto') vistos++;
   }
-  return { total: dex.length, capturados, vistos, porTipo, porComuna };
+  return { total: dex.length, capturados, faltaFoto, vistos, porTipo, porComuna };
 }

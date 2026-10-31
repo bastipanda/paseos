@@ -146,17 +146,17 @@ export class Mapa {
     this.capaRecorridos = null;
   }
 
-  // Lugares de la Santiagodex como puntos: verde capturado, amarillo visto, gris por capturar.
+  // Lugares de la Santiagodex como puntos: verde capturado, azul falta la foto, amarillo visto, gris por encontrar.
   // `lugares` es [{ lugar, estado }]; `alTocar(lugar)` se llama al tocar uno. Con `margenes`, encuadra los puntos.
   mostrarDex(lugares, alTocar, margenes = null) {
     this.ocultarDex();
     const renderer = this.rendererCanvas || (this.rendererCanvas = L.canvas({ padding: 0.3 }));
-    const colores = { capturado: '#1a9850', visto: '#e0a100', nuevo: '#78909c' };
+    const colores = { capturado: '#1a9850', falta: '#1e88e5', visto: '#e0a100', nuevo: '#78909c' };
     this.capaDex = L.layerGroup().addTo(this.mapa);
     const limites = L.latLngBounds([]);
-    for (const { lugar, estado } of lugares) {
+    for (const { lugar, estado, nombre } of lugares) {
       L.circleMarker(lugar.punto, { renderer, radius: estado === 'capturado' ? 7 : 5, color: '#fff', weight: 1.5, fillColor: colores[estado], fillOpacity: 0.95 })
-        .bindTooltip(escapar(lugar.nombre))
+        .bindTooltip(escapar(nombre ?? lugar.nombre))
         .on('click', () => alTocar(lugar))
         .addTo(this.capaDex);
       limites.extend(lugar.punto);

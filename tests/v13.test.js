@@ -21,7 +21,18 @@ import { leerComunas, comunaDe, comunasDeRuta, avancePorComuna, leerDelitos, del
 import { claveCelda } from '../js/explorar.js';
 import { resumir } from '../js/explicar.js';
 import { nombreEstacion } from '../js/plazas.js';
-import { crearDex, numeroDex, radioCaptura, revisarRecorrido, anotarRecorrido, estadoDe, avanceDex, CENTRO_DEX } from '../js/dex.js';
+import {
+  crearDex,
+  numeroDex,
+  radioCaptura,
+  revisarRecorrido,
+  anotarRecorrido,
+  estadoDe,
+  avanceDex,
+  capturarConFoto,
+  insigniasDe,
+  CENTRO_DEX,
+} from '../js/dex.js';
 
 const a = [-33.43, -70.61];
 const aj = { largoPaso: 0.75, velocidadKmh: 4.5, peso: 80, energicoKmh: 5, ppm: 110 };
@@ -251,15 +262,34 @@ test('Santiagodex: lista sin repetidos, numerada desde el centro, captura y vist
   const estado = { capturados: {}, vistos: {} };
   const nuevos = anotarRecorrido(estado, revision, '2026-10-30T20:00:00Z');
   assert.equal(nuevos.nuevosCapturados.length, 1);
-  assert.equal(estadoDe(dex[1], estado), 'capturado');
+  // Desde la v1.4, llegar sin sacar foto deja el lugar como "falta la foto".
+  assert.equal(estadoDe(dex[1], estado), 'falta');
   assert.equal(estadoDe(dex[0], estado), 'visto');
   assert.equal(estadoDe(dex[2], estado), 'nuevo');
   // Lo mismo otra vez no suma nada nuevo.
   assert.equal(anotarRecorrido(estado, revision).nuevosCapturados.length, 0);
-  const avance = avanceDex(dex, estado);
-  assert.equal(avance.capturados, 1);
+  let avance = avanceDex(dex, estado);
+  assert.equal(avance.capturados, 0);
+  assert.equal(avance.faltaFoto, 1);
   assert.equal(avance.vistos, 1);
-  assert.deepEqual(avance.porTipo.parque, { total: 1, capturados: 1 });
+  assert.deepEqual(avance.porTipo.parque, { total: 1, capturados: 0 });
+});
+
+test('Santiagodex v1.4: la foto propia captura (también sin haber llegado) e insignias por comuna', () => {
+  const parque = { id: 'p1', tipo: 'parque', comuna: 'Ñuñoa' };
+  const museo = { id: 'm1', tipo: 'museo', comuna: 'Ñuñoa' };
+  const estado = { capturados: { p1: { fecha: '2026-10-30T20:00:00Z', como: 'gps' } }, vistos: {} };
+  capturarConFoto(estado, parque, '2026-10-31T10:00:00Z');
+  assert.equal(estadoDe(parque, estado), 'capturado');
+  assert.deepEqual(estado.capturados.p1, { fecha: '2026-10-30T20:00:00Z', como: 'gps', foto: '2026-10-31T10:00:00Z' });
+  // Un lugar que ya conocías: se captura subiendo una foto, sin paseo.
+  capturarConFoto(estado, museo, '2026-10-31T11:00:00Z');
+  assert.equal(estadoDe(museo, estado), 'capturado');
+  assert.equal(estado.capturados.m1.como, 'foto');
+  assert.deepEqual(avanceDex([parque, museo], estado).porComuna['Ñuñoa'], { total: 2, capturados: 2 });
+  assert.deepEqual(insigniasDe(0.1), []);
+  assert.deepEqual(insigniasDe(0.5), [25, 50]);
+  assert.deepEqual(insigniasDe(1), [25, 50, 100]);
 });
 
 test('distancia de prueba sana', () => {

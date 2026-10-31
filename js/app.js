@@ -23,6 +23,8 @@ import { nombreLugar, tipoLugar, nombreEstacion, ICONO_TIPO } from './plazas.js'
 import { cargarDatos, cargarTramites, cargarMetro, cargarComunas, cargarDelitos, cargarDex } from './datos.js';
 import { radioCaptura, revisarRecorrido, anotarRecorrido, numeroDex, estadoDe } from './dex.js';
 import { iniciarDex } from './pantalla-dex.js';
+import { pedirFoto } from './captura.js';
+import { fotosParaRespaldo, restaurarFotos } from './fotos.js';
 import { dibujarPostal } from './postal.js';
 import { comunasDeRuta, textoDelitos, LIMITES_DELITOS } from './territorio.js';
 import { resumir, textoComparacion, TEXTOS_ESTILO } from './explicar.js';
@@ -804,13 +806,13 @@ async function salirSorpresa(punto, rango, aviso) {
 }
 
 // "Ir a capturarlo" (Santiagodex): ida y vuelta desde donde estás hasta ese lugar, por otras calles a la vuelta.
-async function irACapturar(lugar) {
-  const aviso = $('#estado-dex');
+// `aviso` es donde se cuenta el avance (la ficha del lugar).
+async function irACapturar(lugar, aviso = $('#estado-dex')) {
   try {
     mostrarEstado(aviso, 'Buscando tu ubicación…');
     const punto = await ubicacionActual();
     const d = distancia(punto, lugar.punto);
-    if (d < 60) return mostrarEstado(aviso, 'Ya estás ahí: camina hasta el lugar o márcalo con "Ya lo conocía".');
+    if (d < 60) return mostrarEstado(aviso, 'Ya estás ahí: sácale una foto para capturarlo.');
     if (d > 8000) {
       return mostrarEstado(aviso, `Está a ${formatearDistancia(d)} en línea recta. Mejor ve en metro y arma el paseo desde la estación más cercana (Armar → Partida: una estación de metro).`, true);
     }
@@ -1180,20 +1182,40 @@ function revisarCapturas(punto) {
   if (!nuevosCapturados.length) return;
   almacen.guardarDex(d);
   estado.capturasPaseo.push(...nuevosCapturados);
+  // Llegar deja el lugar como "falta la foto": se captura al sacarle una foto (ahora o después, desde la Dex).
   const sorpresa = revelado && nuevosCapturados.find((l) => l.id === revelado.id);
   const l = sorpresa || nuevosCapturados[0];
-  avisoCaptura(sorpresa
-    ? `🎉 El lugar sorpresa era ${l.nombre}: ¡capturado! (${numeroDex(l.numero)} de tu Santiagodex)`
-    : `${ICONO_TIPO[l.tipo] || '⭐'} ¡Capturaste ${l.nombre}! (${numeroDex(l.numero)} de tu Santiagodex)`);
-  if (vozActiva()) voz.decir(sorpresa ? 'Y queda capturado en tu Santiagodex.' : `Capturaste ${l.nombre} para tu Santiagodex.`, { interrumpir: false });
+  avisoCaptura(
+    sorpresa
+      ? `🎉 El lugar sorpresa era ${l.nombre} (${numeroDex(l.numero)}). Sácale una foto para capturarlo.`
+      : `📍 Llegaste a ${l.nombre} (${numeroDex(l.numero)}). Sácale una foto para capturarlo.`,
+    l,
+  );
+  if (vozActiva()) voz.decir(`Llegaste a ${l.nombre}. Sácale una foto para tu Santiagodex.`, { interrumpir: false });
 }
 
-// Aviso sobre la barra del paseo (capturas y el lugar sorpresa).
-function avisoCaptura(texto) {
+// Aviso sobre la barra del paseo (llegadas y el lugar sorpresa). Con `lugar`, ofrece sacarle la foto ahora; si no
+// es buen momento, "Después" lo deja como "falta la foto".
+function avisoCaptura(texto, lugar = null) {
   $('#captura-texto').textContent = texto;
-  $('#captura-botones').hidden = true;
+  $('#captura-botones').hidden = !lugar;
   $('#captura-aviso').hidden = false;
+  estado.lugarPorFotografiar = lugar;
 }
+
+$('#captura-foto').addEventListener('click', () => {
+  const l = estado.lugarPorFotografiar;
+  if (!l) return;
+  pedirFoto(l, true, (err) => {
+    if (err) return avisoCaptura('No se pudo guardar la foto. Puedes subirla después desde la Dex.');
+    avisoCaptura(`📸 ¡${l.nombre} capturado! (${numeroDex(l.numero)} de tu Santiagodex)`);
+  });
+});
+
+$('#captura-despues').addEventListener('click', () => {
+  $('#captura-aviso').hidden = true;
+  estado.lugarPorFotografiar = null;
+});
 
 function revelarSorpresa(o) {
   o.misterio = false;
@@ -1548,11 +1570,13 @@ async function pintarDexResumen(registro) {
     estado.ultimoResumen.capturas = capturas;
     if (!capturas.length && !nuevosVistos.length) return;
     const total = dexLista.filter((l) => estadoDe(l, d) === 'capturado').length;
+    const sinFoto = capturas.filter((l) => estadoDe(l, d) === 'falta').length;
     caja.innerHTML =
       (capturas.length
-        ? `<h3>¡Nuevo en tu Santiagodex!</h3><ul class="explicacion">${capturas
-            .map((l) => `<li>${numeroDex(l.numero)} ${ICONO_TIPO[l.tipo] || ''} ${escapar(l.nombre)}</li>`)
-            .join('')}</ul>`
+        ? `<h3>¡Llegaste a lugares de tu Santiagodex!</h3><ul class="explicacion">${capturas
+            .map((l) => `<li>${numeroDex(l.numero)} ${ICONO_TIPO[l.tipo] || ''} ${escapar(l.nombre)}${estadoDe(l, d) === 'capturado' ? ' 📸 capturado' : ' (falta la foto)'}</li>`)
+            .join('')}</ul>` +
+          (sinFoto ? '<p>Para capturarlos, sube tu foto desde la Dex (filtro "Sin foto"), también desde la galería.</p>' : '')
         : '') +
       (nuevosVistos.length ? `<p>Pasaste cerca de ${nuevosVistos.length === 1 ? '1 lugar' : `${nuevosVistos.length} lugares`} sin llegar: quedan como vistos.</p>` : '') +
       `<p class="ayuda">Llevas ${total} de ${dexLista.length.toLocaleString('es-CL')} capturados.</p>`;
@@ -1710,10 +1734,25 @@ $('#agregar-lugar').addEventListener('toggle', () => {
   if ($('#agregar-lugar').open) crearBuscador($('#lugar-buscador'), (r) => guardarLugar(r.punto, r.corto));
 });
 
-function exportarRespaldo() {
-  const texto = JSON.stringify(almacen.respaldo());
+// El respaldo lleva las fotos de la Santiagodex como texto. Si no se pueden leer, sale sin ellas y lo avisa.
+async function exportarRespaldo() {
+  let fotos = {};
+  let sinFotos = false;
+  try {
+    fotos = await fotosParaRespaldo();
+  } catch (err) {
+    console.error(err);
+    sinFotos = true;
+  }
+  const texto = JSON.stringify({ ...almacen.respaldo(), fotos });
   descargar(new File([texto], `paseos-respaldo-${new Date().toISOString().slice(0, 10)}.json`, { type: 'application/json' }));
   almacen.guardarAjustes({ ultimoRespaldo: new Date().toISOString() });
+  const n = Object.keys(fotos).length;
+  mostrarEstado(
+    $('#estado-respaldo'),
+    sinFotos ? 'Respaldo descargado, pero sin las fotos: no se pudieron leer.' : `Respaldo descargado${n ? ` con ${n} ${n === 1 ? 'foto' : 'fotos'}` : ''}.`,
+    sinFotos,
+  );
 }
 
 $('#exportar').addEventListener('click', exportarRespaldo);
@@ -1724,12 +1763,15 @@ $('#importar').addEventListener('change', async (e) => {
   if (!archivo) return;
   const aviso = $('#estado-respaldo');
   try {
-    const agregados = almacen.restaurar(JSON.parse(await archivo.text()));
+    const datos = JSON.parse(await archivo.text());
+    const agregados = almacen.restaurar(datos);
+    const fotos = await restaurarFotos(datos.fotos);
     alCambiarLugares();
     mostrarEstado(
       aviso,
-      `${agregados.lugares === 1 ? 'Se agregó 1 lugar' : `Se agregaron ${agregados.lugares} lugares`} y ` +
-        `${agregados.paseos === 1 ? '1 paseo' : `${agregados.paseos} paseos`}. ` +
+      `${agregados.lugares === 1 ? 'Se agregó 1 lugar' : `Se agregaron ${agregados.lugares} lugares`}, ` +
+        `${agregados.paseos === 1 ? '1 paseo' : `${agregados.paseos} paseos`} y ` +
+        `${fotos === 1 ? '1 foto' : `${fotos} fotos`} de la Santiagodex. ` +
         `Tienes ${almacen.conocidas().size} cuadras marcadas como conocidas.`,
     );
   } catch (err) {
@@ -1747,6 +1789,7 @@ function cargarAjustes() {
   $('#energico').value = aj.energicoKmh;
   $('#ppm').value = aj.ppm;
   $('#ver-estaciones').checked = Boolean(aj.verEstaciones);
+  $('#ver-nombres-dex').checked = Boolean(aj.verNombresDex);
   $('#peso').value = aj.peso ?? '';
   mostrarEstado($('#estado-ajustes'), '');
 }
@@ -1788,7 +1831,15 @@ $('#form-ajustes').addEventListener('submit', (e) => {
   }
   const metaActual = estadoSemanas([], almacen.metas().lista).meta;
   if (textoMeta !== '' && meta !== metaActual) almacen.guardarMetas({ lista: conMeta(almacen.metas().lista, meta) });
-  almacen.guardarAjustes({ largoPaso, velocidadKmh, peso, energicoKmh, ppm, verEstaciones: $('#ver-estaciones').checked });
+  almacen.guardarAjustes({
+    largoPaso,
+    velocidadKmh,
+    peso,
+    energicoKmh,
+    ppm,
+    verEstaciones: $('#ver-estaciones').checked,
+    verNombresDex: $('#ver-nombres-dex').checked,
+  });
   aplicarEstaciones();
   actualizarAyudaDuracion();
   mostrarEstado(aviso, 'Guardado.');

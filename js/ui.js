@@ -34,7 +34,8 @@ export function descargar(archivo) {
   enlace.href = URL.createObjectURL(archivo);
   enlace.download = archivo.name;
   enlace.click();
-  setTimeout(() => URL.revokeObjectURL(enlace.href), 1000);
+  // Un minuto de margen: el respaldo con fotos pesa varios MB y el celular puede tardar en leerlo.
+  setTimeout(() => URL.revokeObjectURL(enlace.href), 60000);
 }
 
 const fechaCorta = new Intl.DateTimeFormat('es-CL', { weekday: 'short', day: 'numeric', month: 'short' });

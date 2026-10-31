@@ -501,16 +501,86 @@ body.siguiendo .arriba-paseo { display: flex; }
 .captura-aviso p { margin: 0; }
 .captura-aviso .fila { margin-top: 8px; }
 
-/* Santiagodex */
+/* Santiagodex: un álbum de cartas con un color por tipo */
 #dex-barra { height: 100%; width: 0; background: var(--buena); transition: width 0.4s ease; }
-.dex .entrada .paseo { flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; text-align: left; background: none; border: 0; padding: 4px 0; color: var(--texto); cursor: pointer; min-width: 0; }
-.dex .entrada .secundario { margin: 0; font-size: 13px; }
-.dex .entrada.nuevo strong { color: var(--texto-suave); font-weight: 600; }
-.dex .entrada.capturado strong { color: var(--buena); }
-.dex .marca { width: 28px; text-align: center; font-weight: 800; color: var(--buena); }
-.ficha h3 { font-size: 17px; }
-.ficha .botones-fila { margin: 8px 0 0; }
-.ficha .botones-fila > * { flex: 1 1 140px; }
+[data-tipo="museo"] { --tipo: #8e44ad; }
+[data-tipo="mirador"] { --tipo: #0277bd; }
+[data-tipo="cerro"] { --tipo: #795548; }
+[data-tipo="historia"] { --tipo: #b7791f; }
+[data-tipo="arte"] { --tipo: #c2185b; }
+[data-tipo="cultura"] { --tipo: #d35400; }
+[data-tipo="atraccion"] { --tipo: #00897b; }
+[data-tipo="parque"] { --tipo: #2e7d32; }
+[data-tipo="plaza"] { --tipo: #558b2f; }
+[data-tipo="juegos"] { --tipo: #f9a825; }
+#dex-buscar { margin: 4px 0 10px; }
+.dex-filtros span { font-size: 14px; }
+.album { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 6px 0 10px; }
+@media (min-width: 480px) { .album { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.carta {
+  display: flex; flex-direction: column; align-items: stretch; gap: 2px; padding: 0 0 6px; text-align: left;
+  border: 2px solid var(--tipo, var(--borde)); border-radius: 12px; background: var(--fondo); color: var(--texto);
+  overflow: hidden; cursor: pointer; min-width: 0;
+}
+.carta.nuevo, .carta.visto { border-style: dashed; background: var(--fondo-suave); }
+.carta-foto {
+  position: relative; display: flex; align-items: center; justify-content: center; aspect-ratio: 1;
+  background: color-mix(in srgb, var(--tipo, #888) 18%, var(--fondo)); overflow: hidden;
+}
+.carta.nuevo .carta-foto, .carta.visto .carta-foto { background: var(--fondo-suave); }
+.carta-foto img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.icono-tipo { font-size: 34px; line-height: 1; }
+/* Silueta: el ícono en negro tenue, como una carta que todavía no tienes. */
+.icono-tipo.silueta { filter: grayscale(1) brightness(0); opacity: 0.22; }
+.carta-incognita {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 30px; font-weight: 800; color: var(--texto-suave);
+}
+.carta-foto img ~ .carta-incognita { display: none; }
+.carta-marca {
+  position: absolute; left: 4px; bottom: 4px; z-index: 1; font-size: 10px; font-weight: 700; padding: 2px 6px;
+  border-radius: 999px; background: rgba(0, 0, 0, 0.6); color: #fff;
+}
+.carta-num { font-size: 11px; font-weight: 700; color: var(--tipo, var(--texto-suave)); padding: 4px 6px 0; }
+.carta-nombre {
+  font-size: 13px; font-weight: 700; line-height: 1.2; padding: 0 6px; overflow: hidden;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+.carta.nuevo .carta-nombre { color: var(--texto-suave); }
+.carta-pie { font-size: 11px; color: var(--texto-suave); padding: 0 6px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+/* Ficha a pantalla completa */
+.ficha h1 { font-size: 24px; margin: 2px 0 4px; }
+.ficha-foto { border-radius: var(--radio); margin: 4px 0 6px; aspect-ratio: 4 / 3; }
+.ficha-foto .icono-tipo { font-size: 72px; }
+.ficha-foto .carta-incognita { font-size: 64px; }
+.ficha-credito { font-size: 12px; color: var(--texto-suave); margin: 0 0 8px; }
+.ficha-credito a { color: inherit; }
+.ficha-num { margin: 0; font-weight: 800; color: var(--tipo); }
+.chip-tipo {
+  display: inline-block; margin-left: 6px; padding: 2px 10px; border-radius: 999px; font-size: 13px; font-weight: 700;
+  background: var(--tipo); color: #fff;
+}
+.ficha-estado { font-weight: 700; margin: 4px 0 0; }
+.ficha-estado.capturado { color: var(--buena); }
+.ficha-estado.falta { color: var(--alerta-texto); background: var(--alerta-fondo); border-radius: 10px; padding: 8px 12px; }
+.ficha-historia { margin-top: 18px; }
+.ficha-historia p { font-size: 15px; line-height: 1.5; margin: 0 0 6px; }
+.ficha-historia a { color: var(--acento); font-weight: 700; }
+.boton-texto.peligro { color: var(--peligro); align-self: center; }
+.archivo-oculto { position: fixed; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+/* Regiones */
+.regiones li { padding: 0; }
+.region {
+  flex: 1; display: flex; align-items: center; gap: 8px; background: none; border: 0; padding: 10px 0; min-height: 48px;
+  color: var(--texto); text-align: left; cursor: pointer;
+}
+.region .nombre { flex: 1; font-weight: 700; }
+.region .secundario { margin: 0; font-size: 13px; }
+.insignias { display: flex; gap: 2px; font-size: 20px; }
+.insignia { filter: grayscale(1); opacity: 0.25; }
+.insignia.ganada { filter: none; opacity: 1; }
 .avance li { gap: 10px; }
 .avance .nombre { flex: 0 0 38%; }
 .avance .barrita { flex: 1; height: 8px; border-radius: 4px; background: var(--fondo-suave); overflow: hidden; }
