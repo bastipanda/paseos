@@ -4,8 +4,12 @@ import { Mapa, escapar, COLORES } from './mapa.js';
 import * as almacen from './almacen.js';
 import { buscarDireccion } from './busqueda.js';
 import { cargarEstaciones } from './bikeitau.js';
-import { paseosAPie, paseosConBici, paseosAPlaza, caminoCorto } from './generador.js';
+import { paseosAPie, paseosConBici, paseosAPlaza, caminoCorto, recetaDe, rehacerOpcion } from './generador.js';
 import { ErrorDeRuta } from './brouter.js';
+import { $, mostrarEstado, mensajeDeError, compartirODescargar, descargar } from './ui.js';
+import { crearRegistro, estadoSemanas, conMeta } from './historial.js';
+import { iniciarHoy } from './pantalla-hoy.js';
+import { iniciarHistorial } from './pantalla-historial.js';
 import { nombreLugar, tipoLugar } from './plazas.js';
 import { cargarDatos } from './datos.js';
 import { resumir, textoComparacion, TEXTOS_ESTILO } from './explicar.js';
@@ -20,6 +24,7 @@ import {
   rangoEnMetros,
   resumen,
   tienePeso,
+  kcalSubida,
   formatearPasos,
   formatearDistancia,
   formatearMinutos,
@@ -27,12 +32,11 @@ import {
 } from './duracion.js';
 import { Seguimiento, ubicacionActual } from './seguimiento.js';
 
-const $ = (selector) => document.querySelector(selector);
 const panel = $('#panel');
 const mapa = new Mapa('mapa');
 
 const estado = {
-  vista: 'formulario',
+  vista: 'hoy',
   // Puntos elegidos en el mapa o con el buscador: { punto, etiqueta, origen: 'mapa' | 'buscar' }.
   puntos: { partida: null, termino: null },
   opciones: [],
@@ -49,19 +53,25 @@ const estado = {
 function irA(vista) {
   if (estado.esperando) terminarEspera();
   if (estado.seguimiento && vista !== 'seguimiento') terminarSeguimiento(false);
-  $('#marcar-caminado').hidden = true;
   estado.vista = vista;
   document.querySelectorAll('.vista').forEach((v) => {
     v.hidden = v.dataset.vista !== vista;
   });
+  document.querySelectorAll('.barra [data-ir]').forEach((b) => b.classList.toggle('activo', b.dataset.ir === vista));
   panel.classList.remove('chico', 'grande');
-  // En resultados y seguimiento el panel es más bajo para que se vea la ruta.
-  panel.classList.toggle('compacto', vista === 'resultados' || vista === 'seguimiento');
+  // En resultados, seguimiento y resumen el panel es más bajo para que se vea la ruta.
+  panel.classList.toggle('compacto', ['resultados', 'seguimiento', 'resumen'].includes(vista));
   panel.scrollTop = 0;
+  if (vista === 'hoy') {
+    mapa.limpiarRuta();
+    mapa.mostrarPuntos(null, null);
+    hoy.mostrar();
+  }
   if (vista === 'formulario') {
     mapa.limpiarRuta();
     actualizarMarcadores();
   }
+  if (vista === 'historial') historial.mostrar();
   if (vista === 'lugares') {
     mapa.limpiarRuta();
     mostrarLugares();
@@ -69,24 +79,16 @@ function irA(vista) {
   if (vista === 'ajustes') cargarAjustes();
 }
 
+// Cuánto tapa el panel. En el celular se calcula con el alto final del panel (no el de ese instante), porque al
+// cambiar de vista el panel se achica con una animación y el mapa se encuadraría mal.
 function margenesPanel() {
   if (window.innerWidth >= 720) return { izquierda: panel.offsetWidth + 16, abajo: 0 };
-  return { izquierda: 0, abajo: panel.offsetHeight };
+  const tope = panel.classList.contains('chico') ? 74 : window.innerHeight * (panel.classList.contains('compacto') ? 0.46 : 0.62);
+  return { izquierda: 0, abajo: Math.min(panel.scrollHeight, tope) };
 }
 
 $('#asa').addEventListener('click', () => panel.classList.toggle('chico'));
 document.querySelectorAll('[data-ir]').forEach((b) => b.addEventListener('click', () => irA(b.dataset.ir)));
-
-function mostrarEstado(elemento, texto, esError = false) {
-  elemento.textContent = texto;
-  elemento.classList.toggle('error', esError);
-}
-
-function mensajeDeError(err) {
-  if (err instanceof ErrorDeRuta) return err.message;
-  if (err instanceof TypeError) return 'No hay conexión o un servicio no respondió. Intenta de nuevo.';
-  return err?.message || 'Algo falló.';
-}
 
 // ---------- Elegir puntos en el mapa ----------
 
@@ -492,6 +494,50 @@ function restaurarFormulario() {
 
 // ---------- Buscar rutas ----------
 
+// Preferencias del paseo según el formulario (también las usa "Salir ahora", con lo último que se eligió).
+function prefsDelFormulario(datos) {
+  return {
+    estilo: estiloElegido(),
+    evitarSubidas: $('#evitar-subidas').checked,
+    pasarPor: pasarPorElegido(),
+    datos,
+    conocidas: $('#explorar').checked ? almacen.conocidas() : null,
+  };
+}
+
+// Busca opciones y las muestra. `pedir(avance, prefs)` llama al generador que corresponda; `aviso` es donde se
+// cuenta el avance; `origen` es la vista a la que vuelve "Cambiar búsqueda".
+async function buscarYMostrar({ pedir, aviso, origen, prefsExtra = {} }) {
+  if (estado.buscando) return;
+  estado.buscando = true;
+  try {
+    // Plazas, lugares interesantes, comercio y servicios: para "Pasar por…", las explicaciones y el modo plaza.
+    mostrarEstado(aviso, 'Cargando lugares…');
+    const datos = await cargarDatos();
+    const prefs = { ...prefsDelFormulario(datos), ...prefsExtra };
+    let consultas = 0;
+    const avance = () => {
+      consultas++;
+      mostrarEstado(aviso, `Calculando rutas… (${consultas} consultas)`);
+    };
+    const opciones = await pedir(avance, prefs, datos);
+    if (!opciones.length) throw new ErrorDeRuta('No encontré rutas. Prueba con otra duración o con otro punto.');
+    for (const o of opciones) o.explicacion = resumir(o, { pasarPor: prefs.pasarPor });
+    estado.comparaciones = new Map();
+    estado.opciones = opciones;
+    estado.indice = 0;
+    estado.origenBusqueda = origen;
+    mostrarEstado(aviso, '');
+    irA('resultados');
+    mostrarOpcion();
+  } catch (err) {
+    console.error(err);
+    mostrarEstado(aviso, mensajeDeError(err), true);
+  } finally {
+    estado.buscando = false;
+  }
+}
+
 $('#formulario').addEventListener('submit', async (e) => {
   e.preventDefault();
   if (estado.buscando) return;
@@ -506,7 +552,6 @@ $('#formulario').addEventListener('submit', async (e) => {
     return;
   }
   guardarFormulario();
-  estado.buscando = true;
   boton.disabled = true;
   boton.textContent = 'Buscando…';
   try {
@@ -514,49 +559,68 @@ $('#formulario').addEventListener('submit', async (e) => {
     const tipoTermino = $('#termino-tipo').value;
     const partida = await resolverPunto('partida');
     const termino = tipoTermino === 'igual' || tipoTermino === 'plaza' ? partida : await resolverPunto('termino');
-    // Plazas, lugares interesantes, comercio y servicios: para "Pasar por…", las explicaciones y el modo plaza.
-    mostrarEstado(aviso, 'Cargando lugares…');
-    const datos = await cargarDatos();
-    const prefs = {
-      estilo: estiloElegido(),
-      evitarSubidas: $('#evitar-subidas').checked,
-      pasarPor: pasarPorElegido(),
-      datos,
-      conocidas: $('#explorar').checked ? almacen.conocidas() : null,
-    };
-    let consultas = 0;
-    const avance = () => {
-      consultas++;
-      mostrarEstado(aviso, `Calculando rutas… (${consultas} consultas)`);
-    };
-    let opciones;
-    if (tipoTermino === 'plaza') {
-      if (!datos.plazas.length) throw new Error('No se pudo cargar la lista de plazas. Intenta de nuevo.');
-      opciones = await paseosAPlaza({ inicio: partida.punto, rango, plazas: datos.plazas, avance, prefs });
-    } else if ($('#con-bici').checked) {
-      mostrarEstado(aviso, 'Revisando las estaciones Bike Itaú…');
-      const estaciones = await cargarEstaciones({ forzar: true });
-      opciones = await paseosConBici({ inicio: partida.punto, fin: termino.punto, rango, estaciones, avance, prefs });
-    } else {
-      opciones = await paseosAPie({ inicio: partida.punto, fin: termino.punto, rango, avance, prefs });
-    }
-    if (!opciones.length) throw new ErrorDeRuta('No encontré rutas. Prueba con otra duración o con otro punto.');
-    for (const o of opciones) o.explicacion = resumir(o, { pasarPor: prefs.pasarPor });
-    estado.comparaciones = new Map();
-    estado.opciones = opciones;
-    estado.indice = 0;
-    mostrarEstado(aviso, '');
-    irA('resultados');
-    mostrarOpcion();
+    const conBici = $('#con-bici').checked;
+    await buscarYMostrar({
+      aviso,
+      origen: 'formulario',
+      pedir: async (avance, prefs, datos) => {
+        if (tipoTermino === 'plaza') {
+          if (!datos.plazas.length) throw new Error('No se pudo cargar la lista de plazas. Intenta de nuevo.');
+          return paseosAPlaza({ inicio: partida.punto, rango, plazas: datos.plazas, avance, prefs });
+        }
+        if (conBici) {
+          mostrarEstado(aviso, 'Revisando las estaciones Bike Itaú…');
+          const estaciones = await cargarEstaciones({ forzar: true });
+          return paseosConBici({ inicio: partida.punto, fin: termino.punto, rango, estaciones, avance, prefs });
+        }
+        return paseosAPie({ inicio: partida.punto, fin: termino.punto, rango, avance, prefs });
+      },
+    });
   } catch (err) {
     console.error(err);
     mostrarEstado(aviso, mensajeDeError(err), true);
   } finally {
-    estado.buscando = false;
     boton.disabled = false;
     boton.textContent = 'Buscar rutas';
   }
 });
+
+// "Salir ahora" (pantalla Hoy): ida y vuelta desde tu ubicación, de unos `minutos` (±12 %), con lo último que
+// elegiste en el formulario (estilo, pasar por, explorar).
+async function salirAhora(minutos) {
+  const aviso = $('#estado-salir');
+  if (estado.buscando) return;
+  const aj = almacen.ajustes();
+  const metros = aMetros(minutos, 'minutos', aj);
+  try {
+    mostrarEstado(aviso, 'Buscando tu ubicación…');
+    const punto = await ubicacionActual();
+    await buscarYMostrar({
+      aviso,
+      origen: 'hoy',
+      pedir: (avance, prefs) => paseosAPie({ inicio: punto, fin: punto, rango: { min: metros * 0.88, max: metros * 1.12 }, avance, prefs }),
+    });
+  } catch (err) {
+    mostrarEstado(aviso, mensajeDeError(err), true);
+  }
+}
+
+// Abre una ruta favorita: la pide otra vez a BRouter con los mismos puntos.
+async function abrirFavorita(favorita) {
+  const aviso = $('#estado-salir');
+  await buscarYMostrar({
+    aviso,
+    origen: 'hoy',
+    pedir: async (avance, prefs) => {
+      mostrarEstado(aviso, `Pidiendo "${favorita.nombre}"…`);
+      const opcion = await rehacerOpcion(favorita.receta, prefs);
+      opcion.favorita = favorita.id;
+      return [opcion];
+    },
+  });
+}
+
+$('#cambiar-busqueda').addEventListener('click', () => irA(estado.origenBusqueda || 'formulario'));
 
 // ---------- Resultados ----------
 
@@ -587,10 +651,11 @@ function mostrarOpcion() {
   const textosEstilo = TEXTOS_ESTILO[estilo];
   const pie = resumen(o.metrosPie, aj);
   const subida = o.partes.filter((p) => p.modo === 'pie').reduce((s, p) => s + (p.ruta.subida || 0), 0);
+  const kcal = pie.kcal === null ? null : pie.kcal + kcalSubida(subida, aj);
   const detalles = [
     `${formatearDistancia(pie.metros)} a pie`,
     `${formatearMinutos(pie.minutos)} caminando`,
-    pie.kcal !== null && `≈ ${formatearKcal(pie.kcal)}`,
+    kcal !== null && `≈ ${formatearKcal(kcal)}`,
     o.metrosBici && `${formatearDistancia(o.metrosBici)} en bici`,
     subida >= 10 && `sube ${Math.round(subida)} m`,
   ].filter(Boolean);
@@ -628,6 +693,8 @@ function mostrarOpcion() {
   <p class="ayuda">Toca un tramo de la ruta en el mapa para ver qué tipo de calle es.</p>`;
   $('#detalle-opcion').innerHTML = html;
   mostrarEstado($('#estado-resultados'), '');
+  pintarBotonFavorita();
+  $('#cambiar-busqueda').textContent = estado.origenBusqueda === 'hoy' ? 'Volver' : 'Cambiar búsqueda';
   mapa.dibujarOpcion(o, margenesPanel());
   mostrarComparacion(o);
 }
@@ -709,20 +776,43 @@ $('#exportar-gpx').addEventListener('click', async () => {
   const texto = crearGpx(o, { nombre, fecha });
   const archivo = new File([texto], nombreArchivo(fecha), { type: 'application/gpx+xml' });
   // En el celular se intenta abrir el menú de compartir para elegir OsmAnd u Organic Maps directamente.
-  if (navigator.canShare?.({ files: [archivo] })) {
-    try {
-      await navigator.share({ files: [archivo], title: nombre });
-      return;
-    } catch (err) {
-      if (err.name === 'AbortError') return;
-    }
-  }
-  const enlace = document.createElement('a');
-  enlace.href = URL.createObjectURL(archivo);
-  enlace.download = archivo.name;
-  enlace.click();
-  setTimeout(() => URL.revokeObjectURL(enlace.href), 1000);
+  await compartirODescargar(archivo, nombre);
 });
+
+// ---------- Rutas favoritas ----------
+
+function nombrePorDefecto(o) {
+  const aj = almacen.ajustes();
+  const minutos = Math.round(desdeMetros(o.metrosPie, 'minutos', aj) / 5) * 5;
+  if (o.plaza) return `${nombreLugar(o.plaza)} (${minutos} min)`;
+  const coords = o.partes[0].ruta.coords;
+  const circular = distancia(coords[0], o.partes.at(-1).ruta.coords.at(-1)) < 80;
+  return `${circular ? 'Vuelta' : 'Paseo'} de ${minutos} min (${ESTILO_NOMBRE[o.estilo] || 'Tranquilo'})`;
+}
+
+// Guarda la opción como favorita, con un nombre que elige Bastián. Devuelve el texto para mostrar.
+function guardarFavorita(o) {
+  if (o.favorita) return 'Esta ruta ya está en tus favoritas.';
+  const receta = recetaDe(o);
+  if (!receta) return 'Las rutas con Bike Itaú no se guardan como favoritas: dependen de las bicis de ese momento.';
+  const nombre = prompt('Nombre de la ruta favorita', nombrePorDefecto(o));
+  if (!nombre || !nombre.trim()) return '';
+  const favorita = { id: `f${Date.now()}`, nombre: nombre.trim(), creada: new Date().toISOString(), metros: Math.round(o.metrosPie), receta };
+  if (!almacen.agregarFavorita(favorita)) return 'No se pudo guardar: el navegador no tiene espacio.';
+  o.favorita = favorita.id;
+  return `Guardada en favoritas: aparece en la pantalla Hoy.`;
+}
+
+$('#guardar-favorita').addEventListener('click', () => {
+  const texto = guardarFavorita(estado.opciones[estado.indice]);
+  if (texto) mostrarEstado($('#estado-resultados'), texto);
+  pintarBotonFavorita();
+});
+
+function pintarBotonFavorita() {
+  const o = estado.opciones[estado.indice];
+  $('#guardar-favorita').textContent = o?.favorita ? '★ Favorita' : '☆ Favorita';
+}
 
 $('#anterior').addEventListener('click', () => {
   if (estado.indice > 0) {
@@ -754,6 +844,8 @@ $('#empezar').addEventListener('click', () => {
   pintarBotonVoz();
   // Hablar dentro del toque en "Empezar" deja la voz habilitada en el celular para el resto del paseo.
   if (vozActiva()) voz.decir('Comienza el paseo');
+  estado.opcionSeguida = opcion;
+  estado.ultimoGuardado = Date.now();
   estado.seguimiento = new Seguimiento(opcion, {
     alActualizar: actualizarSeguimiento,
     alError: (mensaje) => {
@@ -764,9 +856,37 @@ $('#empezar').addEventListener('click', () => {
   estado.seguimiento.iniciar();
 });
 
+// Lo mínimo para rearmar el paseo si el navegador se cierra sin "Terminar" (se guarda cada 20 segundos).
+function datosEnCurso(seguimiento, opcion) {
+  const r5 = (x) => Math.round(x * 1e5) / 1e5;
+  return {
+    inicio: seguimiento.inicio,
+    titulo: tituloPaseo(opcion),
+    estilo: opcion.estilo,
+    metrosRuta: opcion.metrosPie,
+    subidaRuta: subidaDe(opcion),
+    rastro: seguimiento.rastro.map(({ p, t }) => [r5(p[0]), r5(p[1]), t]),
+  };
+}
+
+const subidaDe = (o) => o.partes.filter((p) => p.modo === 'pie').reduce((s, p) => s + (p.ruta.subida || 0), 0);
+
+function tituloPaseo(o) {
+  const favorita = o.favorita && almacen.favoritas().find((f) => f.id === o.favorita);
+  if (favorita) return favorita.nombre;
+  if (o.plaza) return `A ${nombreLugar(o.plaza)}`;
+  if (o.estacionSalida) return 'Paseo con Bike Itaú';
+  const coords = o.partes[0].ruta.coords;
+  return distancia(coords[0], o.partes.at(-1).ruta.coords.at(-1)) < 80 ? 'Vuelta' : 'Paseo';
+}
+
 function actualizarSeguimiento(d) {
   const aj = almacen.ajustes();
   const f = d.faltante;
+  if (Date.now() - estado.ultimoGuardado > 20000 && estado.seguimiento) {
+    estado.ultimoGuardado = Date.now();
+    almacen.guardarPaseoEnCurso(datosEnCurso(estado.seguimiento, estado.opcionSeguida));
+  }
   mapa.mostrarYo(d.punto, d.precision);
   if (estado.seguirme) mapa.centrarEn(d.punto);
   $('#modo-actual').textContent = f.modoActual === 'bici' ? 'Tramo en bici' : 'Tramo a pie';
@@ -842,6 +962,8 @@ $('#centrar').addEventListener('click', () => {
   if (mapa.yo) mapa.centrarEn([mapa.yo.getLatLng().lat, mapa.yo.getLatLng().lng]);
 });
 
+// Termina el paseo, lo guarda en el historial y muestra el resumen. Con `volver = false` (al salir de la vista por
+// otro camino) igual se guarda, para no perder lo caminado.
 function terminarSeguimiento(volver = true) {
   voz.callar();
   const seguimiento = estado.seguimiento;
@@ -849,19 +971,76 @@ function terminarSeguimiento(volver = true) {
   estado.seguimiento = null;
   mapa.ocultarYo();
   document.body.classList.remove('siguiendo');
-  if (volver) {
+  if (!seguimiento) return;
+  const registro = guardarPaseo(datosEnCurso(seguimiento, estado.opcionSeguida));
+  if (!volver) return;
+  if (!registro) {
     irA('resultados');
     mostrarOpcion();
-    ofrecerMarcarCaminado(seguimiento);
+    mostrarEstado($('#estado-resultados'), 'No se guardó en el historial: el paseo fue muy corto (menos de 100 m o de 1 minuto).');
+    return;
   }
+  mostrarResumen(registro, seguimiento, estado.opcionSeguida);
+}
+
+// Convierte los datos de un paseo (en curso o que quedó pendiente) en un registro del historial y lo guarda.
+// Devuelve el registro, o null si fue demasiado corto para contarlo.
+function guardarPaseo(datos) {
+  almacen.borrarPaseoEnCurso();
+  const rastro = (datos.rastro || []).map(([lat, lon, t]) => ({ p: [lat, lon], t }));
+  if (rastro.length < 2) return null;
+  const aj = almacen.ajustes();
+  const previo = crearRegistro({ rastro, inicio: datos.inicio, fin: rastro.at(-1).t, ajustes: aj, titulo: datos.titulo, estilo: datos.estilo });
+  if (previo.metros < 100 || previo.minutos < 1) return null;
+  // La subida se estima con la de la ruta, en proporción a lo caminado (la altura del GPS no es confiable).
+  const subida = datos.subidaRuta ? datos.subidaRuta * Math.min(1, previo.metros / (datos.metrosRuta || previo.metros)) : 0;
+  const registro = subida ? crearRegistro({ rastro, inicio: datos.inicio, fin: rastro.at(-1).t, ajustes: aj, titulo: datos.titulo, estilo: datos.estilo, subida }) : previo;
+  if (!almacen.agregarAlHistorial(registro)) {
+    alert('No se pudo guardar el paseo: el navegador no tiene espacio o bloquea el almacenamiento. Descarga un respaldo.');
+  }
+  return registro;
+}
+
+// ---------- Resumen al terminar ----------
+
+function mostrarResumen(registro, seguimiento, opcion) {
+  const aj = almacen.ajustes();
+  const antes = estadoSemanas(almacen.historial().filter((r) => r.id !== registro.id), almacen.metas().lista);
+  const ahora = estadoSemanas(almacen.historial(), almacen.metas().lista);
+  irA('resumen');
+  const completo = seguimiento.recorrido > 0 && seguimiento.linea.total - seguimiento.recorrido < 40;
+  $('#resumen-titulo').textContent = completo ? '¡Llegaste! Buen paseo' : '¡Buen paseo!';
+  $('#resumen-cifras').textContent = `${formatearDistancia(registro.metros)} · ${formatearMinutos(Math.round(registro.minutos))}`;
+  $('#resumen-detalle').textContent = [
+    `≈ ${formatearPasos(Math.round(desdeMetros(registro.metros, 'pasos', aj) / 100) * 100)}`,
+    registro.kcal !== null && `≈ ${formatearKcal(registro.kcal)}`,
+    registro.energicos >= 1 && `${Math.round(registro.energicos)} min a paso enérgico`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  let semana;
+  if (ahora.meta === null) semana = `Esta semana llevas ${Math.round(ahora.minutos)} min. Elige una meta semanal en la pantalla Hoy.`;
+  else if (antes.minutos < antes.meta && ahora.minutos >= ahora.meta) semana = `🎉 ¡Cumpliste la meta de la semana! (${Math.round(ahora.minutos)} de ${ahora.meta} min)`;
+  else if (ahora.minutos >= ahora.meta) semana = `Esta semana llevas ${Math.round(ahora.minutos)} min: ya pasaste tu meta de ${ahora.meta}.`;
+  else semana = `Esta semana llevas ${Math.round(ahora.minutos)} de ${ahora.meta} min. Te faltan ${formatearMinutos(Math.ceil(ahora.meta - ahora.minutos))}.`;
+  $('#resumen-semana').textContent = semana;
+  mostrarEstado($('#estado-resumen'), '');
+  $('#resumen-favorita').hidden = Boolean(opcion.favorita) || !recetaDe(opcion);
+  $('#resumen-favorita').onclick = () => {
+    const texto = guardarFavorita(opcion);
+    if (texto) mostrarEstado($('#estado-resumen'), texto);
+    $('#resumen-favorita').hidden = Boolean(opcion.favorita);
+  };
+  mapa.dibujarOpcion(opcion, margenesPanel());
+  mapa.mostrarRecorridos([registro.rastro], margenesPanel(), { encuadrar: false });
+  ofrecerMarcarCaminado(registro);
 }
 
 // ---------- Explorar: lo que ya conoces (solo se marca a mano) ----------
 
-function marcarConocidas(coords, mensaje) {
+function marcarConocidas(coords, mensaje, aviso = $('#estado-resultados')) {
   const nuevas = almacen.agregarConocidas(celdasDeRuta(coords));
   estado.ultimasMarcadas = nuevas;
-  const aviso = $('#estado-resultados');
   aviso.innerHTML = '';
   aviso.append(`${mensaje} (${nuevas.length} cuadras nuevas). `);
   if (nuevas.length) {
@@ -885,18 +1064,19 @@ $('#ya-conozco').addEventListener('click', () => {
   marcarConocidas(o.partes.flatMap((p) => p.ruta.coords), 'Marcada como conocida');
 });
 
-// Al terminar un paseo se pregunta si marcar lo caminado. Solo la parte recorrida, y solo si fue una parte real.
-function ofrecerMarcarCaminado(seguimiento) {
+// Al terminar un paseo se pregunta si marcar lo caminado. Solo tu recorrido real (el del GPS), y solo si fue una
+// parte real.
+function ofrecerMarcarCaminado(registro) {
   const caja = $('#marcar-caminado');
   caja.hidden = true;
-  if (!seguimiento || seguimiento.recorrido < 200) return;
-  const coords = seguimiento.linea.coords.slice(0, seguimiento.indice + 2);
+  if (!registro || registro.metros < 200 || registro.rastro.length < 2) return;
+  const coords = registro.rastro;
   $('#marcar-caminado-texto').textContent =
-    `Caminaste unos ${formatearDistancia(seguimiento.recorrido)}. ¿Los marco como conocidos para el modo explorar?`;
+    `Caminaste unos ${formatearDistancia(registro.metros)}. ¿Los marco como conocidos para el modo explorar?`;
   caja.hidden = false;
   $('#marcar-caminado-si').onclick = () => {
     caja.hidden = true;
-    marcarConocidas(coords, 'Marcado lo que caminaste');
+    marcarConocidas(coords, 'Marcado lo que caminaste', $('#estado-resumen'));
   };
   $('#marcar-caminado-no').onclick = () => {
     caja.hidden = true;
@@ -995,14 +1175,13 @@ $('#agregar-lugar').addEventListener('toggle', () => {
   if ($('#agregar-lugar').open) crearBuscador($('#lugar-buscador'), (r) => guardarLugar(r.punto, r.corto));
 });
 
-$('#exportar').addEventListener('click', () => {
-  const blob = new Blob([JSON.stringify(almacen.respaldo(), null, 2)], { type: 'application/json' });
-  const enlace = document.createElement('a');
-  enlace.href = URL.createObjectURL(blob);
-  enlace.download = `paseos-respaldo-${new Date().toISOString().slice(0, 10)}.json`;
-  enlace.click();
-  setTimeout(() => URL.revokeObjectURL(enlace.href), 1000);
-});
+function exportarRespaldo() {
+  const texto = JSON.stringify(almacen.respaldo());
+  descargar(new File([texto], `paseos-respaldo-${new Date().toISOString().slice(0, 10)}.json`, { type: 'application/json' }));
+  almacen.guardarAjustes({ ultimoRespaldo: new Date().toISOString() });
+}
+
+$('#exportar').addEventListener('click', exportarRespaldo);
 
 $('#importar').addEventListener('change', async (e) => {
   const archivo = e.target.files[0];
@@ -1014,7 +1193,8 @@ $('#importar').addEventListener('change', async (e) => {
     alCambiarLugares();
     mostrarEstado(
       aviso,
-      `${agregados === 1 ? 'Se agregó 1 lugar' : `Se agregaron ${agregados} lugares`}. ` +
+      `${agregados.lugares === 1 ? 'Se agregó 1 lugar' : `Se agregaron ${agregados.lugares} lugares`} y ` +
+        `${agregados.paseos === 1 ? '1 paseo' : `${agregados.paseos} paseos`}. ` +
         `Tienes ${almacen.conocidas().size} cuadras marcadas como conocidas.`,
     );
   } catch (err) {
@@ -1026,6 +1206,7 @@ $('#importar').addEventListener('change', async (e) => {
 
 function cargarAjustes() {
   const aj = almacen.ajustes();
+  $('#meta-minutos').value = estadoSemanas([], almacen.metas().lista).meta ?? '';
   $('#largo-paso').value = aj.largoPaso;
   $('#velocidad').value = aj.velocidadKmh;
   $('#ver-estaciones').checked = Boolean(aj.verEstaciones);
@@ -1052,6 +1233,14 @@ $('#form-ajustes').addEventListener('submit', (e) => {
     mostrarEstado(aviso, 'El peso debe estar entre 30 y 250 kg, o quedar vacío.', true);
     return;
   }
+  const textoMeta = $('#meta-minutos').value.trim();
+  const meta = Number(textoMeta);
+  if (textoMeta !== '' && !(meta >= 10 && meta <= 1000)) {
+    mostrarEstado(aviso, 'La meta semanal debe estar entre 10 y 1.000 minutos.', true);
+    return;
+  }
+  const metaActual = estadoSemanas([], almacen.metas().lista).meta;
+  if (textoMeta !== '' && meta !== metaActual) almacen.guardarMetas({ lista: conMeta(almacen.metas().lista, meta) });
   almacen.guardarAjustes({ largoPaso, velocidadKmh, peso, verEstaciones: $('#ver-estaciones').checked });
   aplicarEstaciones();
   actualizarAyudaDuracion();
@@ -1090,8 +1279,20 @@ async function mostrarClima(punto) {
 
 // ---------- Inicio ----------
 
+const hoy = iniciarHoy({
+  salirAhora,
+  abrirFavorita,
+  exportarRespaldo,
+  guardarPendiente: (datos) => {
+    const registro = guardarPaseo(datos);
+    mostrarEstado($('#estado-salir'), registro ? `Guardado en el historial: ${formatearMinutos(Math.round(registro.minutos))}.` : 'Era muy corto para guardarlo.');
+  },
+  siguiendo: () => Boolean(estado.seguimiento),
+});
+const historial = iniciarHistorial({ mapa, margenes: margenesPanel, alCambiar: () => {} });
+
 restaurarFormulario();
-irA('formulario');
+irA('hoy');
 aplicarEstaciones();
 
 // Si el permiso de ubicación ya estaba dado, centra el mapa en ti sin preguntar.

@@ -107,6 +107,7 @@ export class Mapa {
   limpiarRuta() {
     this.capaRuta.clearLayers();
     this.ocultarCorto();
+    this.ocultarRecorridos();
   }
 
   // Modo explorar: los cuadros que ya conoces, en morado transparente.
@@ -122,6 +123,24 @@ export class Mapa {
 
   ocultarConocidas() {
     this.capaConocidas?.remove();
+  }
+
+  // Recorridos caminados (historial y resumen), en azul. `lineas` es una lista de listas de [lat, lon].
+  mostrarRecorridos(lineas, margenes = {}, { encuadrar = true } = {}) {
+    this.ocultarRecorridos();
+    const renderer = this.rendererCanvas || (this.rendererCanvas = L.canvas({ padding: 0.3 }));
+    this.capaRecorridos = L.layerGroup().addTo(this.mapa);
+    const limites = L.latLngBounds([]);
+    for (const coords of lineas.filter((c) => c.length > 1)) {
+      L.polyline(coords, { renderer, color: '#1e63d6', weight: 4, opacity: 0.75, interactive: false }).addTo(this.capaRecorridos);
+      coords.forEach((c) => limites.extend(c));
+    }
+    if (encuadrar && limites.isValid()) this.encuadrar(limites, margenes);
+  }
+
+  ocultarRecorridos() {
+    this.capaRecorridos?.remove();
+    this.capaRecorridos = null;
   }
 
   // El camino más corto, en gris punteado, para comparar con la ruta elegida.

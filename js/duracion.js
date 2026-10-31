@@ -7,7 +7,8 @@ export const UNIDADES = {
   kcal: { nombre: 'calorías', corto: 'kcal' },
 };
 
-export const AJUSTES_POR_DEFECTO = { largoPaso: 0.75, velocidadKmh: 4.5, peso: null };
+// energicoKmh: desde qué velocidad se cuenta "paso enérgico". ppm: pasos por minuto del metrónomo.
+export const AJUSTES_POR_DEFECTO = { largoPaso: 0.75, velocidadKmh: 4.5, peso: null, energicoKmh: 5, ppm: 110 };
 
 const metrosPorMinuto = (ajustes) => (ajustes.velocidadKmh * 1000) / 60;
 
@@ -38,6 +39,20 @@ export const tienePeso = (ajustes) => Number(ajustes.peso) > 0;
 function kcalPorMetro(ajustes) {
   if (!tienePeso(ajustes)) throw new Error('Para usar calorías, anota tu peso en Ajustes.');
   return (met(ajustes.velocidadKmh) * Number(ajustes.peso)) / (ajustes.velocidadKmh * 1000);
+}
+
+// Energía extra por subir, con la ecuación de caminata del ACSM (Colegio Americano de Medicina del Deporte): 1,8 ml
+// de oxígeno por kilo por cada metro de subida, y unas 5 kcal por litro de oxígeno. Con 80 kg, subir 100 m son
+// unas 72 kcal. Bajar no se descuenta.
+export function kcalSubida(subida, ajustes) {
+  return tienePeso(ajustes) ? 0.009 * (subida || 0) * Number(ajustes.peso) : null;
+}
+
+// Calorías de un paseo ya hecho: con tu velocidad real promedio, más lo que subiste.
+export function kcalDePaseo({ metros, minutos, subida = 0 }, ajustes) {
+  if (!tienePeso(ajustes) || !(minutos > 0)) return null;
+  const kmh = metros / 1000 / (minutos / 60);
+  return met(kmh) * Number(ajustes.peso) * (minutos / 60) + kcalSubida(subida, ajustes);
 }
 
 export function aMetros(valor, unidad, ajustes) {

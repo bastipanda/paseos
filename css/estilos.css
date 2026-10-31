@@ -86,7 +86,12 @@ body.siguiendo .barra { display: none; }
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   cursor: pointer;
 }
-.chip[data-ir="formulario"] { color: var(--acento); }
+.chip.activo { background: var(--acento); color: var(--acento-texto); border-color: var(--acento); }
+.chip-icono { padding: 8px 12px; }
+@media (max-width: 380px) {
+  .barra { gap: 6px; }
+  .chip { padding: 7px 11px; font-size: 14px; }
+}
 
 .aviso-mapa {
   position: fixed;
@@ -310,6 +315,62 @@ button { font: inherit; }
 .ayuda-gpx ol { padding-left: 20px; margin: 0; }
 .ayuda-gpx li { margin: 6px 0; }
 .ayuda-gpx a { color: var(--acento); }
+
+/* Hoy */
+.semana { display: flex; align-items: center; gap: 14px; margin: 2px 0 12px; }
+.anillo { width: 104px; height: 104px; flex: 0 0 auto; }
+.anillo circle { fill: none; stroke-width: 12; }
+.anillo-fondo { stroke: var(--fondo-suave); }
+.anillo-avance {
+  stroke: var(--acento); stroke-linecap: round; stroke-dasharray: 0 400;
+  transform: rotate(-90deg); transform-origin: 60px 60px; transition: stroke-dasharray 0.6s ease;
+}
+.anillo-avance.cumplida { stroke: var(--buena); }
+.anillo-cifra { font-size: 30px; font-weight: 800; text-anchor: middle; fill: var(--texto); }
+.anillo-unidad { font-size: 13px; text-anchor: middle; fill: var(--texto-suave); }
+.semana-texto { flex: 1; min-width: 0; }
+.semana-titulo { font-weight: 800; font-size: 17px; margin: 0 0 2px; }
+.semana-texto .secundario { font-size: 14px; margin: 0 0 8px; }
+.dias { display: flex; gap: 4px; }
+.dia {
+  width: 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; background: var(--fondo-suave); color: var(--texto-suave);
+}
+.dia.hubo { background: var(--acento); color: var(--acento-texto); }
+.dia.hoy { box-shadow: 0 0 0 2px var(--acento); }
+.chip-boton {
+  padding: 8px 14px; border-radius: 999px; border: 1px solid var(--acento); background: var(--fondo);
+  color: var(--acento); font-weight: 700; font-size: 15px; min-height: 40px; cursor: pointer;
+}
+.salir-ahora { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 6px; }
+.boton-salir {
+  min-height: 64px; border-radius: 14px; border: 0; background: var(--acento); color: var(--acento-texto);
+  font-size: 24px; font-weight: 800; cursor: pointer; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; line-height: 1;
+}
+.boton-salir small { font-size: 12px; font-weight: 600; opacity: 0.9; margin-top: 3px; }
+.boton-salir:disabled { opacity: 0.6; }
+.boton-ancho { width: 100%; margin: 4px 0 10px; }
+.lista small { font-weight: 400; }
+
+/* Historial */
+.grafico-semanas { display: flex; gap: 6px; height: 120px; margin: 6px 0 12px; }
+.grafico-semanas .columna { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; }
+.grafico-semanas .pozo { position: relative; flex: 1; width: 100%; background: var(--fondo-suave); border-radius: 6px; overflow: hidden; }
+.grafico-semanas .barra { position: absolute; left: 0; right: 0; bottom: 0; background: var(--acento); opacity: 0.55; border-radius: 6px 6px 0 0; }
+.grafico-semanas .barra.cumplida { background: var(--buena); opacity: 1; }
+.grafico-semanas .raya-meta { position: absolute; left: 0; right: 0; border-top: 2px dashed var(--texto-suave); z-index: 1; }
+.grafico-semanas small { font-size: 11px; color: var(--texto-suave); }
+.historial .paseo {
+  flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; text-align: left;
+  background: none; border: 0; padding: 4px 0; color: var(--texto); cursor: pointer; min-width: 0;
+}
+.historial .paseo:disabled { cursor: default; color: var(--texto); }
+.historial .paseo .secundario { margin: 0; font-size: 13px; }
+input[type="datetime-local"] {
+  width: 100%; font: inherit; padding: 10px 12px; border: 1px solid var(--borde); border-radius: 10px;
+  background: var(--fondo-suave); color: var(--texto); min-height: 44px;
+}
 
 /* Seguimiento */
 .proximo {

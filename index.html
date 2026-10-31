@@ -16,10 +16,11 @@
   <div id="mapa" aria-label="Mapa"></div>
 
   <nav class="barra">
-    <button type="button" class="chip" data-ir="formulario" aria-label="Nuevo paseo">Paseos</button>
+    <button type="button" class="chip" data-ir="hoy">Hoy</button>
+    <button type="button" class="chip" data-ir="formulario" aria-label="Armar un paseo a medida">Armar</button>
     <span class="separador"></span>
     <button type="button" class="chip" data-ir="lugares">Lugares</button>
-    <button type="button" class="chip" data-ir="ajustes" aria-label="Ajustes">Ajustes</button>
+    <button type="button" class="chip chip-icono" data-ir="ajustes" aria-label="Ajustes">⚙</button>
   </nav>
 
   <div id="aviso-mapa" class="aviso-mapa" hidden>
@@ -30,10 +31,71 @@
   <section id="panel" class="panel" aria-live="polite">
     <button type="button" id="asa" class="asa" aria-label="Agrandar o achicar el panel"></button>
 
-    <!-- Nuevo paseo -->
-    <div class="vista" data-vista="formulario">
-      <h1>Nuevo paseo</h1>
+    <!-- Hoy: la pantalla de inicio -->
+    <div class="vista" data-vista="hoy">
+      <div id="paseo-pendiente" class="bloque marcar" hidden>
+        <p id="paseo-pendiente-texto"></p>
+        <div class="fila">
+          <button type="button" class="boton-secundario" id="pendiente-guardar">Guardarlo</button>
+          <button type="button" class="boton-secundario" id="pendiente-descartar">Descartar</button>
+        </div>
+      </div>
+      <div class="semana" id="semana">
+        <svg class="anillo" viewBox="0 0 120 120" aria-hidden="true">
+          <circle class="anillo-fondo" cx="60" cy="60" r="50"></circle>
+          <circle class="anillo-avance" id="anillo-avance" cx="60" cy="60" r="50"></circle>
+          <text x="60" y="58" class="anillo-cifra" id="anillo-cifra">0</text>
+          <text x="60" y="78" class="anillo-unidad">min</text>
+        </svg>
+        <div class="semana-texto">
+          <p class="semana-titulo" id="semana-titulo">Esta semana</p>
+          <p class="secundario" id="semana-detalle"></p>
+          <div class="dias" id="semana-dias"></div>
+        </div>
+      </div>
+      <div id="pregunta-meta" class="bloque" hidden>
+        <h3>¿Cuántos minutos quieres caminar a la semana?</h3>
+        <p>La OMS recomienda entre 150 y 300 minutos a la semana de actividad moderada, y caminar a buen paso
+          cuenta. Si hoy caminas poco, parte más abajo: cuando cumplas, la app te propondrá subir de a poco.</p>
+        <div class="chips" id="opciones-meta">
+          <button type="button" class="chip-boton" data-meta="60">60 min</button>
+          <button type="button" class="chip-boton" data-meta="90">90 min</button>
+          <button type="button" class="chip-boton" data-meta="120">120 min</button>
+          <button type="button" class="chip-boton" data-meta="150">150 min</button>
+        </div>
+        <p class="ayuda">Lo puedes cambiar cuando quieras en Ajustes.</p>
+      </div>
+      <div id="propuesta-meta" class="bloque" hidden>
+        <p id="propuesta-meta-texto"></p>
+        <div class="fila">
+          <button type="button" class="boton-secundario" id="propuesta-aceptar"></button>
+          <button type="button" class="boton-secundario" id="propuesta-mantener">Mantener</button>
+        </div>
+      </div>
       <div id="clima" class="clima" hidden></div>
+      <h2>Salir ahora</h2>
+      <div class="salir-ahora">
+        <button type="button" class="boton-salir" data-minutos="15">15<small>min</small></button>
+        <button type="button" class="boton-salir" data-minutos="30">30<small>min</small></button>
+        <button type="button" class="boton-salir" data-minutos="45">45<small>min</small></button>
+        <button type="button" class="boton-salir" data-minutos="60">60<small>min</small></button>
+      </div>
+      <p class="ayuda" id="ayuda-salir">Ida y vuelta desde donde estás.</p>
+      <p id="estado-salir" class="estado" role="status"></p>
+      <div id="bloque-favoritas" hidden>
+        <h2>Tus rutas favoritas</h2>
+        <ul id="lista-favoritas" class="lista"></ul>
+      </div>
+      <div class="fila botones-fila">
+        <button type="button" class="boton-secundario" data-ir="formulario">Armar a medida</button>
+        <button type="button" class="boton-secundario" data-ir="historial">Historial</button>
+      </div>
+      <div id="aviso-respaldo" class="alerta" hidden></div>
+    </div>
+
+    <!-- Nuevo paseo a medida -->
+    <div class="vista" data-vista="formulario" hidden>
+      <h1>Armar un paseo</h1>
       <form id="formulario" novalidate>
         <div class="campo">
           <label for="partida-tipo">Partida</label>
@@ -117,20 +179,16 @@
         <h2 id="titulo-opcion">Opción 1</h2>
         <button type="button" class="boton-icono" id="siguiente" aria-label="Opción siguiente">›</button>
       </div>
-      <div id="marcar-caminado" class="bloque marcar" hidden>
-        <p id="marcar-caminado-texto">¿Marcar lo que caminaste como conocido?</p>
-        <div class="fila">
-          <button type="button" class="boton-secundario" id="marcar-caminado-si">Sí, marcar</button>
-          <button type="button" class="boton-secundario" id="marcar-caminado-no">No</button>
-        </div>
-      </div>
       <div id="detalle-opcion"></div>
       <div class="acciones">
         <button type="button" class="boton-principal" id="empezar">Empezar</button>
         <button type="button" class="boton-secundario" id="exportar-gpx">Abrir en otra app (GPX)</button>
-        <button type="button" class="boton-secundario" id="ya-conozco">Ya conozco esta ruta</button>
+        <div class="fila">
+          <button type="button" class="boton-secundario" id="ya-conozco">Ya conozco esta ruta</button>
+          <button type="button" class="boton-secundario" id="guardar-favorita">☆ Favorita</button>
+        </div>
         <p id="estado-resultados" class="estado" role="status"></p>
-        <button type="button" class="boton-secundario" data-ir="formulario">Cambiar búsqueda</button>
+        <button type="button" class="boton-secundario" id="cambiar-busqueda">Cambiar búsqueda</button>
       </div>
       <details class="ayuda-gpx">
         <summary>¿Cómo abro la ruta en OsmAnd u Organic Maps?</summary>
@@ -165,6 +223,47 @@
       </div>
     </div>
 
+    <!-- Resumen al terminar un paseo -->
+    <div class="vista" data-vista="resumen" hidden>
+      <h1 id="resumen-titulo">¡Buen paseo!</h1>
+      <p class="cifras" id="resumen-cifras"></p>
+      <p class="secundario" id="resumen-detalle"></p>
+      <div class="bloque" id="resumen-semana"></div>
+      <div id="marcar-caminado" class="bloque marcar" hidden>
+        <p id="marcar-caminado-texto">¿Marcar lo que caminaste como conocido?</p>
+        <div class="fila">
+          <button type="button" class="boton-secundario" id="marcar-caminado-si">Sí, marcar</button>
+          <button type="button" class="boton-secundario" id="marcar-caminado-no">No</button>
+        </div>
+      </div>
+      <p id="estado-resumen" class="estado" role="status"></p>
+      <div class="acciones">
+        <button type="button" class="boton-secundario" id="resumen-favorita">☆ Guardar la ruta como favorita</button>
+        <button type="button" class="boton-principal" data-ir="hoy">Listo</button>
+      </div>
+    </div>
+
+    <!-- Historial -->
+    <div class="vista" data-vista="historial" hidden>
+      <h1>Historial</h1>
+      <p class="secundario" id="historial-totales"></p>
+      <div class="grafico-semanas" id="grafico-semanas" role="img" aria-label="Minutos caminados por semana"></div>
+      <div class="fila botones-fila">
+        <button type="button" class="boton-secundario" id="ver-todos">Ver todos en el mapa</button>
+      </div>
+      <ul id="lista-historial" class="lista historial"></ul>
+      <details class="agregar" id="agregar-paseo">
+        <summary>Agregar un paseo hecho sin la app</summary>
+        <label class="campo">Fecha y hora<input type="datetime-local" id="paseo-fecha"></label>
+        <div class="fila">
+          <label class="mini">Minutos<input id="paseo-minutos" type="number" inputmode="numeric" min="1" max="600" aria-label="Minutos"></label>
+          <label class="mini">Km (opcional)<input id="paseo-km" type="number" inputmode="decimal" min="0" step="0.1" placeholder="—" aria-label="Kilómetros"></label>
+        </div>
+        <button type="button" class="boton-principal" id="paseo-agregar">Agregar</button>
+      </details>
+      <p id="estado-historial" class="estado" role="status"></p>
+    </div>
+
     <!-- Lugares guardados -->
     <div class="vista" data-vista="lugares" hidden>
       <h1>Lugares guardados</h1>
@@ -187,8 +286,9 @@
         <button type="button" class="boton-secundario" id="borrar-conocidas">Borrar todo</button>
       </div>
       <h2>Respaldo</h2>
-      <p class="ayuda">Los lugares y lo que ya conoces se guardan solo en este navegador. Descarga un respaldo de vez
-        en cuando para no perderlos si borras los datos del navegador o cambias de celular.</p>
+      <p class="ayuda">Tus paseos, la meta, los lugares, las favoritas y lo que ya conoces se guardan solo en este
+        navegador. Descarga un respaldo de vez en cuando para no perderlos si borras los datos del navegador o cambias
+        de celular.</p>
       <div class="fila botones-fila">
         <button type="button" class="boton-secundario" id="exportar">Descargar respaldo</button>
         <label class="boton-secundario boton-archivo">Restaurar respaldo<input type="file" id="importar" accept="application/json,.json"></label>
@@ -200,6 +300,11 @@
     <div class="vista" data-vista="ajustes" hidden>
       <h1>Ajustes</h1>
       <form id="form-ajustes" novalidate>
+        <label class="campo">Meta semanal (minutos caminando)
+          <input id="meta-minutos" type="number" inputmode="numeric" min="10" max="1000" step="5" placeholder="Ej.: 150">
+        </label>
+        <p class="ayuda">La OMS recomienda 150 a 300 minutos a la semana de actividad moderada. Cuentan los minutos en
+          movimiento de cada paseo con seguimiento y los que agregues a mano en el historial.</p>
         <label class="campo">Largo de tu paso (metros)
           <input id="largo-paso" type="number" inputmode="decimal" min="0.3" max="1.5" step="0.01">
         </label>

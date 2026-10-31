@@ -164,6 +164,33 @@ export function muestrear(coords, paso) {
   return res;
 }
 
+// Simplifica una línea quitando puntos que se desvían menos de `tolerancia` metros (algoritmo de Douglas-Peucker).
+// Sirve para guardar el recorrido de un paseo ocupando poco espacio.
+export function simplificar(coords, tolerancia = 8) {
+  if (coords.length < 3) return coords.slice();
+  const guardar = new Uint8Array(coords.length);
+  guardar[0] = 1;
+  guardar[coords.length - 1] = 1;
+  const pila = [[0, coords.length - 1]];
+  while (pila.length) {
+    const [i, j] = pila.pop();
+    let mayor = 0;
+    let indice = -1;
+    for (let k = i + 1; k < j; k++) {
+      const d = proyectarEnSegmento(coords[k], coords[i], coords[j]).distancia;
+      if (d > mayor) {
+        mayor = d;
+        indice = k;
+      }
+    }
+    if (indice >= 0 && mayor > tolerancia) {
+      guardar[indice] = 1;
+      pila.push([i, indice], [indice, j]);
+    }
+  }
+  return coords.filter((_, k) => guardar[k]);
+}
+
 // Parecido entre dos rutas (0 a 1): qué tanto comparten las mismas cuadras de 50 m.
 export function parecido(coordsA, coordsB, celda = 50) {
   const celdas = (coords) => {

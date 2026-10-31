@@ -5,6 +5,10 @@ import { acumuladas, ubicarEnLinea } from './geo.js';
 import { crearInstrucciones, siguienteInstruccion } from './guia.js';
 
 const FUERA_DE_RUTA_M = 40;
+// Posiciones con más error que esto no se guardan en el recorrido (el GPS entre edificios a veces salta mucho).
+const PRECISION_MAXIMA_M = 40;
+// Se guarda como máximo una posición cada 3 segundos: alcanza para medir y ocupa poco.
+const CADA_MS = 3000;
 
 // Une las partes de una opción (a pie, en bici, a pie) en una sola línea, con los giros reubicados.
 export function unirPartes(partes) {
@@ -41,6 +45,7 @@ export function faltante(linea, recorrido) {
   return { total: Math.max(0, linea.total - recorrido), pie, bici, modoActual };
 }
 
+// Además de ubicarte en la ruta, guarda tu recorrido real (`rastro`: [{ p, t }]) para el historial.
 export class Seguimiento {
   constructor(opcion, { alActualizar, alError }) {
     this.linea = unirPartes(opcion.partes);
@@ -49,6 +54,8 @@ export class Seguimiento {
     this.alError = alError;
     this.indice = 0;
     this.recorrido = 0;
+    this.rastro = [];
+    this.inicio = Date.now();
     this.idGps = null;
     this.bloqueo = null;
     this.alVolver = () => {
@@ -88,6 +95,9 @@ export class Seguimiento {
 
   nuevaPosicion(pos) {
     const punto = [pos.coords.latitude, pos.coords.longitude];
+    const t = pos.timestamp || Date.now();
+    const ultima = this.rastro[this.rastro.length - 1];
+    if (pos.coords.accuracy <= PRECISION_MAXIMA_M && (!ultima || t - ultima.t >= CADA_MS)) this.rastro.push({ p: punto, t });
     const { coords, acc } = this.linea;
     const ubicacion = ubicarEnLinea(coords, acc, punto, this.indice);
     if (ubicacion && ubicacion.distancia <= FUERA_DE_RUTA_M) {

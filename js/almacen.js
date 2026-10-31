@@ -3,11 +3,17 @@
 // lectura y escritura está protegida y existe el respaldo en archivo.
 
 import { AJUSTES_POR_DEFECTO } from './duracion.js';
+import { esRegistroValido } from './historial.js';
 
 const CLAVE_LUGARES = 'paseos.lugares';
 const CLAVE_AJUSTES = 'paseos.ajustes';
 const CLAVE_FORMULARIO = 'paseos.formulario';
 const CLAVE_CONOCIDAS = 'paseos.conocidas';
+const CLAVE_HISTORIAL = 'paseos.historial';
+const CLAVE_METAS = 'paseos.metas';
+const CLAVE_FAVORITAS = 'paseos.favoritas';
+const CLAVE_DEX = 'paseos.dex';
+const CLAVE_EN_CURSO = 'paseos.en-curso';
 
 function leer(clave, porDefecto) {
   try {
@@ -99,19 +105,105 @@ export function borrarConocidas() {
   escribir(CLAVE_CONOCIDAS, []);
 }
 
-// Respaldo: un archivo JSON con los lugares, los ajustes y lo que ya conoces.
+// Historial de paseos (ver historial.js), del más nuevo al más antiguo. `false` si no se pudo guardar (por
+// ejemplo, si el navegador se quedó sin espacio).
+export function historial() {
+  const lista = leer(CLAVE_HISTORIAL, []);
+  return (Array.isArray(lista) ? lista.filter(esRegistroValido) : []).sort((a, b) => b.inicio.localeCompare(a.inicio));
+}
+
+export function agregarAlHistorial(registro) {
+  const lista = historial().filter((r) => r.id !== registro.id);
+  lista.push(registro);
+  return escribir(CLAVE_HISTORIAL, lista);
+}
+
+export function borrarDelHistorial(id) {
+  escribir(
+    CLAVE_HISTORIAL,
+    historial().filter((r) => r.id !== id),
+  );
+}
+
+// Meta semanal: { lista: [{ desde, minutos }], respondida: semana en que se respondió la última propuesta }.
+export function metas() {
+  const m = leer(CLAVE_METAS, null);
+  return { lista: Array.isArray(m?.lista) ? m.lista : [], respondida: m?.respondida || null };
+}
+
+export function guardarMetas(nuevas) {
+  escribir(CLAVE_METAS, { ...metas(), ...nuevas });
+}
+
+// Rutas favoritas: { id, nombre, creada, metros, receta, vista } (la receta permite pedir la misma ruta otra vez).
+export function favoritas() {
+  const lista = leer(CLAVE_FAVORITAS, []);
+  return Array.isArray(lista) ? lista.filter((f) => f && typeof f.nombre === 'string' && f.receta) : [];
+}
+
+export function agregarFavorita(favorita) {
+  return escribir(CLAVE_FAVORITAS, [...favoritas().filter((f) => f.id !== favorita.id), favorita]);
+}
+
+export function borrarFavorita(id) {
+  escribir(
+    CLAVE_FAVORITAS,
+    favoritas().filter((f) => f.id !== id),
+  );
+}
+
+export function renombrarFavorita(id, nombre) {
+  escribir(
+    CLAVE_FAVORITAS,
+    favoritas().map((f) => (f.id === id ? { ...f, nombre: nombre.trim() } : f)),
+  );
+}
+
+// Santiagodex: { capturados: { id: { fecha, como: 'gps' | 'mano' } }, vistos: { id: fecha } }.
+export function dex() {
+  const d = leer(CLAVE_DEX, null);
+  return { capturados: d?.capturados || {}, vistos: d?.vistos || {} };
+}
+
+export function guardarDex(d) {
+  escribir(CLAVE_DEX, d);
+}
+
+// Paseo en curso: se guarda cada tanto mientras caminas, para no perderlo si el navegador se cierra sin "Terminar".
+export function paseoEnCurso() {
+  return leer(CLAVE_EN_CURSO, null);
+}
+
+export function guardarPaseoEnCurso(datos) {
+  escribir(CLAVE_EN_CURSO, datos);
+}
+
+export function borrarPaseoEnCurso() {
+  try {
+    localStorage.removeItem(CLAVE_EN_CURSO);
+  } catch {
+    // Nada que hacer: si el navegador bloquea el almacenamiento, tampoco había nada guardado.
+  }
+}
+
+// Respaldo: un archivo JSON con todo lo que no se puede regenerar.
 export function respaldo() {
   return {
     app: 'paseos',
-    version: 2,
+    version: 3,
     fecha: new Date().toISOString(),
     lugares: lugares(),
     ajustes: ajustes(),
     conocidas: [...conocidas()],
+    historial: historial(),
+    metas: metas(),
+    favoritas: favoritas(),
+    dex: dex(),
   };
 }
 
-// Restaura un respaldo. Los lugares se suman a los existentes (sin duplicar por nombre y posición).
+// Restaura un respaldo. Lo que ya existe se mantiene y se suma lo nuevo (lugares sin duplicar por nombre y
+// posición; paseos y favoritas por su identificador). Devuelve cuántos lugares y paseos se agregaron.
 export function restaurar(datos) {
   if (!datos || datos.app !== 'paseos' || !Array.isArray(datos.lugares)) {
     throw new Error('El archivo no es un respaldo de Paseos.');
@@ -129,5 +221,24 @@ export function restaurar(datos) {
   escribir(CLAVE_LUGARES, actuales);
   if (datos.ajustes) guardarAjustes(datos.ajustes);
   if (Array.isArray(datos.conocidas)) agregarConocidas(datos.conocidas.filter((c) => typeof c === 'string'));
-  return agregados;
+
+  const paseos = historial();
+  const ids = new Set(paseos.map((r) => r.id));
+  const nuevosPaseos = (Array.isArray(datos.historial) ? datos.historial : []).filter((r) => esRegistroValido(r) && !ids.has(r.id));
+  escribir(CLAVE_HISTORIAL, [...paseos, ...nuevosPaseos]);
+
+  if (Array.isArray(datos.metas?.lista) && !metas().lista.length) guardarMetas(datos.metas);
+
+  const favs = favoritas();
+  const idsFav = new Set(favs.map((f) => f.id));
+  const nuevasFav = (Array.isArray(datos.favoritas) ? datos.favoritas : []).filter((f) => f?.receta && !idsFav.has(f.id));
+  escribir(CLAVE_FAVORITAS, [...favs, ...nuevasFav]);
+
+  if (datos.dex) {
+    const d = dex();
+    for (const [id, c] of Object.entries(datos.dex.capturados || {})) if (!d.capturados[id]) d.capturados[id] = c;
+    for (const [id, f] of Object.entries(datos.dex.vistos || {})) if (!d.vistos[id]) d.vistos[id] = f;
+    guardarDex(d);
+  }
+  return { lugares: agregados, paseos: nuevosPaseos.length };
 }

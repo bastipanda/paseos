@@ -92,9 +92,11 @@ function intermediosReales(inicio, fin, largoBuscado, angulo, prefs) {
 }
 
 // Pide una ruta y devuelve null si BRouter no encontró camino (por ejemplo, un punto cayó en un cerro).
+// La ruta guarda con qué se pidió (`peticion`), para poder pedir la misma otra vez (rutas favoritas).
 async function intentar(puntos, perfil, avance, { alternativa = 0, evitarSubidas = false } = {}) {
   try {
-    return quitarEspolones(await pedirRuta(puntos, perfil, { alternativa, evitarSubidas }));
+    const ruta = quitarEspolones(await pedirRuta(puntos, perfil, { alternativa, evitarSubidas }));
+    return { ...ruta, peticion: { puntos, perfil, alternativa, evitarSubidas } };
   } catch (e) {
     if (e instanceof ErrorDeRuta) return null;
     throw e;
@@ -308,6 +310,49 @@ export async function paseosAPlaza({ inicio, rango, plazas, avance = () => {}, p
   // Una opción por plaza: las flechas del resultado sirven para "ver otra plaza".
   const vistas = new Set();
   return evaluadas.filter((o) => !vistas.has(o.plaza) && vistas.add(o.plaza)).slice(0, MAX_OPCIONES);
+}
+
+// Receta de una opción a pie: los puntos y el perfil con que se pidió cada parte. Sirve para guardarla como
+// favorita y pedir la misma ruta otro día. Las opciones con Bike Itaú no se guardan: dependen de las bicis del momento.
+export function recetaDe(opcion) {
+  if (opcion.partes.some((p) => p.modo !== 'pie' || !p.ruta.peticion)) return null;
+  const r5 = (x) => Math.round(x * 1e5) / 1e5;
+  return {
+    estilo: opcion.estilo,
+    partes: opcion.partes.map((p) => ({
+      ...p.ruta.peticion,
+      puntos: p.ruta.peticion.puntos.map(([lat, lon]) => [r5(lat), r5(lon)]),
+    })),
+    plaza: opcion.plaza ? { punto: opcion.plaza.punto, nombre: opcion.plaza.nombre, tipo: opcion.plaza.tipo, tamano: opcion.plaza.tamano } : null,
+    destino: opcion.destino || null,
+  };
+}
+
+// Pide otra vez una ruta guardada con `recetaDe` y la deja lista para mostrar, como cualquier opción.
+export async function rehacerOpcion(receta, prefs = PREFS_POR_DEFECTO) {
+  const estilo = receta.estilo || prefs.estilo;
+  const partes = [];
+  for (const p of receta.partes) {
+    const ruta = await intentar(p.puntos, p.perfil, () => {}, { alternativa: p.alternativa, evitarSubidas: p.evitarSubidas });
+    if (!ruta) throw new ErrorDeRuta('No se pudo pedir otra vez la ruta guardada. Puede que el mapa haya cambiado.');
+    partes.push({ modo: 'pie', ruta, evaluacion: evaluar(ruta.tramos, 'pie', estilo) });
+  }
+  const evaluacionPie = combinar(partes.map((p) => p.evaluacion));
+  const coords = partes.flatMap((p) => p.ruta.coords);
+  const unida = { coords, tramos: partes.flatMap((p) => p.ruta.tramos), metros: 0 };
+  return {
+    partes,
+    metrosPie: partes.reduce((s, p) => s + p.ruta.metros, 0),
+    metrosBici: 0,
+    evaluacionPie,
+    evaluacionBici: null,
+    enRango: true,
+    repetida: fraccionRepetida(coords),
+    extras: extrasDeRuta(unida, { ...prefs, estilo }),
+    plaza: receta.plaza,
+    destino: receta.destino,
+    estilo,
+  };
 }
 
 // El camino más corto a pie entre dos puntos, evaluado con el mismo estilo que la opción (para comparar).
