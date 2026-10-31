@@ -1,37 +1,18 @@
 # Backlog — Paseos
 
 ## Pendiente acordado
-- **v1.4 "Interfaz limpia"** (decidido 2026-10-31). Motivo: la app creció feature por feature, todo tiene el mismo
-  peso visual y el panel tapa el mapa. Bastián **no usa la voz**: mira el mapa un segundo y se orienta. Tres
-  sesiones, cada una probada y publicada antes de seguir:
-  1. **Barra de pestañas abajo** (Hoy, Armar, Dex, Más; en "Más": Historial, Lugares, Ajustes) en vez de los
-     botones flotantes. **Hoy y Dex como páginas propias, sin mapa detrás.** Decidido el 2026-10-31: "Más" lleva
-     Historial, Lugares, **Respaldo como fila propia** (al cambiar de celular es lo que se busca) y Ajustes, con los
-     créditos al pie; la barra se **esconde en Resultados, Paseo y Resumen** (cada una tiene su salida); tocar el
-     anillo de Hoy abre el Historial; "Ver en el mapa" desde una página muestra el mapa completo con "Volver".
-     **Construida y publicada el 2026-10-31**; falta probarla en el iPhone.
-  2. **Pantallas con mapa** (Armar, Resultados, Paseo). Regla de Bastián: el mapa nunca debe quedar tapado sin
-     forma de verlo completo; el panel se pliega del todo (queda una franja delgada) y la barra se esconde.
-     Armar: a la vista solo partida, término y duración; el resto en "Más opciones". Resultados: tarjeta con lo
-     clave (pasos, minutos, % tranquila, subida); "por qué", comparación y seguridad plegados. Paseo: franja arriba
-     con flecha y distancia, barra delgada abajo con lo que falta, lo demás en un menú. **Voz apagada por defecto**
-     (queda como opción). **Se elimina el modo bolsillo.** Los intervalos avisan con color, no con voz.
-     **Construida y publicada el 2026-10-31.** Detalles: el panel plegado deja una franja de 64 px (se abre
-     tocándola); en Resultados "Empezar" queda sobre lo plegado y los avisos de luz y del metro siguen a la vista;
-     en el Paseo, "Seguirme" aparece solo si mueves el mapa y el menú lleva ritmo, Llévame al metro, intervalos,
-     metrónomo, voz y Terminar. La voz es un ajuste nuevo (`vozGuia`) para que parta apagada aunque antes estuviera
-     encendida.
-  3. **Santiagodex como álbum:** cartas con un color por tipo; las capturadas con foto de Wikipedia (con el crédito
-     de la foto); **siluetas con "?"** para lo no encontrado (tipo y distancia), con un interruptor en Ajustes para
-     ver los nombres; comunas como "regiones" con insignias al 25, 50 y 100 %; ficha a pantalla completa con foto,
-     historia e "Ir a capturarlo". **Capturar = sacar una foto propia** (decidido 2026-10-31, "muy a lo Pokémon
-     Go"): sin foto no hay captura. A conciencia de Bastián: no se revisa si la foto coincide con el lugar. Al llegar
-     con el GPS, la app avisa "Llegaste a X: sácale una foto para capturarlo"; si no es buen momento (apuro, zona
-     que no conoce), el lugar queda como **"falta la foto"** y se completa después, también desde la galería. Los
-     lugares que ya conocía se capturan subiendo una foto. "Visto" sigue siendo automático. La foto de Wikipedia es
-     solo el **placeholder** (en la ficha y mientras falta la propia; no todos los artículos tienen). Las fotos se
-     guardan achicadas (~40 KB) en el navegador (IndexedDB) y van en el respaldo (100 fotos ≈ 4 MB). Las capturas de
-     la v1.3 hechas sin foto pasan a "falta la foto".
+- **Probar en terreno la v1.4 "Interfaz limpia"** (decidida y publicada el 2026-10-31, en tres sesiones: barra de
+  pestañas, pantallas con mapa y Santiagodex como álbum; lo decidido está en `CLAUDE.md`). Probar: pestañas y "Ver
+  en el mapa", plegar el panel, la franja con flecha del paseo, intervalos por color, el aviso "Llegaste a X: sácale
+  una foto", sacar y subir fotos (cámara y galería), "falta la foto", el álbum, la ficha y el respaldo con fotos.
+  Detalles que se decidieron al construir la sesión 3 (2026-10-31), por si hay que cambiarlos:
+  - **Buscador por nombre** en la Dex (también por número, "#344"): sin él no se encuentra el lugar de una foto
+    sacada sin la app. Al buscar se ven los nombres aunque estén escondidos.
+  - Las cartas **vistas muestran el nombre** (como en Pokémon: lo viste, pero no lo tienes); solo lo no visto es
+    silueta con "?". En la ficha de algo no visto tampoco se muestra la foto de Wikipedia (delataría el lugar).
+  - Las **insignias** de cada región cuentan los lugares capturados (con foto) de esa comuna, no las calles
+    caminadas (eso sigue en "Tu mapa").
+  - "Ya lo conocía" se reemplazó por subir una foto; "Quitar la captura" borra la foto y la llegada.
 - **Probar en terreno la v1.3** (construida el 2026-10-30): Salir ahora, Sorpresa, meta y semanas, historial,
   resumen y postal, favoritas, trámites, metro y "Llévame al metro", metrónomo, intervalos, capturas de la
   Santiagodex y el evento del calendario.
@@ -67,6 +48,13 @@
   (43 comunas, ~230 mil cuadros con calles; Overpass falló en varios pedazos y el script reintentó solo).
 
 ## Por verificar
+- **En el iPhone (v1.4, sesión 3):** si "Sacar foto" abre la cámara directo y "De la galería" la fototeca (en Safari y
+  en la app de la pantalla de inicio); si al volver de la cámara el paseo sigue registrando el GPS; si las fotos
+  quedan derechas (no giradas); si el respaldo con fotos se descarga bien; y si Safari borra las fotos (IndexedDB)
+  cuando la app no se abre en varios días (Apple lo hace con las páginas web, no con las de la pantalla de inicio).
+- **Caché al publicar:** GitHub Pages deja que el celular guarde cada archivo 10 minutos. Si justo después de
+  publicar la app queda a medio actualizar (por ejemplo, las pestañas no responden), esperar 10 minutos y volver a
+  abrirla. Si pasa seguido, se puede agregar un número de versión a los archivos.
 - **En el iPhone (v1.4, sesión 2):** si la flecha de la franja se entiende de un vistazo al caminar, si el naranjo
   de los intervalos se nota al sol y si cuesta abrir el menú del paseo con una mano.
 - **En el iPhone (v1.4, sesión 1):** que la barra de pestañas no choque con la rayita de abajo (en Safari y en la app

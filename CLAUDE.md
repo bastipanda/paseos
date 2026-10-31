@@ -6,8 +6,8 @@ Meta de fondo (2026-10-30): caminar más para bajar de peso y dejar el sedentari
 
 ## Estado
 v1 y v1.1 publicadas el 2026-10-27; v1.2 el 2026-10-30. v1.3 ("salir más y conocer Santiago") construida el
-2026-10-30. v1.4 ("interfaz limpia", tres sesiones): la 1 (barra de pestañas) y la 2 (pantallas con mapa)
-publicadas el 2026-10-31. Falta probar v1.1 a v1.4 en terreno (ver `BACKLOG.md`).
+2026-10-30. v1.4 ("interfaz limpia": pestañas, pantallas con mapa y Dex como álbum con foto propia) publicada el
+2026-10-31. Falta probar v1.1 a v1.4 en terreno (ver `BACKLOG.md`).
 
 ## Qué hace
 - **Barra de pestañas abajo:** Hoy, Armar, Dex y Más (Historial, Lugares, Respaldo, Ajustes y créditos).
@@ -27,9 +27,11 @@ publicadas el 2026-10-31. Falta probar v1.1 a v1.4 en terreno (ver `BACKLOG.md`)
   por defecto). "Seguirme" aparece si mueves el mapa. Capturas de la Dex en vivo. La pantalla no se apaga.
 - **Al terminar:** se guarda solo en el historial; resumen con la semana y lo capturado; postal para compartir.
 - **Historial:** paseos con gráfico de 8 semanas; también paseos agregados a mano.
-- **Dex (Santiagodex):** 3.236 lugares numerados desde Plaza Baquedano. "Visto" si pasas a <150 m, "capturado" si
-  llegas (≤40 m, o un tercio del tamaño de un parque, máx. 200 m) o si lo marcas a mano. **Tu mapa:** lo caminado y
-  lo conocido, con el % de calles caminables de cada comuna.
+- **Dex (Santiagodex):** álbum de 3.236 cartas numeradas desde Plaza Baquedano, un color por tipo, con buscador.
+  "Visto" si pasas a <150 m; "falta la foto" si llegas (≤40 m, o un tercio del tamaño de un parque, máx. 200 m);
+  **capturado solo con tu foto** (cámara o galería, también sin paseo). Lo no visto es silueta con "?" (nombres en
+  Ajustes). Ficha a pantalla completa con foto (la tuya o la de Wikipedia con su crédito) e historia. Comunas como
+  regiones con insignias al 25, 50 y 100 %. **Tu mapa:** lo caminado y el % de calles de cada comuna.
 - **Ajustes:** meta semanal, paso, velocidad, peso, paso enérgico, metrónomo y evento semanal en el calendario (.ics).
 
 ## Definiciones
@@ -66,7 +68,8 @@ publicadas el 2026-10-31. Falta probar v1.1 a v1.4 en terreno (ver `BACKLOG.md`)
 - **Clima:** Open-Meteo (pronóstico por hora, puesta de sol y MP2,5 con categorías del Ministerio del Medio Ambiente).
 - **Otros servicios:** GBFS de Bike Itaú, Nominatim (una búsqueda por toque en "Buscar") y resumen de Wikipedia.
 - **Datos del usuario** (`localStorage`, nunca al repo): lugares, ajustes, formulario, conocidas, historial, metas,
-  favoritas, Dex y paseo en curso (para no perderlo si se cierra el navegador). Respaldo JSON versión 3.
+  favoritas, Dex y paseo en curso (para no perderlo si se cierra el navegador). Las fotos de la Dex van en
+  IndexedDB (`js/fotos.js`, achicadas a ~40 KB). Respaldo JSON versión 4, con las fotos como texto.
 - **Publicación:** GitHub Pages desde el repo público (el GPS exige HTTPS).
 
 ## Hechos verificados
@@ -108,7 +111,8 @@ No usa claves. Si algún día se agrega un servicio con clave, va en el navegado
   pantalla de inicio para salir en un toque; el historial es un dato que no se regenera (va en el respaldo).
 - **Seguridad con datos reales y sus límites:** CEAD por comuna solo como contexto, nunca para elegir rutas
   (comunas con gente de paso salen más altas por habitante).
-- **Santiagodex en vez de puntos o niveles:** conocer Santiago motiva más. Captura caminando o a mano.
+- **Santiagodex en vez de puntos o niveles:** conocer Santiago motiva más. Desde la v1.4, **capturar = tu foto**
+  ("muy a lo Pokémon Go"); la app no revisa que la foto sea del lugar (queda a conciencia de Bastián).
 - **Recordatorios con el calendario del celular** (.ics), no notificaciones propias (necesitarían un servidor).
 - **v1.4 (2026-10-31): interfaz limpia.** Bastián se orienta mirando el mapa, no con la voz: voz apagada por defecto,
   sin modo bolsillo, el mapa nunca queda tapado sin forma de verlo entero y lo secundario va plegado.
