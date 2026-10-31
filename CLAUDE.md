@@ -6,8 +6,8 @@ Meta de fondo (2026-10-30): caminar más para bajar de peso y dejar el sedentari
 
 ## Estado
 v1 y v1.1 publicadas el 2026-10-27; v1.2 el 2026-10-30. v1.3 ("salir más y conocer Santiago") construida el
-2026-10-30. v1.4 ("interfaz limpia", tres sesiones): la 1 (barra de pestañas) publicada el 2026-10-31. Falta probar
-v1.1 a v1.4 en terreno (ver `BACKLOG.md`).
+2026-10-30. v1.4 ("interfaz limpia", tres sesiones): la 1 (barra de pestañas) y la 2 (pantallas con mapa)
+publicadas el 2026-10-31. Falta probar v1.1 a v1.4 en terreno (ver `BACKLOG.md`).
 
 ## Qué hace
 - **Barra de pestañas abajo:** Hoy, Armar, Dex y Más (Historial, Lugares, Respaldo, Ajustes y créditos).
@@ -16,13 +16,15 @@ v1.1 a v1.4 en terreno (ver `BACKLOG.md`).
   el GPS), **Sorpresa** (paseo misterio a un lugar sin capturar), rutas favoritas y aviso mensual de respaldo.
 - **Armar** (a medida): partida y término libres (GPS, lugar guardado, punto del mapa, dirección, estación de
   metro). Término también puede ser: circular, una plaza y volver, un trámite y volver (súper, farmacia, panadería,
-  feria, cajero, ferretería) o "la estación de metro que calce". Duración en pasos, minutos, km o kcal. Estilo
-  (Tranquilo, Con vida, Noche), subidas (Evitar, Da igual, Buscar), "Pasar por…", Explorar, vuelta en Bike Itaú.
-- **Resultados:** por qué esta ruta, comparación con el camino más corto, **seguridad** (si terminarías de noche,
-  cierre del metro y robos violentos de las comunas, del CEAD), favorita, GPX para OsmAnd u Organic Maps.
-- **Seguimiento:** próxima indicación con voz, ritmo y minutos a paso enérgico, metrónomo, intervalos 3+3, modo
-  bolsillo (pantalla negra, solo voz; se sale manteniendo apretado), **Llévame al metro** (estación más cercana y
-  ruta por calles con vida) y capturas de la Santiagodex en vivo. La pantalla no se apaga.
+  feria, cajero, ferretería) o "la estación de metro que calce". Duración en pasos, minutos, km o kcal. En "Más
+  opciones" (plegado): estilo (Tranquilo, Con vida, Noche), subidas, "Pasar por…", Explorar, vuelta en Bike Itaú.
+- **Mapa nunca tapado:** en Armar, Resultados y Resumen el panel se pliega a una franja (y se esconde la barra).
+- **Resultados:** tarjeta con pasos, minutos, km, % tranquila y subida; avisos de luz y del metro a la vista; plegados
+  el por qué, la calidad de las calles, la comparación con el camino más corto y los robos por comuna (CEAD).
+  Favorita y GPX para OsmAnd u Organic Maps.
+- **Seguimiento:** franja arriba con flecha y próxima indicación; abajo una barra delgada con lo que falta que abre
+  un menú: ritmo, **Llévame al metro**, intervalos 3+3 (avisan con el color de la barra), metrónomo y voz (apagada
+  por defecto). "Seguirme" aparece si mueves el mapa. Capturas de la Dex en vivo. La pantalla no se apaga.
 - **Al terminar:** se guarda solo en el historial; resumen con la semana y lo capturado; postal para compartir.
 - **Historial:** paseos con gráfico de 8 semanas; también paseos agregados a mano.
 - **Dex (Santiagodex):** 3.236 lugares numerados desde Plaza Baquedano. "Visto" si pasas a <150 m, "capturado" si
@@ -108,3 +110,5 @@ No usa claves. Si algún día se agrega un servicio con clave, va en el navegado
   (comunas con gente de paso salen más altas por habitante).
 - **Santiagodex en vez de puntos o niveles:** conocer Santiago motiva más. Captura caminando o a mano.
 - **Recordatorios con el calendario del celular** (.ics), no notificaciones propias (necesitarían un servidor).
+- **v1.4 (2026-10-31): interfaz limpia.** Bastián se orienta mirando el mapa, no con la voz: voz apagada por defecto,
+  sin modo bolsillo, el mapa nunca queda tapado sin forma de verlo entero y lo secundario va plegado.
