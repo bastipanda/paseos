@@ -183,6 +183,13 @@
         <p class="ayuda" id="ayuda-explorar" hidden></p>
 
         <label class="interruptor">
+          <input type="checkbox" id="solo-barrios" aria-label="Solo por mis barrios">
+          <span>Solo por mis barrios</span>
+        </label>
+        <p class="ayuda" id="ayuda-barrios" hidden><span id="texto-barrios"></span>
+          <button type="button" class="boton-texto" id="elegir-barrios" data-ir="ajustes">Elegir mis barrios</button></p>
+
+        <label class="interruptor">
           <input type="checkbox" id="con-bici" aria-label="Volver en Bike Itaú">
           <span>Volver en Bike Itaú</span>
         </label>
@@ -447,6 +454,12 @@
         </label>
         <p class="ayuda">Apagado, los lugares que no has visto aparecen como siluetas con "?" (solo el tipo y la
           distancia), como en un álbum.</p>
+        <details class="mas-opciones" id="detalle-barrios">
+          <summary>Mis barrios <span class="opcional" id="resumen-barrios"></span></summary>
+          <p class="ayuda">Las comunas donde te gusta caminar. Con "Solo por mis barrios" (Armar → Más opciones), los
+            puntos por donde se desvía el paseo y los destinos quedan dentro de ellas.</p>
+          <div class="chips" id="mis-barrios"><p class="ayuda">Cargando comunas…</p></div>
+        </details>
         <button type="submit" class="boton-principal">Guardar</button>
         <p id="estado-ajustes" class="estado" role="status"></p>
       </form>

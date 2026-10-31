@@ -14,8 +14,14 @@
 //
 // Una opción puede tener un `destino`: el lugar al que se va (plaza, trámite, lugar de la Santiagodex o estación de
 // metro). Con `destino.idaYVuelta` se vuelve al punto de partida; sin eso, el paseo termina ahí.
+//
+// "Solo por mis barrios": `prefs.zona(p)` dice si un punto está dentro de las comunas elegidas. Los puntos
+// intermedios y los destinos quedan siempre dentro; el camino entre ellos puede cruzar un poco (resta en la nota).
+//
+// "Buscar más": `ronda` (1, 2, …) gira las direcciones y cambia la forma de la vuelta, y `excluir` (claves de
+// `claveLugar`) deja fuera los lugares que ya se mostraron, para que salgan opciones distintas con lo mismo pedido.
 
-import { distancia, destino, rumbo, puntoEnElipse, fraccionRepetida, parecido } from './geo.js';
+import { distancia, destino, rumbo, puntoEnElipse, fraccionRepetida, parecido, muestrear } from './geo.js';
 import { objetivo, cumple, desvio, restar, formatearDistancia } from './duracion.js';
 import { pedirRuta, quitarEspolones, ErrorDeRuta } from './brouter.js';
 import { evaluar, combinar, ESTILOS } from './tranquilidad.js';
@@ -33,6 +39,12 @@ const UMBRAL_CIRCULAR = 80;
 // Castigo a las rutas que van y vuelven por la misma calle.
 const CASTIGO_REPETIR = 60;
 const MAX_OPCIONES = 5;
+// Castigo a las rutas que cruzan fuera de tus barrios: 40 puntos si fueran enteras por fuera.
+const CASTIGO_FUERA = 40;
+// Variedad de cada ronda de "Buscar más": cuánto se giran las direcciones y qué tan abierto es el triángulo de la vuelta.
+const GIROS_CIRCULAR = [0, 20, 40, 10];
+const GIROS_ELIPSE = [0, 20, -20, 40];
+const ABERTURAS = [30, 40, 22, 35];
 
 export const PREFS_POR_DEFECTO = {
   estilo: 'tranquilo',
@@ -41,19 +53,42 @@ export const PREFS_POR_DEFECTO = {
   pasarPor: { plazas: false, interes: false, comercio: false },
   datos: { plazas: [], interes: [], comercio: null },
   conocidas: null,
+  zona: null,
 };
 
 const perfilPie = (prefs) => (ESTILOS[prefs.estilo] || ESTILOS.tranquilo).perfil;
+const enZona = (prefs, p) => !prefs.zona || prefs.zona(p);
+
+// Identifica un lugar por su posición (las plazas no tienen id): sirve para no repetirlo en "Buscar más".
+export const claveLugar = (l) => l.punto.map((x) => x.toFixed(5)).join(',');
+
+// Qué parte de un camino va dentro de la zona (cada 50 m).
+export function fraccionEnZona(coords, zona) {
+  const muestras = muestrear(coords, 50);
+  return muestras.length ? muestras.filter((m) => zona(m.p)).length / muestras.length : 1;
+}
+
+// Mensaje cuando no hay lugares: dice si se buscó solo en tus barrios o si ya se mostraron todos.
+function sinLugaresTexto(texto, prefs, excluir) {
+  if (excluir?.size) return 'No quedan lugares distintos a los que ya viste a una distancia que calce.';
+  return prefs.zona ? `${texto} Solo busqué dentro de tus barrios.` : texto;
+}
+
+const SIN_ZONA =
+  'No encontré cómo alargar el paseo sin salir de tus barrios. Parte más adentro de ellos, cambia la duración o ' +
+  'apaga "Solo por mis barrios".';
 
 export function esCircular(inicio, fin) {
   return distancia(inicio, fin) < UMBRAL_CIRCULAR;
 }
 
-export function puntosIntermedios(inicio, fin, largoBuscado, angulo) {
+// `abertura`: mitad del ángulo del triángulo en la partida (30° = triángulo equilátero).
+export function puntosIntermedios(inicio, fin, largoBuscado, angulo, abertura = 30) {
   const sumaRecta = largoBuscado / DESVIO_CALLES;
   if (esCircular(inicio, fin)) {
-    const lado = sumaRecta / 3;
-    return [destino(inicio, angulo - 30, lado), destino(inicio, angulo + 30, lado)];
+    // Dos lados iguales y el tercero de 2·lado·sen(abertura): el perímetro calza con lo buscado.
+    const lado = sumaRecta / (2 + 2 * Math.sin((abertura * Math.PI) / 180));
+    return [destino(inicio, angulo - abertura, lado), destino(inicio, angulo + abertura, lado)];
   }
   return [puntoEnElipse(inicio, fin, sumaRecta, angulo)];
 }
@@ -72,8 +107,8 @@ function destinosReales(prefs) {
   if (prefs.subidas === 'buscar') {
     for (const l of datos.interes || []) if (l.tipo === 'mirador' || l.tipo === 'cerro') lista.push({ punto: l.punto, peso: 1 });
   }
-  prefs._destinos = lista;
-  return lista;
+  prefs._destinos = lista.filter((d) => enZona(prefs, d.punto));
+  return prefs._destinos;
 }
 
 // Mueve un punto intermedio al mejor lugar real cercano (o lo deja igual si no hay ninguno a menos de `radio`).
@@ -91,8 +126,8 @@ export function ajustarPunto(punto, destinos, radio, usados = new Set()) {
   return mejor.d.punto;
 }
 
-function intermediosReales(inicio, fin, largoBuscado, angulo, prefs) {
-  const vias = puntosIntermedios(inicio, fin, largoBuscado, angulo);
+function intermediosReales(inicio, fin, largoBuscado, angulo, prefs, abertura = 30) {
+  const vias = puntosIntermedios(inicio, fin, largoBuscado, angulo, abertura);
   const destinos = destinosReales(prefs);
   if (!destinos.length) return vias;
   const radio = Math.min(450, Math.max(150, largoBuscado / 12));
@@ -124,7 +159,8 @@ export function extrasDeRuta(ruta, prefs) {
   const iluminada = total ? ruta.tramos.filter((t) => t.tags.lit === 'yes').reduce((s, t) => s + t.metros, 0) / total : 0;
   const nueva = prefs.conocidas ? novedad(ruta.coords, prefs.conocidas) : null;
   const servicios = lugaresEnRuta(ruta.coords, datos.servicios || [], 60);
-  return { interes, plazas, comercio, iluminada, novedad: nueva, servicios };
+  const zona = prefs.zona ? fraccionEnZona(ruta.coords, prefs.zona) : null;
+  return { interes, plazas, comercio, iluminada, novedad: nueva, servicios, enZona: zona };
 }
 
 // Nota para ordenar opciones: qué tan buenas son las calles para el estilo, menos lo repetido, más lo pedido.
@@ -139,13 +175,14 @@ function notaDe(evaluacion, repetida, extras, prefs, ruta) {
   if (pasarPor.plazas) nota += 4 * Math.min(extras.plazas.length, 4);
   if (pasarPor.comercio || estilo === 'vida') nota += Math.min(20, extras.comercio / 5);
   if (extras.novedad !== null) nota += 40 * extras.novedad;
+  if (typeof extras.enZona === 'number') nota -= CASTIGO_FUERA * (1 - extras.enZona);
   return nota;
 }
 
 // Rutas a pie entre `inicio` y `fin` cuyo largo cae en `rango` (metros). Devuelve candidatas evaluadas.
 // `variedad` permite una tercera vuelta de consultas para tener más opciones distintas.
 // `angulosA` permite probar menos direcciones (para no pedir tantas rutas cuando se buscan varios destinos).
-export async function caminatas({ inicio, fin, rango, avance = () => {}, maxConsultas = 10, variedad = true, prefs = PREFS_POR_DEFECTO, angulosA = null }) {
+export async function caminatas({ inicio, fin, rango, avance = () => {}, maxConsultas = 10, variedad = true, prefs = PREFS_POR_DEFECTO, angulosA = null, ronda = 0 }) {
   const meta = objetivo(rango);
   const recta = distancia(inicio, fin);
   const circular = esCircular(inicio, fin);
@@ -160,7 +197,8 @@ export async function caminatas({ inicio, fin, rango, avance = () => {}, maxCons
       );
     }
     const pasarPorAlgo = Object.values(prefs.pasarPor || {}).some(Boolean);
-    if (meta <= recta * 1.35 && !pasarPorAlgo) {
+    // La ruta directa y sus alternativas van solo en la primera búsqueda: "Buscar más" ya las mostró.
+    if (ronda === 0 && meta <= recta * 1.35 && !pasarPorAlgo) {
       const directa = await intentar([inicio, fin], perfil, avance, subidas);
       if (directa) resultados.push({ ruta: directa, angulo: null, largoBuscado: meta });
       const alcanza = directa && (cumple(directa.metros, rango) || (rango.max !== null && directa.metros > rango.max));
@@ -175,9 +213,23 @@ export async function caminatas({ inicio, fin, rango, avance = () => {}, maxCons
     }
   }
 
-  const angulos = circular ? [0, 60, 120, 180, 240, 300] : angulosA || [90, 270, 60, 120, 240, 300];
+  const giro = (circular ? GIROS_CIRCULAR : GIROS_ELIPSE)[ronda % 4];
+  const abertura = ABERTURAS[ronda % 4];
+  const viasDe = (angulo, largo) => intermediosReales(inicio, fin, largo, angulo, prefs, abertura);
+  const cabe = (vias) => vias.every((p) => enZona(prefs, p));
+  const base = (circular ? [0, 60, 120, 180, 240, 300] : angulosA || [90, 270, 60, 120, 240, 300]).map((a) => a + giro);
+  const otras = (circular ? [30, 90, 150, 210, 270, 330] : [30, 150, 210, 330]).map((a) => a + giro);
+  // Con "Solo por mis barrios" se usan las direcciones cuyos puntos caen dentro, empezando por las de siempre.
+  let angulos = base;
+  let extra = otras;
+  if (prefs.zona) {
+    const validos = [...base, ...otras].filter((a) => cabe(viasDe(a, meta)));
+    angulos = validos.slice(0, base.length);
+    extra = validos.slice(base.length);
+  }
   const pedir = async (angulo, largoBuscado) => {
-    const vias = intermediosReales(inicio, fin, largoBuscado, angulo, prefs);
+    const vias = viasDe(angulo, largoBuscado);
+    if (!cabe(vias)) return null;
     const ruta = await intentar([inicio, ...vias, fin], perfil, avance, subidas);
     return ruta ? { ruta, angulo, largoBuscado } : null;
   };
@@ -200,7 +252,6 @@ export async function caminatas({ inicio, fin, rango, avance = () => {}, maxCons
   if (variedad && candidatas.filter((c) => c.enRango).length < 3 && primera.length) {
     const razones = primera.map((r) => r.ruta.metros / r.largoBuscado).sort((a, b) => a - b);
     const mediana = razones[Math.floor(razones.length / 2)];
-    const extra = circular ? [30, 90, 150, 210, 270, 330] : [30, 150, 210, 330];
     const tercera = await Promise.all(extra.slice(0, 4).map((a) => pedir(a, meta / mediana)));
     resultados.push(...tercera.filter(Boolean));
     candidatas = evaluarCandidatas(resultados, rango, prefs);
@@ -255,18 +306,20 @@ function opcionDePie(c, prefs, extra = {}) {
 }
 
 // Opciones solo a pie, listas para mostrar.
-export async function paseosAPie({ inicio, fin, rango, avance, prefs = PREFS_POR_DEFECTO }) {
-  const candidatas = await caminatas({ inicio, fin, rango, avance, prefs });
+export async function paseosAPie({ inicio, fin, rango, avance, prefs = PREFS_POR_DEFECTO, ronda = 0 }) {
+  const candidatas = await caminatas({ inicio, fin, rango, avance, prefs, ronda });
+  if (!candidatas.length && prefs.zona) throw new ErrorDeRuta(SIN_ZONA);
   return candidatas.slice(0, MAX_OPCIONES).map((c) => opcionDePie(c, prefs));
 }
 
 // Paseos que terminan en un lugar elegido por la app a la distancia justa (por ejemplo, "la estación de metro que
 // calce"): se prueban hasta tres lugares en distintas direcciones y se alarga la caminata si queda corta.
-export async function paseosHastaDestino({ inicio, rango, lugares, avance = () => {}, prefs = PREFS_POR_DEFECTO }) {
+export async function paseosHastaDestino({ inicio, rango, lugares, avance = () => {}, prefs = PREFS_POR_DEFECTO, ronda = 0, excluir = null }) {
   const meta = objetivo(rango);
   const maxTotal = rango.max ?? meta * 1.4;
   const porSector = new Map();
   for (const lugar of lugares) {
+    if (!enZona(prefs, lugar.punto) || excluir?.has(claveLugar(lugar))) continue;
     const d = distancia(inicio, lugar.punto);
     if (d < 150 || d * DESVIO_CALLES > maxTotal) continue;
     const sector = Math.floor(rumbo(inicio, lugar.punto) / 60);
@@ -275,10 +328,12 @@ export async function paseosHastaDestino({ inicio, rango, lugares, avance = () =
     if (!porSector.has(sector) || nota < porSector.get(sector).nota) porSector.set(sector, { lugar, nota });
   }
   const elegidos = [...porSector.values()].sort((a, b) => a.nota - b.nota).slice(0, 3);
-  if (!elegidos.length) throw new ErrorDeRuta('No encontré un destino a una distancia que calce con la duración pedida.');
+  if (!elegidos.length) {
+    throw new ErrorDeRuta(sinLugaresTexto('No encontré un destino a una distancia que calce con la duración pedida.', prefs, excluir));
+  }
   const opciones = [];
   for (const { lugar } of elegidos) {
-    const [mejor] = await caminatas({ inicio, fin: lugar.punto, rango, avance, maxConsultas: 6, variedad: false, prefs, angulosA: [90, 270, 60, 300] });
+    const [mejor] = await caminatas({ inicio, fin: lugar.punto, rango, avance, maxConsultas: 6, variedad: false, prefs, angulosA: [90, 270, 60, 300], ronda });
     if (mejor) opciones.push(opcionDePie(mejor, prefs, { destino: { ...lugar, idaYVuelta: false } }));
   }
   if (!opciones.length) throw new ErrorDeRuta('No encontré rutas hasta los destinos cercanos.');
@@ -289,7 +344,7 @@ export async function paseosHastaDestino({ inicio, rango, lugares, avance = () =
 // duración pedida para la ida y la vuelta juntas. La vuelta se fuerza por otras calles con un punto intermedio a un
 // costado. Se elige un lugar por dirección, prefiriendo los que tienen nombre, son grandes, están a la distancia
 // justa y, en modo explorar, los que quedan en zonas nuevas.
-export async function paseosIdaYVuelta({ inicio, rango, lugares, avance = () => {}, prefs = PREFS_POR_DEFECTO, sinLugares = 'No encontré lugares a una distancia que calce con la duración pedida.' }) {
+export async function paseosIdaYVuelta({ inicio, rango, lugares, avance = () => {}, prefs = PREFS_POR_DEFECTO, sinLugares = 'No encontré lugares a una distancia que calce con la duración pedida.', ronda = 0, excluir = null }) {
   const meta = objetivo(rango);
   const maxTotal = rango.max ?? meta * 1.5;
   const perfil = perfilPie(prefs);
@@ -299,27 +354,43 @@ export async function paseosIdaYVuelta({ inicio, rango, lugares, avance = () => 
   const minimo = Math.max(150, meta / 4.5);
   const maximo = maxTotal / (2 * 1.15);
 
-  const porSector = new Map();
-  for (const lugar of lugares) {
-    const d = distancia(inicio, lugar.punto);
-    if (d < minimo || d > maximo) continue;
-    const sector = Math.floor(rumbo(inicio, lugar.punto) / 60);
-    let nota = Math.abs(d - ideal) / ideal - (lugar.nombre ? 0.35 : 0) - (Math.min(lugar.tamano || 0, 400) / 400) * 0.3;
-    if (prefs.conocidas) nota -= 0.4 * novedad([lugar.punto], prefs.conocidas);
-    if (!porSector.has(sector) || nota < porSector.get(sector).nota) porSector.set(sector, { lugar, d, nota });
-  }
-  const elegidos = [...porSector.values()].sort((a, b) => a.nota - b.nota).slice(0, 4);
-  if (!elegidos.length) throw new ErrorDeRuta(sinLugares);
+  const elegir = (lista) => {
+    const porSector = new Map();
+    for (const lugar of lista) {
+      const d = distancia(inicio, lugar.punto);
+      if (d < minimo || d > maximo) continue;
+      const sector = Math.floor(rumbo(inicio, lugar.punto) / 60);
+      let nota = Math.abs(d - ideal) / ideal - (lugar.nombre ? 0.35 : 0) - (Math.min(lugar.tamano || 0, 400) / 400) * 0.3;
+      if (prefs.conocidas) nota -= 0.4 * novedad([lugar.punto], prefs.conocidas);
+      if (!porSector.has(sector) || nota < porSector.get(sector).nota) porSector.set(sector, { lugar, d, nota });
+    }
+    return [...porSector.values()].sort((a, b) => a.nota - b.nota).slice(0, 4);
+  };
+  const enTuZona = lugares.filter((l) => enZona(prefs, l.punto));
+  let elegidos = elegir(excluir ? enTuZona.filter((l) => !excluir.has(claveLugar(l))) : enTuZona);
+  // "Buscar más" sin lugares nuevos (por ejemplo, ir a capturar uno solo): el mismo lugar, volviendo por otro lado.
+  if (!elegidos.length && excluir) elegidos = elegir(enTuZona);
+  if (!elegidos.length) throw new ErrorDeRuta(sinLugaresTexto(sinLugares, prefs, null));
 
   const pedir = async (lugar, angulo, sumaVuelta) => {
     const lado = puntoEnElipse(lugar.punto, inicio, sumaVuelta, angulo);
+    if (!enZona(prefs, lado)) return null;
     const ruta = await intentar([inicio, lugar.punto, lado, inicio], perfil, avance, subidas);
     return ruta ? { ruta, lugar, angulo, sumaVuelta } : null;
   };
   const sumaInicial = (d) => Math.max(d * 1.05, meta / DESVIO_CALLES - d);
+  // Hacia qué lado se fuerza la vuelta: cada ronda de "Buscar más" empieza por otro par, y con "Solo por mis
+  // barrios" se saltan los lados que caen fuera.
+  const LADOS = [90, 270, 60, 300, 120, 240];
+  const lados = (e) => {
+    const desde = (ronda * 2) % LADOS.length;
+    return [...LADOS.slice(desde), ...LADOS.slice(0, desde)]
+      .filter((a) => enZona(prefs, puntoEnElipse(e.lugar.punto, inicio, sumaInicial(e.d), a)))
+      .slice(0, 2);
+  };
 
   const primera = (
-    await Promise.all(elegidos.flatMap((e) => [90, 270].map((a) => pedir(e.lugar, a, sumaInicial(e.d)))))
+    await Promise.all(elegidos.flatMap((e) => lados(e).map((a) => pedir(e.lugar, a, sumaInicial(e.d)))))
   ).filter(Boolean);
   const corregir = primera
     .filter((r) => !cumple(r.ruta.metros, rango))
@@ -411,7 +482,7 @@ export async function caminoCorto(desde, hasta, estilo = 'tranquilo') {
 
 // Opciones con ida a pie hasta una estación Bike Itaú, vuelta en bici hasta la estación con anclajes libres
 // más cercana al término y un último tramo a pie. La duración pedida se aplica a lo caminado.
-export async function paseosConBici({ inicio, fin, rango, estaciones, avance = () => {}, prefs = PREFS_POR_DEFECTO }) {
+export async function paseosConBici({ inicio, fin, rango, estaciones, avance = () => {}, prefs = PREFS_POR_DEFECTO, ronda = 0, excluir = null }) {
   const perfil = perfilPie(prefs);
   const subidas = { evitarSubidas: prefs.evitarSubidas };
   const llegadas = estaciones
@@ -442,6 +513,7 @@ export async function paseosConBici({ inicio, fin, rango, estaciones, avance = (
   const porSector = new Map();
   for (const e of estaciones) {
     if (!e.operativa || e.bicis <= 0) continue;
+    if (!enZona(prefs, e.punto) || excluir?.has(claveLugar(e))) continue;
     if (distancia(e.punto, llegada.estacion.punto) < 600) continue;
     const d = distancia(inicio, e.punto);
     if (d * 1.1 > maxIda) continue;
@@ -451,7 +523,7 @@ export async function paseosConBici({ inicio, fin, rango, estaciones, avance = (
   }
   const salidas = [...porSector.values()].sort((a, b) => a.error - b.error).slice(0, 3);
   if (!salidas.length) {
-    throw new ErrorDeRuta('No hay estaciones con bicis a una distancia que calce con la caminata pedida.');
+    throw new ErrorDeRuta(sinLugaresTexto('No hay estaciones con bicis a una distancia que calce con la caminata pedida.', prefs, excluir));
   }
 
   // Caminata hasta cada estación: directa si alcanza, alargada con puntos intermedios si queda corta.
@@ -467,6 +539,7 @@ export async function paseosConBici({ inicio, fin, rango, estaciones, avance = (
         maxConsultas: 5,
         variedad: false,
         prefs,
+        ronda,
       });
       if (mejor) idas.push({ salida: s.estacion, caminata: mejor });
     } else {

@@ -29,6 +29,12 @@ export function comunaDe(p, comunas) {
   );
 }
 
+// "Mis barrios": dice si un punto está dentro de alguna de las comunas elegidas (para `prefs.zona` del generador).
+export function zonaDeComunas(nombres, comunas) {
+  const elegidas = comunas.filter((c) => nombres.includes(c.nombre));
+  return (p) => comunaDe(p, elegidas) !== null;
+}
+
 // Comunas por las que pasa una ruta, en orden, con la fracción del camino en cada una.
 export function comunasDeRuta(coords, comunas) {
   const muestras = muestrear(coords, 100);

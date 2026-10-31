@@ -331,6 +331,13 @@ button { font: inherit; }
 .plegable > :not(summary) { margin-bottom: 10px; }
 .cabecera-resultados { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
 .cabecera-resultados h2 { margin: 0; text-align: center; flex: 1; }
+/* En la última opción, la flecha › busca más opciones con lo mismo pedido. */
+.boton-icono.buscar-mas {
+  width: auto; padding: 0 14px; border-radius: 22px; font-size: 15px; font-weight: 700;
+  background: var(--acento); color: var(--acento-texto); border-color: var(--acento); white-space: nowrap;
+}
+#mis-barrios { margin-bottom: 12px; }
+#ayuda-barrios .boton-texto { padding: 4px 0; }
 .cifras { font-size: 22px; font-weight: 700; margin: 4px 0 2px; }
 .secundario { color: var(--texto-suave); margin: 0 0 10px; }
 .bloque { background: var(--fondo-suave); border-radius: 12px; padding: 10px 12px; margin: 10px 0; }

@@ -104,7 +104,7 @@ export function describirTramo(tags, modo, estilo = 'tranquilo') {
   return { titulo: mayuscula(nombreCalle(tags)), detalle: detalles.join(' '), categoria: cat };
 }
 
-function listar(nombres) {
+export function listar(nombres) {
   if (nombres.length <= 1) return nombres.join('');
   return `${nombres.slice(0, -1).join(', ')} y ${nombres[nombres.length - 1]}`;
 }

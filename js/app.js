@@ -13,6 +13,7 @@ import {
   recetaDe,
   rehacerOpcion,
   rutaHasta,
+  claveLugar,
 } from './generador.js';
 import { ErrorDeRuta } from './brouter.js';
 import { $, mostrarEstado, mensajeDeError, compartirODescargar, descargar, formatearHora } from './ui.js';
@@ -26,11 +27,11 @@ import { iniciarDex } from './pantalla-dex.js';
 import { pedirFoto } from './captura.js';
 import { fotosParaRespaldo, restaurarFotos } from './fotos.js';
 import { dibujarPostal } from './postal.js';
-import { comunasDeRuta, textoDelitos, LIMITES_DELITOS } from './territorio.js';
-import { resumir, textoComparacion, TEXTOS_ESTILO } from './explicar.js';
+import { comunasDeRuta, zonaDeComunas, textoDelitos, LIMITES_DELITOS } from './territorio.js';
+import { resumir, textoComparacion, listar, TEXTOS_ESTILO } from './explicar.js';
 import { crearGpx, nombreArchivo } from './gpx.js';
 import { Voz, fraseHablada } from './guia.js';
-import { distancia } from './geo.js';
+import { distancia, parecido } from './geo.js';
 import { consultarClima, leerClima, mejorHora, textoMejorHora } from './clima.js';
 import { crearIcs } from './calendario.js';
 import { Metronomo, faseIntervalo, ppmDeFase } from './metronomo.js';
@@ -59,6 +60,9 @@ const estado = {
   puntos: { partida: null, termino: null },
   opciones: [],
   indice: 0,
+  // La última búsqueda, para "Buscar más": { pedir, prefs, datos, ronda }. Null si no se puede pedir más.
+  busqueda: null,
+  buscandoMas: false,
   seguimiento: null,
   seguirme: true,
   esperando: null,
@@ -551,6 +555,23 @@ $('#explorar').addEventListener('change', () => {
   guardarFormulario();
 });
 
+// "Solo por mis barrios": las comunas se eligen en Ajustes; aquí solo se prende o apaga.
+function misBarrios() {
+  return almacen.ajustes().misBarrios || [];
+}
+function actualizarAyudaBarrios() {
+  const barrios = misBarrios();
+  $('#ayuda-barrios').hidden = !$('#solo-barrios').checked;
+  $('#texto-barrios').textContent = barrios.length
+    ? `Los puntos y destinos del paseo quedan en ${listar(barrios)}; el camino entre ellos puede cruzar un poco.`
+    : 'Todavía no eliges tus barrios.';
+  $('#elegir-barrios').textContent = barrios.length ? 'Cambiar mis barrios' : 'Elegir mis barrios';
+}
+$('#solo-barrios').addEventListener('change', () => {
+  actualizarAyudaBarrios();
+  guardarFormulario();
+});
+
 for (const id of ['minimo', 'maximo']) {
   $(`#${id}`).addEventListener('input', () => {
     actualizarAyudaDuracion();
@@ -573,6 +594,7 @@ function actualizarResumenOpciones() {
     TEXTO_SUBIDAS[subidasElegidas()],
     pasar.length && `por ${pasar.join(', ')}`,
     $('#explorar').checked && 'explorando',
+    $('#solo-barrios').checked && 'solo mis barrios',
     $('#con-bici').checked && 'vuelta en Bike Itaú',
   ]
     .filter(Boolean)
@@ -593,6 +615,7 @@ function guardarFormulario() {
     pasarPor: pasarPorElegido(),
     subidas: subidasElegidas(),
     explorar: $('#explorar').checked,
+    soloBarrios: $('#solo-barrios').checked,
     tramite: $('#tramite-tipo')?.value || almacen.formularioGuardado()?.tramite || 'supermercado',
     tramiteNombre: $('#tramite-nombre') ? $('#tramite-nombre').value : almacen.formularioGuardado()?.tramiteNombre || '',
   });
@@ -622,6 +645,7 @@ function restaurarFormulario() {
     if (radioSubidas) radioSubidas.checked = true;
     $('#ayuda-subidas').hidden = subidas !== 'buscar';
     $('#explorar').checked = Boolean(f.explorar);
+    $('#solo-barrios').checked = Boolean(f.soloBarrios);
     // Si se borró el peso, las calorías ya no se pueden usar.
     if (f.unidad === 'kcal' && !tienePeso(almacen.ajustes())) document.querySelector('input[name="unidad"][value="pasos"]').checked = true;
   } else {
@@ -631,6 +655,7 @@ function restaurarFormulario() {
   estado.unidad = unidadElegida();
   actualizarAyudaEstilo();
   actualizarAyudaExplorar();
+  actualizarAyudaBarrios();
   actualizarBici();
   actualizarResumenOpciones();
   pintarExtra('partida', false);
@@ -641,7 +666,7 @@ function restaurarFormulario() {
 // ---------- Buscar rutas ----------
 
 // Preferencias del paseo según el formulario (también las usa "Salir ahora", con lo último que se eligió).
-function prefsDelFormulario(datos) {
+function prefsDelFormulario(datos, zona = null) {
   return {
     estilo: estiloElegido(),
     subidas: subidasElegidas(),
@@ -649,30 +674,43 @@ function prefsDelFormulario(datos) {
     pasarPor: pasarPorElegido(),
     datos,
     conocidas: $('#explorar').checked ? almacen.conocidas() : null,
+    zona,
   };
 }
 
-// Busca opciones y las muestra. `pedir(avance, prefs)` llama al generador que corresponda; `aviso` es donde se
-// cuenta el avance; `origen` es la vista a la que vuelve "Cambiar búsqueda".
-async function buscarYMostrar({ pedir, aviso, origen, prefsExtra = {} }) {
+// Con "Solo por mis barrios", la función que dice si un punto está en ellos (null si el interruptor está apagado).
+async function zonaElegida() {
+  if (!$('#solo-barrios').checked) return null;
+  const barrios = misBarrios();
+  if (!barrios.length) throw new Error('Elige tus barrios en Más → Ajustes, o apaga "Solo por mis barrios" en Armar.');
+  return zonaDeComunas(barrios, await cargarComunas());
+}
+
+// Busca opciones y las muestra. `pedir(avance, prefs, datos, { ronda, excluir })` llama al generador que corresponda;
+// `aviso` es donde se cuenta el avance; `origen` es la vista a la que vuelve "Cambiar búsqueda". Con `mas`, la
+// búsqueda queda guardada para "Buscar más". `prefsExtra.zona = null` ignora "Solo por mis barrios" (cuando el
+// destino lo eligió Bastián, como ir a capturar un lugar).
+async function buscarYMostrar({ pedir, aviso, origen, prefsExtra = {}, mas = true }) {
   if (estado.buscando) return;
   estado.buscando = true;
   try {
     // Plazas, lugares interesantes, comercio y servicios: para "Pasar por…", las explicaciones y el modo plaza.
     mostrarEstado(aviso, 'Cargando lugares…');
     const datos = await cargarDatos();
-    const prefs = { ...prefsDelFormulario(datos), ...prefsExtra };
+    const zona = prefsExtra.zona === null ? null : await zonaElegida();
+    const prefs = { ...prefsDelFormulario(datos, zona), ...prefsExtra };
     let consultas = 0;
     const avance = () => {
       consultas++;
       mostrarEstado(aviso, `Calculando rutas… (${consultas} consultas)`);
     };
-    const opciones = await pedir(avance, prefs, datos);
+    const opciones = await pedir(avance, prefs, datos, { ronda: 0, excluir: null });
     if (!opciones.length) throw new ErrorDeRuta('No encontré rutas. Prueba con otra duración o con otro punto.');
     for (const o of opciones) o.explicacion = resumir(o, { pasarPor: prefs.pasarPor });
     estado.comparaciones = new Map();
     estado.opciones = opciones;
     estado.indice = 0;
+    estado.busqueda = mas ? { pedir, prefs, datos, ronda: 0 } : null;
     estado.origenBusqueda = origen;
     mostrarEstado(aviso, '');
     irA('resultados');
@@ -711,28 +749,29 @@ $('#formulario').addEventListener('submit', async (e) => {
     await buscarYMostrar({
       aviso,
       origen: 'formulario',
-      pedir: async (avance, prefs, datos) => {
+      // `mas` trae la ronda y los lugares ya vistos cuando se pide desde "Buscar más".
+      pedir: async (avance, prefs, datos, mas) => {
         if (tipoTermino === 'plaza') {
           if (!datos.plazas.length) throw new Error('No se pudo cargar la lista de plazas. Intenta de nuevo.');
-          return paseosIdaYVuelta({ inicio: partida.punto, rango, lugares: datos.plazas, avance, prefs, sinLugares: 'No encontré plazas a una distancia que calce con la duración pedida.' });
+          return paseosIdaYVuelta({ inicio: partida.punto, rango, lugares: datos.plazas, avance, prefs, ...mas, sinLugares: 'No encontré plazas a una distancia que calce con la duración pedida.' });
         }
         if (tipoTermino === 'tramite') {
           const tipo = $('#tramite-tipo').value;
           const filtro = normalizarTexto($('#tramite-nombre').value);
           const lugares = (await cargarTramites()).filter((l) => l.tipo === tipo && (!filtro || normalizarTexto(l.nombre).includes(filtro)));
           if (!lugares.length) throw new Error(`No encontré ${TRAMITES[tipo].toLowerCase()} con ese nombre en el mapa.`);
-          return paseosIdaYVuelta({ inicio: partida.punto, rango, lugares, avance, prefs, sinLugares: `No encontré un local de ese tipo a una distancia que calce con la duración pedida.` });
+          return paseosIdaYVuelta({ inicio: partida.punto, rango, lugares, avance, prefs, ...mas, sinLugares: `No encontré un local de ese tipo a una distancia que calce con la duración pedida.` });
         }
         if (tipoTermino === 'metro-calce') {
           const { estaciones } = await cargarMetro();
-          return paseosHastaDestino({ inicio: partida.punto, rango, lugares: estaciones, avance, prefs });
+          return paseosHastaDestino({ inicio: partida.punto, rango, lugares: estaciones, avance, prefs, ...mas });
         }
         if (conBici) {
           mostrarEstado(aviso, 'Revisando las estaciones Bike Itaú…');
           const estaciones = await cargarEstaciones({ forzar: true });
-          return paseosConBici({ inicio: partida.punto, fin: termino.punto, rango, estaciones, avance, prefs });
+          return paseosConBici({ inicio: partida.punto, fin: termino.punto, rango, estaciones, avance, prefs, ...mas });
         }
-        const opciones = await paseosAPie({ inicio: partida.punto, fin: termino.punto, rango, avance, prefs });
+        const opciones = await paseosAPie({ inicio: partida.punto, fin: termino.punto, rango, avance, prefs, ronda: mas.ronda });
         // Si el término es una estación de metro elegida, se muestra como destino (nombre y líneas).
         const estacion = $('#termino-tipo').value === 'metro' && (await cargarMetro()).estaciones.find((e) => e.nombre === termino.estacion);
         if (estacion) for (const o of opciones) o.destino = { ...estacion, idaYVuelta: false };
@@ -763,7 +802,7 @@ async function salirAhora(minutos) {
     await buscarYMostrar({
       aviso,
       origen: 'hoy',
-      pedir: (avance, prefs) => paseosAPie({ inicio: punto, fin: punto, rango, avance, prefs }),
+      pedir: (avance, prefs, datos, mas) => paseosAPie({ inicio: punto, fin: punto, rango, avance, prefs, ronda: mas.ronda }),
     });
   } catch (err) {
     mostrarEstado(aviso, mensajeDeError(err), true);
@@ -777,7 +816,7 @@ async function salirSorpresa(punto, rango, aviso) {
   estado.buscando = true;
   try {
     mostrarEstado(aviso, 'Eligiendo un lugar sorpresa…');
-    const [datos, dexLista] = await Promise.all([cargarDatos(), cargarDex()]);
+    const [datos, dexLista, zona] = await Promise.all([cargarDatos(), cargarDex(), zonaElegida()]);
     const d = almacen.dex();
     // Sin capturar y no tan cerca como para "llegar" apenas se parte.
     const lugares = dexLista.filter((l) => !d.capturados[l.id] && distancia(punto, l.punto) > radioCaptura(l) + 100);
@@ -786,7 +825,7 @@ async function salirSorpresa(punto, rango, aviso) {
       inicio: punto,
       rango,
       lugares,
-      prefs: prefsDelFormulario(datos),
+      prefs: prefsDelFormulario(datos, zona),
       avance: () => mostrarEstado(aviso, `Armando el paseo sorpresa… (${++consultas} consultas)`),
       sinLugares: 'No encontré lugares nuevos de la Santiagodex a esa distancia. Prueba con otra duración.',
     });
@@ -796,6 +835,7 @@ async function salirSorpresa(punto, rango, aviso) {
     opcion.explicacion = resumir(opcion, {});
     estado.opciones = [opcion];
     estado.indice = 0;
+    estado.busqueda = null;
     estado.comparaciones = new Map();
     estado.origenBusqueda = 'hoy';
     mostrarEstado(aviso, '');
@@ -817,10 +857,12 @@ async function irACapturar(lugar, aviso = $('#estado-dex')) {
       return mostrarEstado(aviso, `Está a ${formatearDistancia(d)} en línea recta. Mejor ve en metro y arma el paseo desde la estación más cercana (Armar → Partida: una estación de metro).`, true);
     }
     // Ida ≈ distancia × 1,3 y la vuelta un poco más larga, por otras calles.
+    // El lugar lo elegiste tú: "Solo por mis barrios" no aplica. "Buscar más" vuelve por otros lados.
     await buscarYMostrar({
       aviso,
       origen: 'dex',
-      pedir: (avance, prefs) => paseosIdaYVuelta({ inicio: punto, rango: { min: d * 2.2, max: d * 3.6 }, lugares: [lugar], avance, prefs }),
+      prefsExtra: { zona: null },
+      pedir: (avance, prefs, datos, mas) => paseosIdaYVuelta({ inicio: punto, rango: { min: d * 2.2, max: d * 3.6 }, lugares: [lugar], avance, prefs, ronda: mas.ronda }),
     });
   } catch (err) {
     mostrarEstado(aviso, mensajeDeError(err), true);
@@ -833,6 +875,8 @@ async function abrirFavorita(favorita) {
   await buscarYMostrar({
     aviso,
     origen: 'hoy',
+    prefsExtra: { zona: null },
+    mas: false,
     pedir: async (avance, prefs) => {
       mostrarEstado(aviso, `Pidiendo "${favorita.nombre}"…`);
       const opcion = await rehacerOpcion(favorita.receta, prefs);
@@ -866,8 +910,7 @@ function mostrarOpcion() {
   const total = estado.opciones.length;
   const aj = almacen.ajustes();
   $('#titulo-opcion').textContent = `Opción ${estado.indice + 1} de ${total}`;
-  $('#anterior').disabled = estado.indice === 0;
-  $('#siguiente').disabled = estado.indice === total - 1;
+  pintarFlechas();
 
   const estilo = o.estilo || 'tranquilo';
   const textosEstilo = TEXTOS_ESTILO[estilo];
@@ -885,6 +928,7 @@ function mostrarOpcion() {
   ].filter(Boolean);
   const extras = [
     kcal !== null && `≈ ${formatearKcal(kcal)}`,
+    typeof o.extras?.enZona === 'number' && `${Math.round(o.extras.enZona * 100)} % por tus barrios`,
     o.metrosBici && `${formatearDistancia(o.metrosBici)} en bici`,
     `estilo ${ESTILO_NOMBRE[estilo]}`,
   ].filter(Boolean);
@@ -1109,8 +1153,80 @@ $('#siguiente').addEventListener('click', () => {
   if (estado.indice < estado.opciones.length - 1) {
     estado.indice++;
     mostrarOpcion();
+  } else {
+    buscarMas();
   }
 });
+
+// ---------- Buscar más ----------
+
+// Cada toque son unas 6 a 10 consultas a BRouter (servidor público): después de 4 rondas se pide cambiar la búsqueda.
+const MAX_RONDAS = 4;
+const coordsDe = (o) => o.partes.flatMap((p) => p.ruta.coords);
+
+// En la última opción, la flecha › pasa a ser "Más ›" (si la búsqueda lo permite).
+function pintarFlechas() {
+  const ultima = estado.indice === estado.opciones.length - 1;
+  const puedeMas = ultima && estado.busqueda && estado.busqueda.ronda < MAX_RONDAS;
+  const siguiente = $('#siguiente');
+  $('#anterior').disabled = estado.indice === 0 || estado.buscandoMas;
+  siguiente.disabled = estado.buscandoMas || (ultima && !puedeMas);
+  siguiente.classList.toggle('buscar-mas', Boolean(puedeMas));
+  siguiente.textContent = estado.buscandoMas ? '…' : puedeMas ? 'Más ›' : '›';
+  siguiente.setAttribute('aria-label', puedeMas ? 'Buscar más opciones' : 'Opción siguiente');
+}
+
+// La misma búsqueda con otras direcciones y otros lugares. Se suma solo lo que no se parece a lo ya visto (y, si
+// había opciones que calzaban con la duración, solo las que calzan).
+async function buscarMas() {
+  const b = estado.busqueda;
+  if (!b || estado.buscando) return;
+  const aviso = $('#estado-resultados');
+  const ronda = b.ronda + 1;
+  estado.buscando = true;
+  estado.buscandoMas = true;
+  pintarFlechas();
+  mostrarEstado(aviso, 'Buscando más opciones…');
+  try {
+    let consultas = 0;
+    const avance = () => mostrarEstado(aviso, `Buscando más opciones… (${++consultas} consultas)`);
+    const excluir = new Set(
+      estado.opciones
+        .flatMap((o) => [o.destino, o.estacionSalida])
+        .filter((l) => l?.punto)
+        .map(claveLugar),
+    );
+    const opciones = await b.pedir(avance, b.prefs, b.datos, { ronda, excluir });
+    const habiaEnRango = estado.opciones.some((o) => o.enRango);
+    const nuevas = [];
+    for (const o of opciones) {
+      if (habiaEnRango && !o.enRango) continue;
+      if ([...estado.opciones, ...nuevas].some((v) => parecido(coordsDe(v), coordsDe(o)) > 0.7)) continue;
+      o.explicacion = resumir(o, { pasarPor: b.prefs.pasarPor });
+      nuevas.push(o);
+    }
+    // La ronda avanza aunque no salga nada: el siguiente intento prueba otras direcciones.
+    b.ronda = ronda;
+    const final = ronda >= MAX_RONDAS ? ' Ya probé varias rondas: para ver otras, cambia la búsqueda.' : '';
+    if (nuevas.length) {
+      estado.indice = estado.opciones.length;
+      estado.opciones.push(...nuevas);
+      estado.buscandoMas = false;
+      mostrarOpcion();
+      mostrarEstado(aviso, (nuevas.length === 1 ? 'Encontré 1 opción nueva.' : `Encontré ${nuevas.length} opciones nuevas.`) + final);
+    } else {
+      mostrarEstado(aviso, `No encontré opciones distintas a las que ya viste.${final || ' Puedes tocar "Más" otra vez: pruebo otras direcciones.'}`);
+    }
+  } catch (err) {
+    console.error(err);
+    b.ronda = ronda;
+    mostrarEstado(aviso, mensajeDeError(err), true);
+  } finally {
+    estado.buscando = false;
+    estado.buscandoMas = false;
+    pintarFlechas();
+  }
+}
 
 // ---------- Seguimiento en vivo ----------
 
@@ -1792,7 +1908,33 @@ function cargarAjustes() {
   $('#ver-nombres-dex').checked = Boolean(aj.verNombresDex);
   $('#peso').value = aj.peso ?? '';
   mostrarEstado($('#estado-ajustes'), '');
+  pintarMisBarrios();
 }
+
+// Una casilla por comuna (las de datos/comunas.json), en orden alfabético.
+async function pintarMisBarrios() {
+  const caja = $('#mis-barrios');
+  const elegidas = new Set(misBarrios());
+  try {
+    const nombres = (await cargarComunas()).map((c) => c.nombre).sort((a, b) => a.localeCompare(b, 'es'));
+    caja.innerHTML = nombres
+      .map((n) => `<label class="chip-opcion"><input type="checkbox" value="${escapar(n)}"${elegidas.has(n) ? ' checked' : ''}><span>${escapar(n)}</span></label>`)
+      .join('');
+  } catch {
+    caja.innerHTML = '<p class="ayuda">No se pudieron cargar las comunas. Revisa la conexión y vuelve a abrir Ajustes.</p>';
+  }
+  actualizarResumenBarrios();
+}
+
+function barriosMarcados() {
+  return [...document.querySelectorAll('#mis-barrios input:checked')].map((c) => c.value);
+}
+
+function actualizarResumenBarrios() {
+  const n = document.querySelector('#mis-barrios input') ? barriosMarcados().length : misBarrios().length;
+  $('#resumen-barrios').textContent = n ? `(${n} ${n === 1 ? 'comuna' : 'comunas'})` : '(ninguna)';
+}
+$('#mis-barrios').addEventListener('change', actualizarResumenBarrios);
 
 $('#form-ajustes').addEventListener('submit', (e) => {
   e.preventDefault();
@@ -1839,9 +1981,12 @@ $('#form-ajustes').addEventListener('submit', (e) => {
     ppm,
     verEstaciones: $('#ver-estaciones').checked,
     verNombresDex: $('#ver-nombres-dex').checked,
+    // Si las comunas no alcanzaron a cargar, se mantienen las que ya estaban elegidas.
+    misBarrios: document.querySelector('#mis-barrios input') ? barriosMarcados() : misBarrios(),
   });
   aplicarEstaciones();
   actualizarAyudaDuracion();
+  actualizarAyudaBarrios();
   mostrarEstado(aviso, 'Guardado.');
 });
 
