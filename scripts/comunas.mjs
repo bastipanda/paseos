@@ -3,10 +3,29 @@
 // la Santiagodex (en qué comuna está cada lugar) y para mostrar los datos del CEAD de la comuna correcta.
 // Se corre a mano cada algunos meses (tarda varios minutos: pide las calles por pedazos):
 //   node scripts/comunas.mjs
+// Cada pedazo descargado se guarda en la carpeta temporal del computador (una carpeta por día): si Overpass falla a
+// mitad de camino, al correrlo de nuevo el mismo día sigue desde donde quedó.
 
-import { writeFile, mkdir } from 'node:fs/promises';
+import { writeFile, readFile, mkdir } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { CELDA } from '../js/explorar.js';
 import { muestrear, simplificar } from '../js/geo.js';
+
+const HOY = new Date().toISOString().slice(0, 10);
+const CACHE = join(tmpdir(), `paseos-comunas-${HOY}`);
+
+async function conCache(nombre, calcular) {
+  const ruta = join(CACHE, `${nombre}.json`);
+  try {
+    return { valor: JSON.parse(await readFile(ruta, 'utf8')), nuevo: false };
+  } catch {
+    const valor = await calcular();
+    await mkdir(CACHE, { recursive: true });
+    await writeFile(ruta, JSON.stringify(valor));
+    return { valor, nuevo: true };
+  }
+}
 
 const CAJA = [-33.65, -70.85, -33.3, -70.45];
 const LADO = 0.05;
@@ -18,7 +37,7 @@ const SERVIDORES = [
 ];
 
 async function consultar(consulta, nombre) {
-  for (let vuelta = 0; vuelta < 2; vuelta++) {
+  for (let vuelta = 0; vuelta < 3; vuelta++) {
     for (const url of SERVIDORES) {
       try {
         const resp = await fetch(url, {
@@ -37,7 +56,7 @@ async function consultar(consulta, nombre) {
         console.log(`  ${nombre}: ${url} falló (${e.message})`);
       }
     }
-    await new Promise((r) => setTimeout(r, 20000));
+    await new Promise((r) => setTimeout(r, 30000 * (vuelta + 1)));
   }
   throw new Error(`${nombre}: ningún servidor de Overpass respondió. Intenta más tarde.`);
 }
@@ -83,12 +102,14 @@ const cajaDe = (anillos) => {
   return [Math.min(...todos.map((p) => p[0])), Math.min(...todos.map((p) => p[1])), Math.max(...todos.map((p) => p[0])), Math.max(...todos.map((p) => p[1]))];
 };
 
-console.log('Comunas: pidiendo los contornos…');
-const relaciones = await consultar(
-  `[out:json][timeout:300];
+console.log(`Comunas: pidiendo los contornos… (pedazos guardados en ${CACHE})`);
+const { valor: relaciones } = await conCache('contornos', () =>
+  consultar(
+    `[out:json][timeout:300];
 rel["boundary"="administrative"]["admin_level"="8"](${CAJA.join(',')});
 out geom;`,
-  'Contornos',
+    'Contornos',
+  ),
 );
 const comunas = relaciones
   .map((r) => ({ nombre: (r.tags?.name || '').trim(), anillos: armarAnillos(r.members || []) }))
@@ -107,13 +128,19 @@ for (let sur = CAJA[0]; sur < CAJA[2]; sur += LADO) {
   for (let oeste = CAJA[1]; oeste < CAJA[3]; oeste += LADO) {
     n++;
     const caja = [sur, oeste, Math.min(sur + LADO, CAJA[2]), Math.min(oeste + LADO, CAJA[3])].map((x) => x.toFixed(4)).join(',');
-    const calles = await consultar(`[out:json][timeout:180];${filtro}(${caja});out geom qt;`, `Calles ${n}/${total}`);
-    for (const w of calles) {
-      const coords = (w.geometry || []).map((p) => [p.lat, p.lon]);
-      for (const { p } of muestrear(coords, 20)) celdas.add(`${Math.floor(p[0] / CELDA[0])},${Math.floor(p[1] / CELDA[1])}`);
-    }
-    console.log(`  calles ${n}/${total}: ${calles.length} tramos, ${celdas.size} cuadros en total`);
-    await new Promise((r) => setTimeout(r, 1500));
+    // Por pedazo se guardan solo los cuadros (no las calles): ocupa poco y alcanza para retomar.
+    const { valor: claves, nuevo } = await conCache(`calles-${n}`, async () => {
+      const calles = await consultar(`[out:json][timeout:180];${filtro}(${caja});out geom qt;`, `Calles ${n}/${total}`);
+      const propias = new Set();
+      for (const w of calles) {
+        const coords = (w.geometry || []).map((p) => [p.lat, p.lon]);
+        for (const { p } of muestrear(coords, 20)) propias.add(`${Math.floor(p[0] / CELDA[0])},${Math.floor(p[1] / CELDA[1])}`);
+      }
+      return [...propias];
+    });
+    for (const c of claves) celdas.add(c);
+    console.log(`  calles ${n}/${total}${nuevo ? '' : ' (ya descargado)'}: ${celdas.size} cuadros en total`);
+    if (nuevo) await new Promise((r) => setTimeout(r, 1500));
   }
 }
 
