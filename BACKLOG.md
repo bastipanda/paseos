@@ -1,6 +1,20 @@
 # Backlog — Paseos
 
 ## Pendiente acordado
+- **Probar en terreno la v1.5 "Más opciones y Mis barrios"** (pedida, decidida y construida el 2026-10-31).
+  Bastián se queda corto de opciones y quiere pasear hacia los sectores donde se siente cómodo ("cuicos"), no hacia
+  el otro lado. Probar: elegir comunas en Ajustes, "Solo por mis barrios" con Salir ahora y con una plaza, el % por
+  tus barrios de la tarjeta y "Más ›" en la última opción.
+  - **Buscar más:** en la última opción, la flecha › busca más con lo mismo que se pidió: direcciones giradas,
+    lugares (plazas, trámites, estaciones) que no se mostraron y otras estaciones Bike Itaú. Se botan las parecidas
+    a las ya vistas y lo nuevo se suma al final. Solo cuando se toca (BRouter es público: pedir poco). No aplica a
+    Sorpresa ni a favoritas.
+  - **Mis barrios** en vez de "cuico": Bastián marca en Ajustes las comunas donde le gusta caminar y activa "Solo
+    por mis barrios" en Más opciones de Armar ("Salir ahora" usa lo último elegido). Los puntos intermedios y los
+    destinos quedan siempre dentro; el camino entre ellos puede cruzar un poco y la tarjeta dice cuánto va por tus
+    barrios. No se usa un dato de "barrio cuico": no hay uno confiable por calle, las comunas son mezcladas, y usar
+    ingreso como señal de seguridad tiene el mismo problema que los delitos por comuna (ver Decisiones en `CLAUDE.md`).
+    Si las comunas quedan gruesas, después se puede dibujar zonas propias en el mapa.
 - **Probar en terreno la v1.4 "Interfaz limpia"** (decidida y publicada el 2026-10-31, en tres sesiones: barra de
   pestañas, pantallas con mapa y Santiagodex como álbum; lo decidido está en `CLAUDE.md`). Probar: pestañas y "Ver
   en el mapa", plegar el panel, la franja con flecha del paseo, intervalos por color, el aviso "Llegaste a X: sácale
@@ -48,6 +62,9 @@
   (43 comunas, ~230 mil cuadros con calles; Overpass falló en varios pedazos y el script reintentó solo).
 
 ## Por verificar
+- **v1.5:** si "Más ›" entrega opciones que se sienten distintas (y no la misma vuelta movida unas cuadras); si con
+  "Solo por mis barrios" quedan suficientes opciones al partir cerca del borde de una comuna; si las comunas son un
+  límite útil o hace falta dibujar zonas propias en el mapa.
 - **En el iPhone (v1.4, sesión 3):** si "Sacar foto" abre la cámara directo y "De la galería" la fototeca (en Safari y
   en la app de la pantalla de inicio); si al volver de la cámara el paseo sigue registrando el GPS; si las fotos
   quedan derechas (no giradas); si el respaldo con fotos se descarga bien; y si Safari borra las fotos (IndexedDB)

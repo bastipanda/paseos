@@ -7,7 +7,7 @@ Meta de fondo (2026-10-30): caminar más para bajar de peso y dejar el sedentari
 ## Estado
 v1 y v1.1 publicadas el 2026-10-27; v1.2 el 2026-10-30. v1.3 ("salir más y conocer Santiago") construida el
 2026-10-30. v1.4 ("interfaz limpia": pestañas, pantallas con mapa y Dex como álbum con foto propia) publicada el
-2026-10-31. Falta probar v1.1 a v1.4 en terreno (ver `BACKLOG.md`).
+2026-10-31; v1.5 (Buscar más y Mis barrios) construida el mismo día. Falta probar v1.1 a v1.5 en terreno.
 
 ## Qué hace
 - **Barra de pestañas abajo:** Hoy, Armar, Dex y Más (Historial, Lugares, Respaldo, Ajustes y créditos).
@@ -17,11 +17,12 @@ v1 y v1.1 publicadas el 2026-10-27; v1.2 el 2026-10-30. v1.3 ("salir más y cono
 - **Armar** (a medida): partida y término libres (GPS, lugar guardado, punto del mapa, dirección, estación de
   metro). Término también puede ser: circular, una plaza y volver, un trámite y volver (súper, farmacia, panadería,
   feria, cajero, ferretería) o "la estación de metro que calce". Duración en pasos, minutos, km o kcal. En "Más
-  opciones" (plegado): estilo (Tranquilo, Con vida, Noche), subidas, "Pasar por…", Explorar, vuelta en Bike Itaú.
+  opciones" (plegado): estilo (Tranquilo, Con vida, Noche), subidas, "Pasar por…", Explorar, **Solo por mis
+  barrios** (puntos y destinos dentro de las comunas elegidas en Ajustes) y vuelta en Bike Itaú.
 - **Mapa nunca tapado:** en Armar, Resultados y Resumen el panel se pliega a una franja (y se esconde la barra).
 - **Resultados:** tarjeta con pasos, minutos, km, % tranquila y subida; avisos de luz y del metro a la vista; plegados
   el por qué, la calidad de las calles, la comparación con el camino más corto y los robos por comuna (CEAD).
-  Favorita y GPX para OsmAnd u Organic Maps.
+  Favorita y GPX para OsmAnd u Organic Maps. En la última opción, **Más ›** busca otras con lo mismo pedido.
 - **Seguimiento:** franja arriba con flecha y próxima indicación; abajo una barra delgada con lo que falta que abre
   un menú: ritmo, **Llévame al metro**, intervalos 3+3 (avisan con el color de la barra), metrónomo y voz (apagada
   por defecto). "Seguirme" aparece si mueves el mapa. Capturas de la Dex en vivo. La pantalla no se apaga.
@@ -32,7 +33,7 @@ v1 y v1.1 publicadas el 2026-10-27; v1.2 el 2026-10-30. v1.3 ("salir más y cono
   **capturado solo con tu foto** (cámara o galería, también sin paseo). Lo no visto es silueta con "?" (nombres en
   Ajustes). Ficha a pantalla completa con foto (la tuya o la de Wikipedia con su crédito) e historia. Comunas como
   regiones con insignias al 25, 50 y 100 %. **Tu mapa:** lo caminado y el % de calles de cada comuna.
-- **Ajustes:** meta semanal, paso, velocidad, peso, paso enérgico, metrónomo y evento semanal en el calendario (.ics).
+- **Ajustes:** meta semanal, paso, velocidad, peso, paso enérgico, metrónomo, mis barrios y evento semanal (.ics).
 
 ## Definiciones
 - **"Tranquila" para Bastián:** caminar sin miedo a que le roben; a veces eso es con gente e iluminado. Por eso hay
@@ -110,7 +111,8 @@ No usa claves. Si algún día se agrega un servicio con clave, va en el navegado
 - **v1.3 (2026-10-30):** la meta es semanal y en minutos (las rachas diarias se cortan y desaniman); Hoy es la
   pantalla de inicio para salir en un toque; el historial es un dato que no se regenera (va en el respaldo).
 - **Seguridad con datos reales y sus límites:** CEAD por comuna solo como contexto, nunca para elegir rutas
-  (comunas con gente de paso salen más altas por habitante).
+  (comunas con gente de paso salen más altas por habitante). Por lo mismo, **"Mis barrios" en vez de "cuico"**:
+  Bastián elige sus comunas, sin datos de ingreso que etiqueten barrios.
 - **Santiagodex en vez de puntos o niveles:** conocer Santiago motiva más. Desde la v1.4, **capturar = tu foto**
   ("muy a lo Pokémon Go"); la app no revisa que la foto sea del lugar (queda a conciencia de Bastián).
 - **Recordatorios con el calendario del celular** (.ics), no notificaciones propias (necesitarían un servidor).
