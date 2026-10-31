@@ -1,6 +1,28 @@
 # Backlog — Paseos
 
 ## Pendiente acordado
+- **v1.3 "Salir más y conocer Santiago"** (decidido 2026-10-30, en construcción). Meta: que Bastián camine más y
+  deje el sedentarismo. Bastián usa **iPhone** (la web no puede hacerlo vibrar).
+  - **Hoy** (pantalla de inicio): "Salir ahora" de 15/30/45/60 min desde el GPS, meta semanal en **minutos** (la
+    app la pregunta la primera vez; la OMS recomienda 150-300 min), semanas cumplidas en vez de racha diaria,
+    proponer subir la meta 10 % al cumplir (o mantener), mejor hora para salir hoy, rutas favoritas y recordatorio
+    de respaldo una vez al mes.
+  - **Historial** automático de cada paseo con seguimiento (fecha, minutos en movimiento, km, kcal, recorrido
+    simplificado) y paseos agregados a mano. Es un dato que no se regenera: va en el respaldo.
+  - **Resumen al terminar** y **postal** para compartir (imagen con el recorrido, sin mapa de fondo).
+  - **Agendar en el calendario:** archivo `.ics` con repetición semanal (días y hora a elección).
+  - **En el paseo:** modo bolsillo (pantalla negra, solo voz, se sale manteniendo apretado), ritmo en km/h y
+    minutos a paso enérgico (≥ 5 km/h), metrónomo de pasos por minuto e intervalos 3 min rápido / 3 min suave.
+  - **Trámites:** ir al súper, farmacia, panadería, feria, cajero o ferretería que calce con la duración y volver.
+  - **Metro:** estaciones como partida o término, término "la estación que calce", **Llévame al metro** (estación
+    más cercana y ruta hasta ella durante el paseo), **aviso de luz del día** (puesta de sol y cierre del metro,
+    ~23:00 según prensa, por confirmar en metro.cl) y **delitos por comuna** del CEAD, solo informativo y con sus
+    límites explicados (comuna completa, población flotante).
+  - **Subidas:** Evitar / Da igual / Buscar. Las calorías suman la subida (ecuación de caminata del ACSM).
+  - **Santiagodex:** lugares interesantes, plazas con nombre, parques y cerros con número y tipo. "Visto" si pasas
+    cerca; "capturado" si llegas (≤ ~40 m o dentro del lugar) en un paseo con seguimiento, o si lo marcas a mano
+    porque ya lo conocías. Avance por tipo y por comuna, **Tu mapa** (% caminado por comuna) y **Sorpréndeme**
+    (paseo misterio hacia algo que no tienes; el destino se revela al llegar).
 - Probar en terreno la v1.1 y la v1.2: voz de la guía, ir a una plaza, GPX en OsmAnd, estilo Noche de verdad de
   noche, "Pasar por…", calorías, aviso de clima y marcar lo caminado en el modo explorar.
 - Calibrar el largo del paso (Ajustes) y anotar aquí el valor real.
@@ -23,6 +45,8 @@
 - Si el servidor de BRouter borra los perfiles subidos: la app los vuelve a subir sola, falta verlo pasar.
 - Reglas de uso del servidor público de BRouter (su README no las publica).
 - Datos de delitos por calle o cuadra en Chile: ¿existen y son públicos? Lo que se conoce es por comuna.
+  2026-10-30: el portal del CEAD (cead.minsegpublica.gob.cl) muestra casos por comuna en un formulario de consulta,
+  sin descarga abierta documentada (CSV o Excel). Carabineros publica datos semanales en stop.carabineros.cl.
 
 ## Ideas sin decidir
 - **Que la app sepa lo "humano" de una calle** (pedido 2026-10-27). Hecho en parte en la v1.2: estilos Con vida y
@@ -35,8 +59,11 @@
     no se regeneran: respaldo).
   - Resúmenes escritos por IA: costarían plata (API), choca con costo cero.
 - A la plaza a pie y vuelta en Bike Itaú (combinar "Ir a una plaza" con el modo bici).
-- Historial de paseos hechos con fecha (hoy solo se guardan las calles conocidas, sin fecha).
 - Sombra para el verano: no hay datos de sombra confiables en OSM para Santiago (por verificar).
+- **Pulsera Xiaomi Smart Band (vía la app Salud del iPhone)** — para después de probar la v1.3. Una web no puede
+  leer Salud, pero un Atajo del iPhone sí, y puede abrir la app con los números. Serviría para calibrar el largo
+  del paso (pasos de la pulsera ÷ distancia del GPS), medir la intensidad con el pulso y mostrar los pasos del día.
+  Falta verificar qué datos escribe Mi Fitness en Salud y armar el Atajo a mano (no se puede probar desde el PC).
 
 ## Descartadas
 - **Minimizar virajes en bici:** no era la necesidad. Lo que importa es evitar calles sin ciclovía o con mucha
@@ -50,3 +77,7 @@
 - **Consultar plazas en vivo con Overpass:** se cae seguido; mejor un archivo guardado en el repo.
 - **"Tranquila" = solo calles vacías:** para Bastián tranquilo es sin miedo a robos; a veces eso es con gente.
 - **Contar como explorado lo que se busca:** Bastián revisa muchas opciones antes de elegir; solo cuenta lo marcado.
+- **Contar pasos todo el día y registrar el peso en la app:** Bastián ya lo hace en otras apps, y una web no puede
+  leer el podómetro ni funcionar cerrada.
+- **Puntos, niveles y rankings:** la novedad se pasa rápido; conocer Santiago (Santiagodex) motiva más.
+- **"Avisar a alguien" por WhatsApp:** Bastián no lo eligió entre las medidas de seguridad (2026-10-30).
