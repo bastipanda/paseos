@@ -1,9 +1,25 @@
 # Backlog — Paseos
 
 ## Pendiente acordado
+- **v1.4 "Interfaz limpia"** (decidido 2026-10-31). Motivo: la app creció feature por feature, todo tiene el mismo
+  peso visual y el panel tapa el mapa. Bastián **no usa la voz**: mira el mapa un segundo y se orienta. Tres
+  sesiones, cada una probada y publicada antes de seguir:
+  1. **Barra de pestañas abajo** (Hoy, Armar, Dex, Más; en "Más": Historial, Lugares, Ajustes) en vez de los
+     botones flotantes. **Hoy y Dex como páginas propias, sin mapa detrás.**
+  2. **Pantallas con mapa** (Armar, Resultados, Paseo). Regla de Bastián: el mapa nunca debe quedar tapado sin
+     forma de verlo completo; el panel se pliega del todo (queda una franja delgada) y la barra se esconde.
+     Armar: a la vista solo partida, término y duración; el resto en "Más opciones". Resultados: tarjeta con lo
+     clave (pasos, minutos, % tranquila, subida); "por qué", comparación y seguridad plegados. Paseo: franja arriba
+     con flecha y distancia, barra delgada abajo con lo que falta, lo demás en un menú. **Voz apagada por defecto**
+     (queda como opción). **Se elimina el modo bolsillo.** Los intervalos avisan con color, no con voz.
+  3. **Santiagodex como álbum:** cartas con un color por tipo; las capturadas con foto de Wikipedia (con el crédito
+     de la foto); **siluetas con "?"** para lo no encontrado (tipo y distancia), con un interruptor en Ajustes para
+     ver los nombres; comunas como "regiones" con insignias al 25, 50 y 100 %; ficha a pantalla completa con foto,
+     historia e "Ir a capturarlo". **Foto propia opcional** al capturar (no es requisito para capturar): se guarda
+     achicada (~40 KB) en el navegador (IndexedDB) y reemplaza la de Wikipedia en la carta; va en el respaldo.
 - **Probar en terreno la v1.3** (construida el 2026-10-30): Salir ahora, Sorpresa, meta y semanas, historial,
-  resumen y postal, favoritas, trámites, metro y "Llévame al metro", modo bolsillo, metrónomo, intervalos,
-  capturas de la Santiagodex y el evento del calendario.
+  resumen y postal, favoritas, trámites, metro y "Llévame al metro", metrónomo, intervalos, capturas de la
+  Santiagodex y el evento del calendario.
 - Actualizar `datos/delitos.json` cuando el CEAD publique el año 2026 completo (se copia a mano del portal).
 - Regenerar `datos/metro.json` cuando abra la Línea 7 (`node scripts/lugares.mjs metro`).
 - **v1.3 "Salir más y conocer Santiago"** (decidido 2026-10-30, construido el mismo día). Meta: que Bastián camine
@@ -37,9 +53,9 @@
 
 ## Por verificar
 - **En el iPhone (v1.3):** si el evento `.ics` abre el calendario con "Añadir todo" (en Safari y en la app de la
-  pantalla de inicio); si la voz y el metrónomo suenan con el interruptor de silencio activado; si la pantalla se
-  mantiene encendida en la app de la pantalla de inicio; si mantener apretado sale del modo bolsillo sin abrir
-  menús; si la postal se comparte por WhatsApp.
+  pantalla de inicio); si el metrónomo suena con el interruptor de silencio activado; si la pantalla se mantiene
+  encendida en la app de la pantalla de inicio; si la postal se comparte por WhatsApp; si el iPhone deja sacar la
+  foto propia de la Santiagodex desde la web (cámara con `<input type="file" capture>`).
 - Si el radio de captura de la Santiagodex funciona en la práctica (40 m; parques grandes hasta 200 m del centro).
 - Si los minutos en movimiento del GPS se parecen a los de la pulsera (semáforos y esperas no cuentan).
 - Qué tan bien calza el % por comuna de "Tu mapa" (cuadros de 50 m con calles caminables de OSM).
@@ -94,3 +110,7 @@
   leer el podómetro ni funcionar cerrada.
 - **Puntos, niveles y rankings:** la novedad se pasa rápido; conocer Santiago (Santiagodex) motiva más.
 - **"Avisar a alguien" por WhatsApp:** Bastián no lo eligió entre las medidas de seguridad (2026-10-30).
+- **Modo bolsillo y guía por voz como forma principal:** Bastián no usa la voz; mira el mapa un momento y se orienta
+  (2026-10-31). La voz queda como opción apagada; el modo bolsillo se elimina en la v1.4.
+- **Foto propia obligatoria para capturar:** agregaría un paso cada vez; capturar sigue siendo automático y la foto
+  es opcional (2026-10-31).
