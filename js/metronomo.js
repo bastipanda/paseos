@@ -12,11 +12,6 @@ export function faseIntervalo(segundos, duracion = INTERVALO_S) {
   return { fase: numero % 2 === 0 ? 'suave' : 'rapido', restante: duracion - (segundos % duracion), numero };
 }
 
-export const FRASE_FASE = {
-  suave: 'Ahora, tres minutos a paso suave.',
-  rapido: 'Ahora, tres minutos a paso rápido.',
-};
-
 // Pasos por minuto del metrónomo según la fase: más rápido en la fase rápida, más lento en la suave.
 export function ppmDeFase(ppm, fase) {
   if (fase === 'rapido') return ppm + 10;

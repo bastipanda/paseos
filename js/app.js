@@ -31,7 +31,7 @@ import { Voz, fraseHablada } from './guia.js';
 import { distancia } from './geo.js';
 import { consultarClima, leerClima, mejorHora, textoMejorHora } from './clima.js';
 import { crearIcs } from './calendario.js';
-import { Metronomo, faseIntervalo, FRASE_FASE, ppmDeFase } from './metronomo.js';
+import { Metronomo, faseIntervalo, ppmDeFase } from './metronomo.js';
 import { medirMovimiento, ritmoReciente } from './movimiento.js';
 import { celdasDeRuta, celdasDeZona, claveCelda, limitesCelda } from './explorar.js';
 import {
@@ -87,7 +87,8 @@ function irA(vista) {
     else b.removeAttribute('aria-current');
   });
   document.body.classList.toggle('sin-pestanas', SIN_PESTANAS.includes(vista));
-  panel.classList.remove('chico', 'grande');
+  plegar(false);
+  panel.classList.remove('grande');
   panel.classList.toggle('pagina', PAGINAS.includes(vista));
   // En resultados, seguimiento y resumen el panel es más bajo para que se vea la ruta.
   panel.classList.toggle('compacto', SIN_PESTANAS.includes(vista));
@@ -116,11 +117,24 @@ function margenesPanel() {
   const barra = document.body.classList.contains('sin-pestanas') ? 0 : $('#pestanas').offsetHeight;
   if (document.body.classList.contains('viendo-mapa')) return { izquierda: 0, abajo: barra };
   if (window.innerWidth >= 720) return { izquierda: panel.offsetWidth + 16, abajo: barra };
-  const tope = panel.classList.contains('chico') ? 74 : window.innerHeight * (panel.classList.contains('compacto') ? 0.46 : 0.62);
+  const tope = panel.classList.contains('chico') ? 64 : window.innerHeight * (panel.classList.contains('compacto') ? 0.46 : 0.62);
   return { izquierda: 0, abajo: Math.min(panel.scrollHeight, tope) + barra };
 }
 
-$('#asa').addEventListener('click', () => panel.classList.toggle('chico'));
+// Pliega el panel de las pantallas con mapa: queda una franja delgada y se esconde la barra de pestañas, para que el
+// mapa nunca quede tapado sin forma de verlo entero. Tocar la franja lo vuelve a abrir.
+function plegar(si) {
+  panel.classList.toggle('chico', si);
+  document.body.classList.toggle('mapa-entero', si);
+}
+
+$('#asa').addEventListener('click', (e) => {
+  e.stopPropagation();
+  plegar(!panel.classList.contains('chico'));
+});
+panel.addEventListener('click', (e) => {
+  if (panel.classList.contains('chico') && !estado.esperando && !e.target.closest('button, input, select, a')) plegar(false);
+});
 document.querySelectorAll('[data-ir]').forEach((b) => b.addEventListener('click', () => irA(b.dataset.ir)));
 
 // ---------- Elegir puntos en el mapa ----------
@@ -132,7 +146,7 @@ function esperarClic(destino, texto, textoBoton = 'Cancelar') {
   $('#aviso-mapa-cancelar').textContent = textoBoton;
   $('#aviso-mapa').hidden = false;
   if (panel.classList.contains('pagina')) document.body.classList.add('viendo-mapa');
-  else panel.classList.add('chico');
+  else plegar(true);
 }
 
 // "Ver en el mapa" desde una página (historial, Dex): el mapa completo, con "Volver" para regresar a la página.
@@ -145,7 +159,7 @@ function terminarEspera() {
   estado.esperando = null;
   $('#aviso-mapa').hidden = true;
   document.body.classList.remove('viendo-mapa');
-  panel.classList.remove('chico');
+  plegar(false);
   if (eraConocidas) {
     mapa.ocultarConocidas();
     mostrarResumenConocidas();
@@ -364,7 +378,10 @@ function alCambiarTipo(cual) {
   const tipo = $(`#${cual}-tipo`).value;
   const p = estado.puntos[cual];
   if (p && p.origen !== tipo) estado.puntos[cual] = null;
-  if (cual === 'termino') actualizarBici();
+  if (cual === 'termino') {
+    actualizarBici();
+    actualizarResumenOpciones();
+  }
   pintarExtra(cual);
   actualizarMarcadores();
   guardarFormulario();
@@ -544,6 +561,23 @@ $('#con-bici').addEventListener('change', () => {
   guardarFormulario();
 });
 
+// Lo elegido en "Más opciones", en una línea bajo el título, para saberlo sin abrirlas.
+const TEXTO_SUBIDAS = { evitar: 'evitando subidas', buscar: 'buscando subidas' };
+const TEXTO_PASAR = { interes: 'lugares interesantes', comercio: 'cafés y tiendas', plazas: 'plazas' };
+function actualizarResumenOpciones() {
+  const pasar = Object.entries(pasarPorElegido()).filter(([, si]) => si).map(([k]) => TEXTO_PASAR[k]);
+  $('#resumen-opciones').textContent = [
+    `Estilo ${ESTILO_NOMBRE[estiloElegido()]}`,
+    TEXTO_SUBIDAS[subidasElegidas()],
+    pasar.length && `por ${pasar.join(', ')}`,
+    $('#explorar').checked && 'explorando',
+    $('#con-bici').checked && 'vuelta en Bike Itaú',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+$('#mas-opciones').addEventListener('change', actualizarResumenOpciones);
+
 function guardarFormulario() {
   almacen.guardarFormulario({
     unidad: unidadElegida(),
@@ -596,6 +630,7 @@ function restaurarFormulario() {
   actualizarAyudaEstilo();
   actualizarAyudaExplorar();
   actualizarBici();
+  actualizarResumenOpciones();
   pintarExtra('partida', false);
   pintarExtra('termino', false);
   actualizarAyudaDuracion();
@@ -837,18 +872,30 @@ function mostrarOpcion() {
   const pie = resumen(o.metrosPie, aj);
   const subida = o.partes.filter((p) => p.modo === 'pie').reduce((s, p) => s + (p.ruta.subida || 0), 0);
   const kcal = pie.kcal === null ? null : pie.kcal + kcalSubida(subida, aj);
-  const detalles = [
-    `${formatearDistancia(pie.metros)} a pie`,
-    `${formatearMinutos(pie.minutos)} caminando`,
+  const ev = o.evaluacionPie;
+  const pctBuena = ev?.total ? Math.round((ev.metros.buena / ev.total) * 100) : null;
+  // La tarjeta: lo clave a la vista. Lo demás (por qué, calidad, comparación, seguridad) va plegado.
+  const datos = [
+    [formatearMinutos(pie.minutos), 'caminando'],
+    [formatearDistancia(pie.metros), 'a pie'],
+    pctBuena !== null && [`<span style="color:${COLORES.buena}">${pctBuena} %</span>`, ETIQUETA_BUENA[estilo]],
+    [`${Math.round(subida)} m`, 'de subida'],
+  ].filter(Boolean);
+  const extras = [
     kcal !== null && `≈ ${formatearKcal(kcal)}`,
     o.metrosBici && `${formatearDistancia(o.metrosBici)} en bici`,
-    subida >= 10 && `sube ${Math.round(subida)} m`,
+    `estilo ${ESTILO_NOMBRE[estilo]}`,
   ].filter(Boolean);
-  let html = `<p class="cifras">${formatearPasos(pie.pasos)}</p>
-    <p class="secundario">${detalles.join(' · ')} · estilo ${escapar(ESTILO_NOMBRE[estilo])}</p>`;
+  let html = `<div class="tarjeta-ruta">
+      <p class="cifras">${formatearPasos(pie.pasos)}</p>
+      <div class="datos-clave">${datos.map(([v, t]) => `<div><strong>${v}</strong><span>${escapar(t)}</span></div>`).join('')}</div>
+      <p class="secundario">${escapar(extras.join(' · '))}</p>
+    </div>`;
   const clima = estado.clima && leerClima(estado.clima);
   if (clima?.avisos.length) html += `<p class="alerta">${clima.avisos.map(escapar).join(' ')}</p>`;
   if (!o.enRango) html += '<p class="alerta">No encontré una ruta dentro del rango pedido. Esta es la más cercana.</p>';
+  if (o.repetida > 0.15 && !o.destino?.idaYVuelta) html += '<p class="alerta">Parte de la ruta va y vuelve por la misma calle.</p>';
+  html += '<div id="seguridad-avisos"></div>';
   if (o.destino && !o.misterio) {
     const d = o.destino;
     const otras = estado.opciones.length > 1 ? ' Con las flechas de arriba ves otros destinos.' : '';
@@ -856,31 +903,33 @@ function mostrarOpcion() {
     html += `<div class="bloque"><h3>${ICONO_TIPO[d.tipo] || '📍'} Destino: ${escapar(mayuscula(nombreLugar(d)))}</h3>
       <p>${escapar(detalle)}${otras}</p></div>`;
   }
-  if (o.explicacion?.length) {
-    html += `<div class="bloque"><h3>Por qué esta ruta</h3>
-      <ul class="explicacion">${o.explicacion.map((f) => `<li>${escapar(f)}</li>`).join('')}</ul>
-      <p class="nota-limites">${escapar(textosEstilo.limites)}</p></div>`;
-  }
-  html += bloqueCalidad('A pie', o.evaluacionPie, 'pie', estilo);
-  if (o.evaluacionBici) html += bloqueCalidad('En bici', o.evaluacionBici, 'bici');
   if (o.estacionSalida) {
     html += `<div class="bloque"><h3>Estaciones Bike Itaú</h3>
       <p>Tomas la bici en <strong>${escapar(o.estacionSalida.nombre)}</strong> (${o.estacionSalida.bicis} bicis ahora).</p>
       <p>La dejas en <strong>${escapar(o.estacionLlegada.nombre)}</strong> (${o.estacionLlegada.anclajes} anclajes libres ahora).</p>
       <p class="ayuda">La disponibilidad cambia minuto a minuto.</p></div>`;
   }
-  if (o.repetida > 0.15 && !o.destino?.idaYVuelta) html += '<p class="alerta">Parte de la ruta va y vuelve por la misma calle.</p>';
-  html += '<div class="bloque" id="comparacion" hidden></div>';
-  html += '<div class="bloque" id="seguridad" hidden></div>';
-  html += `<div class="leyenda">
-    <span><i style="background:${COLORES.buena}"></i>${escapar(mayuscula(textosEstilo.buena))}</span>
-    <span><i style="background:${COLORES.media}"></i>${escapar(mayuscula(textosEstilo.media))}</span>
-    <span><i style="background:${COLORES.mala}"></i>${escapar(mayuscula(textosEstilo.mala))}</span>
-    ${o.metrosBici ? '<span>- - - en bici</span>' : ''}
-    ${o.extras?.interes?.length ? '<span>★ lugar interesante</span>' : ''}
-  </div>
-  <p class="ayuda">Toca un tramo de la ruta en el mapa para ver qué tipo de calle es.</p>`;
   $('#detalle-opcion').innerHTML = html;
+  html = '';
+  if (o.explicacion?.length) {
+    html += `<details class="plegable"><summary>Por qué esta ruta</summary>
+      <ul class="explicacion">${o.explicacion.map((f) => `<li>${escapar(f)}</li>`).join('')}</ul>
+      <p class="nota-limites">${escapar(textosEstilo.limites)}</p></details>`;
+  }
+  html += `<details class="plegable"><summary>Calidad de las calles</summary>
+    ${bloqueCalidad('A pie', o.evaluacionPie, 'pie', estilo)}
+    ${o.evaluacionBici ? bloqueCalidad('En bici', o.evaluacionBici, 'bici') : ''}
+    <div class="leyenda">
+      <span><i style="background:${COLORES.buena}"></i>${escapar(mayuscula(textosEstilo.buena))}</span>
+      <span><i style="background:${COLORES.media}"></i>${escapar(mayuscula(textosEstilo.media))}</span>
+      <span><i style="background:${COLORES.mala}"></i>${escapar(mayuscula(textosEstilo.mala))}</span>
+      ${o.metrosBici ? '<span>- - - en bici</span>' : ''}
+      ${o.extras?.interes?.length ? '<span>★ lugar interesante</span>' : ''}
+    </div>
+    <p class="ayuda">Toca un tramo de la ruta en el mapa para ver qué tipo de calle es.</p></details>`;
+  html += '<details class="plegable" id="comparacion" hidden><summary>Comparado con el camino más corto</summary><div id="comparacion-cuerpo"></div></details>';
+  html += '<details class="plegable" id="seguridad" hidden><summary>Seguridad: robos por comuna</summary><div id="seguridad-cuerpo"></div></details>';
+  $('#detalle-mas').innerHTML = html;
   mostrarEstado($('#estado-resultados'), '');
   pintarBotonFavorita();
   $('#cambiar-busqueda').textContent = estado.origenBusqueda === 'formulario' ? 'Cambiar búsqueda' : 'Volver';
@@ -891,6 +940,7 @@ function mostrarOpcion() {
 
 // Lo que se sabe de seguridad, con datos reales: si terminarías de noche (puesta de sol de Open-Meteo), el cierre del
 // metro y los robos violentos de las comunas por las que pasa la ruta (CEAD). Nada de esto es por calle.
+// Los avisos de luz y del metro quedan a la vista; los robos por comuna, plegados (son solo contexto).
 async function mostrarSeguridad(o) {
   const caja = $('#seguridad');
   if (!caja) return;
@@ -913,6 +963,7 @@ async function mostrarSeguridad(o) {
   if (o.destino?.tipo === 'estacion' && (fin.getHours() >= 23 || (fin.getHours() === 22 && fin.getMinutes() >= 30))) {
     avisos.push('Ojo: el metro suele cerrar cerca de las 23:00 (según la prensa). Revisa el horario del día en metro.cl.');
   }
+  $('#seguridad-avisos').innerHTML = avisos.map((a) => `<p class="alerta">${escapar(a)}</p>`).join('');
   let delitos = null;
   try {
     const [comunas, datosDelitos] = await Promise.all([cargarComunas(), cargarDelitos()]);
@@ -921,17 +972,17 @@ async function mostrarSeguridad(o) {
   } catch (err) {
     console.error(err);
   }
-  if (!avisos.length && !delitos) {
+  if (!delitos) {
     caja.hidden = true;
     return;
   }
-  caja.innerHTML =
-    `<h3>Seguridad: lo que se sabe</h3>${avisos.map((a) => `<p>${escapar(a)}</p>`).join('')}` +
-    (delitos ? `<p>${escapar(delitos)}</p><p class="nota-limites">${escapar(LIMITES_DELITOS)}</p>` : '');
+  $('#seguridad-cuerpo').innerHTML = `<p>${escapar(delitos)}</p><p class="nota-limites">${escapar(LIMITES_DELITOS)}</p>`;
   caja.hidden = false;
 }
 
 const ESTILO_NOMBRE = { tranquilo: 'Tranquilo', vida: 'Con vida', noche: 'Noche' };
+// Qué significa el porcentaje verde de la tarjeta en cada estilo.
+const ETIQUETA_BUENA = { tranquilo: 'tranquila', vida: 'con vida', noche: 'iluminada' };
 const mayuscula = (t) => t.charAt(0).toUpperCase() + t.slice(1);
 
 // Qué se compara con el camino más corto: toda la ruta (A→B), la ida y vuelta a la plaza, o la caminata hasta la
@@ -968,10 +1019,11 @@ async function mostrarComparacion(o) {
   const datos = datosComparacion(o);
   const caja = $('#comparacion');
   if (!datos || !caja) return;
+  const cuerpo = $('#comparacion-cuerpo');
   const estilo = o.estilo || 'tranquilo';
   const clave = `${estilo}:${datos.desde.concat(datos.hasta).map((x) => x.toFixed(5)).join(',')}`;
   caja.hidden = false;
-  caja.innerHTML = '<h3>Comparado con el camino más corto</h3><p class="ayuda">Calculando…</p>';
+  cuerpo.innerHTML = '<p class="ayuda">Calculando…</p>';
   try {
     if (!estado.comparaciones.has(clave)) estado.comparaciones.set(clave, caminoCorto(datos.desde, datos.hasta, estilo));
     const corto = await estado.comparaciones.get(clave);
@@ -981,8 +1033,7 @@ async function mostrarComparacion(o) {
       return;
     }
     const frases = textoComparacion({ corto, ...datos, estilo });
-    caja.innerHTML = `<h3>Comparado con el camino más corto</h3>
-      <ul class="explicacion">${frases.map((f) => `<li>${escapar(f)}</li>`).join('')}</ul>
+    cuerpo.innerHTML = `<ul class="explicacion">${frases.map((f) => `<li>${escapar(f)}</li>`).join('')}</ul>
       <button type="button" class="boton-texto" id="ver-corto">Ver el camino más corto en el mapa</button>`;
     $('#ver-corto').addEventListener('click', (e) => {
       if (mapa.lineaCorta) {
@@ -1069,13 +1120,14 @@ function empezarPaseo(opcion) {
   irA('seguimiento');
   document.body.classList.add('siguiendo');
   estado.seguirme = true;
-  $('#centrar').textContent = 'Siguiéndote';
+  $('#centrar').hidden = true;
   $('#aviso-ruta').hidden = true;
   $('#faltan-principal').textContent = 'Buscando tu ubicación…';
   $('#faltan-detalle').textContent = '';
   $('#barra-progreso').style.width = '0';
-  $('#proximo').hidden = true;
+  $('#franja-paseo').hidden = true;
   $('#captura-aviso').hidden = true;
+  abrirMenuPaseo(false);
   estado.anunciadas = new Set();
   pintarBotonVoz();
   // Hablar dentro del toque en "Empezar" deja la voz habilitada en el celular para el resto del paseo.
@@ -1130,20 +1182,23 @@ function revisarCapturas(punto) {
   estado.capturasPaseo.push(...nuevosCapturados);
   const sorpresa = revelado && nuevosCapturados.find((l) => l.id === revelado.id);
   const l = sorpresa || nuevosCapturados[0];
-  const aviso = $('#captura-aviso');
-  aviso.textContent = sorpresa
+  avisoCaptura(sorpresa
     ? `🎉 El lugar sorpresa era ${l.nombre}: ¡capturado! (${numeroDex(l.numero)} de tu Santiagodex)`
-    : `${ICONO_TIPO[l.tipo] || '⭐'} ¡Capturaste ${l.nombre}! (${numeroDex(l.numero)} de tu Santiagodex)`;
-  aviso.hidden = false;
+    : `${ICONO_TIPO[l.tipo] || '⭐'} ¡Capturaste ${l.nombre}! (${numeroDex(l.numero)} de tu Santiagodex)`);
   if (vozActiva()) voz.decir(sorpresa ? 'Y queda capturado en tu Santiagodex.' : `Capturaste ${l.nombre} para tu Santiagodex.`, { interrumpir: false });
+}
+
+// Aviso sobre la barra del paseo (capturas y el lugar sorpresa).
+function avisoCaptura(texto) {
+  $('#captura-texto').textContent = texto;
+  $('#captura-botones').hidden = true;
+  $('#captura-aviso').hidden = false;
 }
 
 function revelarSorpresa(o) {
   o.misterio = false;
   o.revelado = true;
-  const aviso = $('#captura-aviso');
-  aviso.textContent = `🎉 El lugar sorpresa era: ${mayuscula(nombreLugar(o.destino))}`;
-  aviso.hidden = false;
+  avisoCaptura(`🎉 El lugar sorpresa era: ${mayuscula(nombreLugar(o.destino))}`);
   if (vozActiva()) voz.decir(`Llegaste al lugar sorpresa: ${nombreLugar(o.destino)}.`);
   mapa.dibujarOpcion(o, margenesPanel());
 }
@@ -1202,8 +1257,6 @@ function actualizarSeguimiento(d) {
   mostrarProximo(siguiente);
   mostrarRitmo(aj);
   mostrarMetroCercano(d.punto);
-  $('#bolsillo-proximo').textContent = siguiente ? `${siguiente.distancia < 15 ? 'Ahora' : `En ${formatearDistancia(siguiente.distancia)}`}: ${siguiente.texto}` : '';
-  $('#bolsillo-falta').textContent = $('#faltan-principal').textContent;
   const aviso = $('#aviso-ruta');
   if (d.fueraDeRuta) {
     aviso.textContent = d.distanciaARuta
@@ -1217,30 +1270,52 @@ function actualizarSeguimiento(d) {
 
 // ---------- Guía giro a giro ----------
 
+// La voz queda apagada salvo que se encienda en el menú del paseo (Bastián se orienta mirando el mapa). Es un ajuste
+// nuevo (`vozGuia`): el antiguo `voz` partía encendido.
 const voz = new Voz();
-const vozActiva = () => voz.disponible && almacen.ajustes().voz !== false;
+const vozActiva = () => voz.disponible && almacen.ajustes().vozGuia === true;
 
 function pintarBotonVoz() {
   const boton = $('#voz');
   boton.hidden = !voz.disponible;
   boton.textContent = vozActiva() ? 'Voz: sí' : 'Voz: no';
   boton.setAttribute('aria-pressed', String(vozActiva()));
+  boton.classList.toggle('activo', vozActiva());
 }
 
 $('#voz').addEventListener('click', () => {
-  almacen.guardarAjustes({ voz: !vozActiva() });
-  if (!vozActiva()) voz.callar();
+  almacen.guardarAjustes({ vozGuia: !vozActiva() });
+  if (vozActiva()) voz.decir('Voz encendida');
+  else voz.callar();
   pintarBotonVoz();
 });
 
-// Muestra la próxima indicación y la dice en voz alta una vez, cuando falta poco para llegar a ella.
+// La barra de abajo abre y cierra el menú del paseo (ritmo, metro, intervalos, voz y Terminar).
+function abrirMenuPaseo(si) {
+  $('#menu-paseo').hidden = !si;
+  $('#barra-paseo').setAttribute('aria-expanded', String(si));
+}
+$('#barra-paseo').addEventListener('click', () => abrirMenuPaseo($('#menu-paseo').hidden));
+
+// Flecha de la franja: los giros apuntan según su ángulo; lo demás lleva un ícono.
+const ICONO_INDICACION = { estacion: '🚲', destino: '📍', fin: '🏁' };
+function pintarFlecha(siguiente) {
+  const flecha = $('#franja-flecha');
+  const giro = siguiente.tipo === 'giro' && typeof siguiente.angulo === 'number';
+  flecha.textContent = giro ? '↑' : ICONO_INDICACION[siguiente.tipo] || '↑';
+  flecha.style.transform = giro ? `rotate(${Math.round(siguiente.angulo)}deg)` : '';
+}
+
+// Muestra la próxima indicación en la franja de arriba y, si la voz está encendida, la dice una vez cuando falta
+// poco para llegar a ella.
 function mostrarProximo(siguiente) {
-  const caja = $('#proximo');
+  const caja = $('#franja-paseo');
   if (!siguiente) {
     caja.hidden = true;
     return;
   }
   caja.hidden = false;
+  pintarFlecha(siguiente);
   $('#proximo-distancia').textContent = siguiente.distancia < 15 ? 'Ahora' : `En ${formatearDistancia(siguiente.distancia)}`;
   $('#proximo-texto').textContent = siguiente.texto;
   const umbral = siguiente.tipo === 'giro' ? 45 : 35;
@@ -1250,15 +1325,16 @@ function mostrarProximo(siguiente) {
   }
 }
 
+// Si mueves el mapa con el dedo, deja de seguirte y aparece "Seguirme" para volver.
 mapa.mapa.on('dragstart', () => {
   if (!estado.seguimiento) return;
   estado.seguirme = false;
-  $('#centrar').textContent = 'Seguirme';
+  $('#centrar').hidden = false;
 });
 
 $('#centrar').addEventListener('click', () => {
   estado.seguirme = true;
-  $('#centrar').textContent = 'Siguiéndote';
+  $('#centrar').hidden = true;
   if (mapa.yo) mapa.centrarEn([mapa.yo.getLatLng().lat, mapa.yo.getLatLng().lng]);
 });
 
@@ -1306,7 +1382,7 @@ $('#llevame-metro').addEventListener('click', async () => {
   }
 });
 
-// ---------- Ritmo, metrónomo, intervalos y modo bolsillo ----------
+// ---------- Ritmo, metrónomo e intervalos ----------
 
 // Ritmo de los últimos ~45 segundos y minutos a paso enérgico en lo que va del paseo.
 function mostrarRitmo(aj) {
@@ -1330,7 +1406,8 @@ function pintarAyudasRitmo() {
   $('#boton-metronomo').classList.toggle('activo', metronomo.activo);
   $('#boton-intervalos').setAttribute('aria-pressed', String(Boolean(estado.intervalos)));
   $('#boton-intervalos').classList.toggle('activo', Boolean(estado.intervalos));
-  $('#intervalo').hidden = !estado.intervalos;
+  $('#intervalo-corto').hidden = !estado.intervalos;
+  if (!estado.intervalos) $('#barra-paseo').classList.remove('rapido', 'suave');
 }
 
 const faseActual = () => (estado.intervalos ? faseIntervalo((Date.now() - estado.intervalos.inicio) / 1000).fase : null);
@@ -1351,15 +1428,16 @@ $('#boton-intervalos').addEventListener('click', () => {
   pintarAyudasRitmo();
 });
 
+// Los intervalos avisan con el color de la barra de abajo (naranja = rápido), no con voz.
 function actualizarIntervalo() {
   const f = faseIntervalo((Date.now() - estado.intervalos.inicio) / 1000);
-  $('#intervalo-fase').textContent = f.fase === 'rapido' ? 'Paso rápido' : 'Paso suave';
-  $('#intervalo').classList.toggle('rapido', f.fase === 'rapido');
+  const barra = $('#barra-paseo');
+  barra.classList.toggle('rapido', f.fase === 'rapido');
+  barra.classList.toggle('suave', f.fase !== 'rapido');
   const s = Math.ceil(f.restante);
-  $('#intervalo-tiempo').textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  $('#intervalo-corto').textContent = `${f.fase === 'rapido' ? 'Rápido' : 'Suave'} ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
   if (f.numero !== estado.intervalos.numero) {
     estado.intervalos.numero = f.numero;
-    if (vozActiva()) voz.decir(FRASE_FASE[f.fase], { interrumpir: false });
     if (metronomo.activo) metronomo.cambiar(ppmDeFase(almacen.ajustes().ppm, f.fase));
   }
 }
@@ -1371,39 +1449,6 @@ function detenerIntervalos() {
   if (metronomo.activo) metronomo.cambiar(almacen.ajustes().ppm);
 }
 
-// Modo bolsillo: pantalla negra (gasta menos batería y no llama la atención) y la voz guía. Para salir hay que
-// mantener apretado 1,5 segundos, así un roce en el bolsillo no lo cierra.
-$('#boton-bolsillo').addEventListener('click', () => {
-  if (voz.disponible && !vozActiva()) {
-    almacen.guardarAjustes({ voz: true });
-    pintarBotonVoz();
-  }
-  $('#bolsillo').hidden = false;
-  if (vozActiva()) voz.decir('Modo bolsillo. Te aviso cada giro.');
-});
-
-function cerrarBolsillo() {
-  $('#bolsillo').hidden = true;
-  cancelarSalidaBolsillo();
-}
-
-function cancelarSalidaBolsillo() {
-  clearTimeout(estado.salidaBolsillo);
-  $('#bolsillo-carga').style.transition = 'none';
-  $('#bolsillo-carga').style.width = '0';
-}
-
-const pantallaBolsillo = $('#bolsillo');
-pantallaBolsillo.addEventListener('pointerdown', (e) => {
-  e.preventDefault();
-  const carga = $('#bolsillo-carga');
-  carga.style.transition = 'width 1.5s linear';
-  carga.style.width = '100%';
-  estado.salidaBolsillo = setTimeout(cerrarBolsillo, 1500);
-});
-for (const evento of ['pointerup', 'pointercancel', 'pointerleave']) pantallaBolsillo.addEventListener(evento, cancelarSalidaBolsillo);
-pantallaBolsillo.addEventListener('contextmenu', (e) => e.preventDefault());
-
 // Termina el paseo, lo guarda en el historial y muestra el resumen. Con `volver = false` (al salir de la vista por
 // otro camino) igual se guarda, para no perder lo caminado.
 function terminarSeguimiento(volver = true) {
@@ -1411,7 +1456,7 @@ function terminarSeguimiento(volver = true) {
   metronomo.detener();
   detenerIntervalos();
   pintarAyudasRitmo();
-  cerrarBolsillo();
+  abrirMenuPaseo(false);
   const seguimiento = estado.seguimiento;
   seguimiento?.detener();
   estado.seguimiento = null;

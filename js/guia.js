@@ -33,7 +33,8 @@ export function crearInstrucciones(opcion, linea) {
   for (const g of linea.giros) {
     const angulo = anguloEn(coords, acc, g.indice);
     const texto = textoGiro(angulo);
-    if (texto) lista.push({ recorrido: acc[g.indice], texto, tipo: 'giro' });
+    // El ángulo sirve para dibujar la flecha de la franja del paseo.
+    if (texto) lista.push({ recorrido: acc[g.indice], texto, tipo: 'giro', angulo });
   }
   for (const t of linea.tramos) {
     if (t.modo !== 'bici') continue;

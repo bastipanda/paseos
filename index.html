@@ -145,6 +145,8 @@
           <p class="ayuda" id="ayuda-duracion"></p>
         </fieldset>
 
+        <details class="mas-opciones" id="mas-opciones">
+        <summary>Más opciones <span class="opcional" id="resumen-opciones"></span></summary>
         <fieldset class="campo">
           <legend>Estilo</legend>
           <div class="segmentado" role="radiogroup" aria-label="Estilo">
@@ -186,6 +188,7 @@
         </label>
         <p class="ayuda" id="ayuda-bici" hidden>Caminas hasta una estación con bicis y pedaleas por calles
           bike-friendly hasta la estación con anclajes libres más cercana al término.</p>
+        </details>
 
         <button type="submit" class="boton-principal" id="buscar">Buscar rutas</button>
         <p id="estado-busqueda" class="estado" role="status"></p>
@@ -202,21 +205,23 @@
       <div id="detalle-opcion"></div>
       <div class="acciones">
         <button type="button" class="boton-principal" id="empezar">Empezar</button>
-        <button type="button" class="boton-secundario" id="exportar-gpx">Abrir en otra app (GPX)</button>
-        <div class="fila">
-          <button type="button" class="boton-secundario" id="ya-conozco">Ya conozco esta ruta</button>
+        <div class="fila tres">
           <button type="button" class="boton-secundario" id="guardar-favorita">☆ Favorita</button>
+          <button type="button" class="boton-secundario" id="exportar-gpx" aria-label="Abrir en otra app (GPX)">Otra app</button>
+          <button type="button" class="boton-secundario" id="ya-conozco" aria-label="Ya conozco esta ruta">La conozco</button>
         </div>
         <p id="estado-resultados" class="estado" role="status"></p>
-        <button type="button" class="boton-secundario" id="cambiar-busqueda">Cambiar búsqueda</button>
+        <button type="button" class="boton-texto" id="cambiar-busqueda">Cambiar búsqueda</button>
       </div>
+      <!-- Lo que se lee con calma: por qué, calidad, comparación y seguridad, plegados. -->
+      <div id="detalle-mas"></div>
       <details class="ayuda-gpx">
         <summary>¿Cómo abro la ruta en OsmAnd u Organic Maps?</summary>
         <ol>
           <li>Instala <a href="https://osmand.net" target="_blank" rel="noopener">OsmAnd</a> u
             <a href="https://organicmaps.app" target="_blank" rel="noopener">Organic Maps</a> (gratis, sin anuncios,
             código abierto).</li>
-          <li>Toca "Abrir en otra app (GPX)". Si aparece el menú de compartir, elige la app; si se descarga un archivo
+          <li>Toca "Otra app". Si aparece el menú de compartir, elige la app; si se descarga un archivo
             <code>.gpx</code>, ábrelo desde la notificación de descarga o la carpeta Descargas.</li>
           <li>La ruta aparece dibujada en esa app. En OsmAnd puedes usarla para navegar con voz.</li>
         </ol>
@@ -224,35 +229,38 @@
     </div>
 
     <!-- Seguimiento en vivo -->
+    <!-- Paseo: abajo solo una barra delgada con lo que falta; lo demás se abre tocándola. Arriba, fuera del panel, va
+         la franja con la próxima indicación. -->
     <div class="vista" data-vista="seguimiento" hidden>
-      <div class="proximo" id="proximo" hidden>
-        <p class="proximo-distancia" id="proximo-distancia"></p>
-        <p class="proximo-texto" id="proximo-texto"></p>
+      <div id="captura-aviso" class="captura-aviso" hidden>
+        <p id="captura-texto"></p>
+        <div class="fila" id="captura-botones" hidden>
+          <button type="button" class="boton-principal" id="captura-foto">📷 Sacar foto</button>
+          <button type="button" class="boton-secundario" id="captura-despues">Después</button>
+        </div>
       </div>
-      <p class="modo-actual" id="modo-actual">Tramo a pie</p>
-      <p class="texto-grande" id="faltan-principal">Buscando tu ubicación…</p>
-      <p id="faltan-detalle" class="secundario"></p>
+      <button type="button" class="barra-paseo" id="barra-paseo" aria-expanded="false" aria-controls="menu-paseo">
+        <span class="barra-paseo-texto">
+          <strong id="faltan-principal">Buscando tu ubicación…</strong>
+          <span id="faltan-detalle"></span>
+        </span>
+        <span class="intervalo-corto" id="intervalo-corto" hidden></span>
+        <span class="barra-paseo-menu" aria-label="Opciones del paseo">•••</span>
+      </button>
       <div class="progreso"><div id="barra-progreso"></div></div>
-      <p id="captura-aviso" class="captura-aviso" hidden></p>
-      <p id="ritmo" class="ritmo" hidden></p>
-      <div id="metro-cercano" class="metro-cercano" hidden>
-        <span id="metro-cercano-texto"></span>
-        <button type="button" class="boton-texto" id="llevame-metro">Llévame</button>
-      </div>
-      <div id="intervalo" class="intervalo" hidden>
-        <span id="intervalo-fase"></span><span id="intervalo-tiempo"></span>
-      </div>
-      <p id="aviso-ruta" class="alerta" hidden></p>
-      <div class="acciones">
-        <div class="fila">
-          <button type="button" class="boton-secundario" id="centrar">Seguirme</button>
-          <button type="button" class="boton-secundario" id="voz" aria-pressed="true">Voz: sí</button>
+      <div id="menu-paseo" class="menu-paseo" hidden>
+        <p class="modo-actual" id="modo-actual">Tramo a pie</p>
+        <p id="ritmo" class="ritmo" hidden></p>
+        <div id="metro-cercano" class="metro-cercano" hidden>
+          <span id="metro-cercano-texto"></span>
+          <button type="button" class="boton-texto" id="llevame-metro">Llévame</button>
         </div>
         <div class="fila tres">
-          <button type="button" class="boton-secundario" id="boton-bolsillo">Bolsillo</button>
-          <button type="button" class="boton-secundario" id="boton-metronomo" aria-pressed="false">Metrónomo</button>
           <button type="button" class="boton-secundario" id="boton-intervalos" aria-pressed="false">Intervalos</button>
+          <button type="button" class="boton-secundario" id="boton-metronomo" aria-pressed="false">Metrónomo</button>
+          <button type="button" class="boton-secundario" id="voz" aria-pressed="false">Voz: no</button>
         </div>
+        <p class="ayuda">Intervalos: 3 minutos rápido y 3 suave; la barra se pone naranja cuando toca rápido.</p>
         <button type="button" class="boton-peligro" id="terminar">Terminar</button>
       </div>
     </div>
@@ -444,12 +452,17 @@
     </div>
   </section>
 
-  <!-- Modo bolsillo: pantalla negra mientras caminas con el celular guardado; la voz te guía. -->
-  <div id="bolsillo" class="bolsillo" hidden>
-    <p class="bolsillo-proximo" id="bolsillo-proximo"></p>
-    <p class="bolsillo-falta" id="bolsillo-falta"></p>
-    <p class="bolsillo-ayuda">Modo bolsillo. La voz te guía.<br>Mantén apretado para salir.</p>
-    <div class="bolsillo-carga"><div id="bolsillo-carga"></div></div>
+  <!-- Paseo, arriba del mapa: la próxima indicación con su flecha, el aviso de fuera de ruta y "Seguirme". -->
+  <div class="arriba-paseo">
+    <div id="franja-paseo" class="franja-paseo" hidden>
+      <span class="flecha-giro" id="franja-flecha" aria-hidden="true">↑</span>
+      <div class="franja-texto">
+        <p class="proximo-distancia" id="proximo-distancia"></p>
+        <p class="proximo-texto" id="proximo-texto"></p>
+      </div>
+    </div>
+    <p id="aviso-ruta" class="aviso-ruta" role="status" hidden></p>
+    <button type="button" class="boton-flotante" id="centrar" hidden>◎ Seguirme</button>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>

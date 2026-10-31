@@ -133,7 +133,10 @@ body.sin-pestanas .pestanas { display: none; }
   transition: max-height 0.2s ease;
 }
 .panel.compacto { max-height: 46vh; }
-.panel.chico { max-height: 74px; overflow: hidden; }
+/* Panel plegado: queda una franja delgada y la barra de pestañas se esconde, así el mapa se ve entero. */
+.panel.chico { max-height: 64px; overflow: hidden; cursor: pointer; }
+body.mapa-entero { --abajo: 0px; }
+body.mapa-entero .pestanas { display: none; }
 .panel.grande { max-height: 88vh; }
 
 @media (min-width: 720px) {
@@ -185,7 +188,7 @@ body.viendo-mapa .panel { display: none; }
 .asa {
   display: block;
   width: 100%;
-  height: 22px;
+  height: 24px;
   border: 0;
   background: transparent;
   cursor: pointer;
@@ -310,7 +313,22 @@ button { font: inherit; }
 }
 .resultados-busqueda strong { display: block; font-size: 15px; }
 
-/* Resultados */
+/* Armar: lo que no es partida, término ni duración va plegado en "Más opciones". */
+.mas-opciones { margin: 0 0 14px; border-top: 1px solid var(--borde); border-bottom: 1px solid var(--borde); }
+.mas-opciones > summary { cursor: pointer; font-weight: 700; color: var(--acento); padding: 12px 0; min-height: 44px; }
+.mas-opciones > summary .opcional { display: block; color: var(--texto-suave); font-size: 13px; font-weight: 400; margin-top: 2px; }
+.mas-opciones[open] > summary { margin-bottom: 6px; }
+
+/* Resultados: la tarjeta con lo clave; el resto, plegado. */
+.tarjeta-ruta { margin: 0 0 8px; }
+.datos-clave { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 8px 0 6px; }
+.datos-clave div { background: var(--fondo-suave); border-radius: 10px; padding: 8px 4px; text-align: center; }
+.datos-clave strong { display: block; font-size: 17px; }
+.datos-clave div > span { display: block; font-size: 12px; color: var(--texto-suave); }
+#detalle-mas { margin-top: 10px; }
+.plegable { border-bottom: 1px solid var(--borde); }
+.plegable > summary { cursor: pointer; font-weight: 700; padding: 12px 0; min-height: 44px; }
+.plegable > :not(summary) { margin-bottom: 10px; }
 .cabecera-resultados { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
 .cabecera-resultados h2 { margin: 0; text-align: center; flex: 1; }
 .cifras { font-size: 22px; font-weight: 700; margin: 4px 0 2px; }
@@ -418,19 +436,51 @@ input[type="datetime-local"], input[type="time"] {
   background: var(--fondo-suave); color: var(--texto); min-height: 44px;
 }
 
-/* Seguimiento */
-.proximo {
-  background: var(--acento);
-  color: var(--acento-texto);
-  border-radius: 12px;
-  padding: 10px 14px;
-  margin: 0 0 10px;
+/* Paseo */
+body.siguiendo .asa { display: none; }
+body.siguiendo .panel { padding-top: 10px; }
+body.siguiendo .leaflet-control-zoom { display: none; }
+.arriba-paseo {
+  position: fixed; top: calc(8px + env(safe-area-inset-top)); left: 8px; right: 8px; z-index: 1000;
+  display: none; flex-direction: column; align-items: stretch; gap: 6px; pointer-events: none;
 }
-.proximo p { margin: 0; }
+body.siguiendo .arriba-paseo { display: flex; }
+.arriba-paseo > * { pointer-events: auto; }
+@media (min-width: 720px) { .arriba-paseo { left: auto; width: 420px; } }
+.franja-paseo {
+  display: flex; align-items: center; gap: 12px; background: var(--acento); color: var(--acento-texto);
+  border-radius: var(--radio); padding: 10px 14px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+.franja-paseo p { margin: 0; }
+.flecha-giro { flex: 0 0 44px; font-size: 36px; font-weight: 800; line-height: 1; text-align: center; transition: transform 0.3s ease; }
+.franja-texto { min-width: 0; }
 .proximo-distancia { font-size: 14px; font-weight: 600; opacity: 0.9; }
-.proximo-texto { font-size: 22px; font-weight: 800; line-height: 1.2; }
-.modo-actual { margin: 0; font-weight: 700; color: var(--acento); text-transform: uppercase; font-size: 13px; letter-spacing: 0.04em; }
-.texto-grande { font-size: 28px; font-weight: 800; margin: 2px 0; }
+.proximo-texto { font-size: 20px; font-weight: 800; line-height: 1.2; }
+.aviso-ruta {
+  margin: 0; align-self: center; background: var(--peligro); color: #fff; border-radius: 999px; padding: 6px 14px;
+  font-size: 14px; font-weight: 700; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+.boton-flotante {
+  align-self: flex-end; border: 1px solid var(--borde); background: var(--fondo); color: var(--acento); border-radius: 999px;
+  padding: 8px 14px; font-weight: 700; min-height: 40px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); cursor: pointer;
+}
+.barra-paseo {
+  width: 100%; display: flex; align-items: center; gap: 10px; text-align: left; border: 0; border-radius: 12px;
+  background: var(--fondo-suave); color: var(--texto); padding: 8px 12px; min-height: 52px; cursor: pointer;
+}
+.barra-paseo-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.barra-paseo-texto strong { font-size: 19px; }
+.barra-paseo-texto span { font-size: 13px; color: var(--texto-suave); }
+.barra-paseo-menu { font-size: 18px; letter-spacing: 1px; color: var(--texto-suave); }
+.intervalo-corto { font-weight: 800; font-size: 15px; white-space: nowrap; }
+/* Intervalos: el color avisa la fase, sin voz. */
+.barra-paseo.rapido { background: #e65100; color: #fff; }
+.barra-paseo.rapido span, .barra-paseo.rapido .barra-paseo-menu { color: #fff; }
+.barra-paseo.suave { background: var(--acento); color: var(--acento-texto); }
+.barra-paseo.suave span, .barra-paseo.suave .barra-paseo-menu { color: var(--acento-texto); }
+.menu-paseo { padding-top: 4px; }
+.menu-paseo .boton-peligro { width: 100%; }
+.modo-actual { margin: 0 0 4px; font-weight: 700; color: var(--acento); text-transform: uppercase; font-size: 13px; letter-spacing: 0.04em; }
 .progreso { height: 8px; background: var(--fondo-suave); border-radius: 4px; overflow: hidden; margin: 8px 0; }
 #barra-progreso { height: 100%; width: 0; background: var(--acento); transition: width 0.4s ease; }
 
@@ -440,18 +490,16 @@ input[type="datetime-local"], input[type="time"] {
   border-radius: 10px; background: var(--fondo-suave); font-size: 14px;
 }
 .ritmo.energico { color: var(--buena); }
-.intervalo {
-  display: flex; justify-content: space-between; align-items: center; margin: 8px 0; padding: 8px 12px;
-  border-radius: 10px; background: var(--fondo-suave); font-weight: 800; font-size: 18px;
-}
-.intervalo.rapido { background: var(--alerta-fondo); color: var(--alerta-texto); }
+.fila.tres { margin-bottom: 8px; }
 .fila.tres > * { padding-left: 6px; padding-right: 6px; font-size: 14px; }
 .boton-secundario.activo { background: var(--acento); color: var(--acento-texto); border-color: var(--acento); }
 
 .captura-aviso {
-  margin: 6px 0; padding: 8px 12px; border-radius: 10px; background: var(--alerta-fondo); color: var(--alerta-texto);
+  margin: 0 0 8px; padding: 10px 12px; border-radius: 10px; background: var(--alerta-fondo); color: var(--alerta-texto);
   font-weight: 700; font-size: 15px;
 }
+.captura-aviso p { margin: 0; }
+.captura-aviso .fila { margin-top: 8px; }
 
 /* Santiagodex */
 #dex-barra { height: 100%; width: 0; background: var(--buena); transition: width 0.4s ease; }
@@ -468,20 +516,6 @@ input[type="datetime-local"], input[type="time"] {
 .avance .barrita { flex: 1; height: 8px; border-radius: 4px; background: var(--fondo-suave); overflow: hidden; }
 .avance .barrita span { display: block; height: 100%; background: var(--acento); }
 .avance .pct { flex: 0 0 auto; font-size: 14px; color: var(--texto-suave); min-width: 44px; text-align: right; }
-
-/* Modo bolsillo: negro puro (en pantallas OLED casi no gasta) y textos tenues. */
-.bolsillo {
-  position: fixed; inset: 0; z-index: 3000; background: #000; color: #555;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
-  padding: 24px; text-align: center; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
-  touch-action: none;
-}
-.bolsillo p { margin: 0; }
-.bolsillo-proximo { font-size: 24px; font-weight: 800; color: #777; }
-.bolsillo-falta { font-size: 16px; }
-.bolsillo-ayuda { font-size: 13px; color: #444; margin-top: 30px !important; }
-.bolsillo-carga { width: 160px; height: 4px; background: #111; border-radius: 2px; overflow: hidden; }
-.bolsillo-carga div { height: 100%; width: 0; background: #555; }
 
 /* Lugares */
 .lista { list-style: none; padding: 0; margin: 0 0 12px; }
