@@ -1,8 +1,13 @@
 # Backlog — Paseos
 
 ## Pendiente acordado
-- **v1.3 "Salir más y conocer Santiago"** (decidido 2026-10-30, en construcción). Meta: que Bastián camine más y
-  deje el sedentarismo. Bastián usa **iPhone** (la web no puede hacerlo vibrar).
+- **Probar en terreno la v1.3** (construida el 2026-10-30): Salir ahora, Sorpresa, meta y semanas, historial,
+  resumen y postal, favoritas, trámites, metro y "Llévame al metro", modo bolsillo, metrónomo, intervalos,
+  capturas de la Santiagodex y el evento del calendario.
+- Actualizar `datos/delitos.json` cuando el CEAD publique el año 2026 completo (se copia a mano del portal).
+- Regenerar `datos/metro.json` cuando abra la Línea 7 (`node scripts/lugares.mjs metro`).
+- **v1.3 "Salir más y conocer Santiago"** (decidido 2026-10-30, construido el mismo día). Meta: que Bastián camine
+  más y deje el sedentarismo. Bastián usa **iPhone** (la web no puede hacerlo vibrar).
   - **Hoy** (pantalla de inicio): "Salir ahora" de 15/30/45/60 min desde el GPS, meta semanal en **minutos** (la
     app la pregunta la primera vez; la OMS recomienda 150-300 min), semanas cumplidas en vez de racha diaria,
     proponer subir la meta 10 % al cumplir (o mantener), mejor hora para salir hoy, rutas favoritas y recordatorio
@@ -26,10 +31,18 @@
 - Probar en terreno la v1.1 y la v1.2: voz de la guía, ir a una plaza, GPX en OsmAnd, estilo Noche de verdad de
   noche, "Pasar por…", calorías, aviso de clima y marcar lo caminado en el modo explorar.
 - Calibrar el largo del paso (Ajustes) y anotar aquí el valor real.
-- Regenerar los datos cada algunos meses: `node scripts/plazas.mjs` y `node scripts/lugares.mjs`.
-  Última vez: plazas 2026-10-27; lugares interesantes, comercio y servicios 2026-10-30.
+- Regenerar los datos cada algunos meses: `node scripts/plazas.mjs`, `node scripts/lugares.mjs` y
+  `node scripts/comunas.mjs`. Última vez: plazas, lugares, trámites y metro el 2026-10-30. **Falta generar
+  `datos/comunas.json` por primera vez** (sin él no funcionan "Tu mapa" ni los datos del CEAD en los resultados).
 
 ## Por verificar
+- **En el iPhone (v1.3):** si el evento `.ics` abre el calendario con "Añadir todo" (en Safari y en la app de la
+  pantalla de inicio); si la voz y el metrónomo suenan con el interruptor de silencio activado; si la pantalla se
+  mantiene encendida en la app de la pantalla de inicio; si mantener apretado sale del modo bolsillo sin abrir
+  menús; si la postal se comparte por WhatsApp.
+- Si el radio de captura de la Santiagodex funciona en la práctica (40 m; parques grandes hasta 200 m del centro).
+- Si los minutos en movimiento del GPS se parecen a los de la pulsera (semáforos y esperas no cuentan).
+- Qué tan bien calza el % por comuna de "Tu mapa" (cuadros de 50 m con calles caminables de OSM).
 - Si la voz del navegador suena bien en el celular de Bastián y sigue hablando con la pantalla encendida.
 - Si OsmAnd guía con voz siguiendo el GPX, y si Organic Maps lo muestra. Según lo conocido, sí.
 - Si el menú de compartir del celular acepta el archivo GPX o hay que usar la descarga.
