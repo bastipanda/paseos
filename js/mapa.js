@@ -109,6 +109,8 @@ export class Mapa {
     this.capaRuta.clearLayers();
     this.ocultarCorto();
     this.ocultarRecorridos();
+    this.ocultarDex();
+    this.ocultarConocidas();
   }
 
   // Modo explorar: los cuadros que ya conoces, en morado transparente.
@@ -142,6 +144,33 @@ export class Mapa {
   ocultarRecorridos() {
     this.capaRecorridos?.remove();
     this.capaRecorridos = null;
+  }
+
+  // Lugares de la Santiagodex como puntos: verde capturado, amarillo visto, gris por capturar.
+  // `lugares` es [{ lugar, estado }]; `alTocar(lugar)` se llama al tocar uno.
+  mostrarDex(lugares, alTocar) {
+    this.ocultarDex();
+    const renderer = this.rendererCanvas || (this.rendererCanvas = L.canvas({ padding: 0.3 }));
+    const colores = { capturado: '#1a9850', visto: '#e0a100', nuevo: '#78909c' };
+    this.capaDex = L.layerGroup().addTo(this.mapa);
+    for (const { lugar, estado } of lugares) {
+      L.circleMarker(lugar.punto, { renderer, radius: estado === 'capturado' ? 7 : 5, color: '#fff', weight: 1.5, fillColor: colores[estado], fillOpacity: 0.95 })
+        .bindTooltip(escapar(lugar.nombre))
+        .on('click', () => alTocar(lugar))
+        .addTo(this.capaDex);
+    }
+  }
+
+  ocultarDex() {
+    this.capaDex?.remove();
+    this.capaDex = null;
+  }
+
+  // Un destino suelto (para revelar el destino de un paseo sorpresa).
+  mostrarDestino(lugar) {
+    L.marker(lugar.punto, { icon: icono('plaza', ICONO_TIPO[lugar.tipo] || '📍'), zIndexOffset: 500 })
+      .bindPopup(`<strong>${escapar(nombreLugar(lugar))}</strong>`)
+      .addTo(this.capaRuta);
   }
 
   // El camino más corto, en gris punteado, para comparar con la ruta elegida.
@@ -221,29 +250,33 @@ export class Mapa {
 function popupInteres(lugar) {
   const div = document.createElement('div');
   div.innerHTML = `<strong>${escapar(nombreLugar(lugar))}</strong><br><span>${escapar(tipoLugar(lugar))}</span>`;
-  const m = /^(\w{2,3}):(.+)$/.exec(lugar.wikipedia || '');
-  if (m) {
-    const resumen = document.createElement('p');
-    resumen.className = 'resumen-wiki';
-    resumen.textContent = 'Cargando resumen de Wikipedia…';
-    div.append(resumen);
-    const [, idioma, titulo] = m;
-    fetch(`https://${idioma}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(titulo.replace(/ /g, '_'))}`)
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.status))))
-      .then((j) => {
-        resumen.textContent = j.extract ? `${j.extract.slice(0, 280)}${j.extract.length > 280 ? '…' : ''}` : '';
-        if (j.content_urls?.mobile?.page) {
-          const a = document.createElement('a');
-          a.href = j.content_urls.mobile.page;
-          a.target = '_blank';
-          a.rel = 'noopener';
-          a.textContent = ' Leer en Wikipedia';
-          resumen.append(a);
-        }
-      })
-      .catch(() => resumen.remove());
-  }
+  if (lugar.wikipedia) div.append(parrafoWikipedia(lugar.wikipedia));
   return div;
+}
+
+// Párrafo con el resumen de Wikipedia de un lugar (`ref` como "es:Cerro Santa Lucía"); se llena al cargar.
+export function parrafoWikipedia(ref) {
+  const resumen = document.createElement('p');
+  resumen.className = 'resumen-wiki';
+  const m = /^(\w{2,3}):(.+)$/.exec(ref || '');
+  if (!m) return resumen;
+  resumen.textContent = 'Cargando resumen de Wikipedia…';
+  const [, idioma, titulo] = m;
+  fetch(`https://${idioma}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(titulo.replace(/ /g, '_'))}`)
+    .then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.status))))
+    .then((j) => {
+      resumen.textContent = j.extract ? `${j.extract.slice(0, 280)}${j.extract.length > 280 ? '…' : ''}` : '';
+      if (j.content_urls?.mobile?.page) {
+        const a = document.createElement('a');
+        a.href = j.content_urls.mobile.page;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.textContent = ' Leer en Wikipedia';
+        resumen.append(a);
+      }
+    })
+    .catch(() => resumen.remove());
+  return resumen;
 }
 
 function sonCercanos(a, b) {

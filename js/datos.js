@@ -3,6 +3,7 @@
 import { leerPlazas, leerInteres, leerServicios, leerTramites, leerMetro } from './plazas.js';
 import { leerComercio } from './comercio.js';
 import { leerComunas, leerDelitos } from './territorio.js';
+import { crearDex } from './dex.js';
 
 const cache = new Map();
 
@@ -29,6 +30,20 @@ export const cargarTramites = () => cargar('tramites', leerTramites);
 export const cargarMetro = () => cargar('metro', leerMetro);
 export const cargarComunas = () => cargar('comunas', leerComunas);
 export const cargarDelitos = () => cargar('delitos', leerDelitos);
+
+// La Santiagodex se arma una vez con las plazas, los lugares interesantes y (si cargan) las comunas.
+let dexPromesa = null;
+export function cargarDex() {
+  if (!dexPromesa) {
+    dexPromesa = Promise.all([cargarPlazas(), cargarInteres(), cargarComunas().catch(() => null)])
+      .then(([plazas, interes, comunas]) => crearDex(plazas, interes, comunas))
+      .catch((e) => {
+        dexPromesa = null;
+        throw e;
+      });
+  }
+  return dexPromesa;
+}
 
 // Todo junto. Si un archivo falla, ese dato queda vacío y la app sigue funcionando sin él.
 export async function cargarDatos() {

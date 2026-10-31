@@ -18,6 +18,7 @@
   <nav class="barra">
     <button type="button" class="chip" data-ir="hoy">Hoy</button>
     <button type="button" class="chip" data-ir="formulario" aria-label="Armar un paseo a medida">Armar</button>
+    <button type="button" class="chip" data-ir="dex" aria-label="Santiagodex">Dex</button>
     <span class="separador"></span>
     <button type="button" class="chip" data-ir="lugares">Lugares</button>
     <button type="button" class="chip chip-icono" data-ir="ajustes" aria-label="Ajustes">⚙</button>
@@ -80,6 +81,10 @@
         <button type="button" class="boton-salir" data-minutos="45">45<small>min</small></button>
         <button type="button" class="boton-salir" data-minutos="60">60<small>min</small></button>
       </div>
+      <label class="interruptor">
+        <input type="checkbox" id="sorpresa">
+        <span>🎲 Sorpresa: llévame a un lugar que no tengo en la Santiagodex, sin decirme adónde</span>
+      </label>
       <p class="ayuda" id="ayuda-salir">Ida y vuelta desde donde estás.</p>
       <p id="estado-salir" class="estado" role="status"></p>
       <div id="bloque-favoritas" hidden>
@@ -219,6 +224,7 @@
       <p class="texto-grande" id="faltan-principal">Buscando tu ubicación…</p>
       <p id="faltan-detalle" class="secundario"></p>
       <div class="progreso"><div id="barra-progreso"></div></div>
+      <p id="captura-aviso" class="captura-aviso" hidden></p>
       <p id="ritmo" class="ritmo" hidden></p>
       <div id="metro-cercano" class="metro-cercano" hidden>
         <span id="metro-cercano-texto"></span>
@@ -248,6 +254,7 @@
       <p class="cifras" id="resumen-cifras"></p>
       <p class="secundario" id="resumen-detalle"></p>
       <div class="bloque" id="resumen-semana"></div>
+      <div class="bloque" id="resumen-dex" hidden></div>
       <div id="marcar-caminado" class="bloque marcar" hidden>
         <p id="marcar-caminado-texto">¿Marcar lo que caminaste como conocido?</p>
         <div class="fila">
@@ -257,6 +264,7 @@
       </div>
       <p id="estado-resumen" class="estado" role="status"></p>
       <div class="acciones">
+        <button type="button" class="boton-secundario" id="compartir-postal">Compartir postal del paseo</button>
         <button type="button" class="boton-secundario" id="resumen-favorita">☆ Guardar la ruta como favorita</button>
         <button type="button" class="boton-principal" data-ir="hoy">Listo</button>
       </div>
@@ -281,6 +289,34 @@
         <button type="button" class="boton-principal" id="paseo-agregar">Agregar</button>
       </details>
       <p id="estado-historial" class="estado" role="status"></p>
+    </div>
+
+    <!-- Santiagodex y tu mapa de Santiago -->
+    <div class="vista" data-vista="dex" hidden>
+      <h1>Santiagodex</h1>
+      <p class="secundario" id="dex-resumen">Cargando…</p>
+      <div class="progreso"><div id="dex-barra"></div></div>
+      <p class="ayuda">Lugares de Santiago para coleccionar caminando. Se capturan solos al llegar en un paseo con
+        seguimiento (o a mano, si ya los conocías). Si pasas cerca sin llegar, quedan como vistos.</p>
+      <div class="segmentado" role="radiogroup" aria-label="Mostrar">
+        <label><input type="radio" name="dex-filtro" value="todos" checked><span>Todos</span></label>
+        <label><input type="radio" name="dex-filtro" value="faltan"><span>Por capturar</span></label>
+        <label><input type="radio" name="dex-filtro" value="capturados"><span>Capturados</span></label>
+      </div>
+      <div class="fila">
+        <select id="dex-tipo" aria-label="Tipo de lugar"></select>
+        <select id="dex-comuna" aria-label="Comuna"></select>
+      </div>
+      <label class="interruptor"><input type="checkbox" id="dex-cerca"><span>Los más cercanos a mí primero</span></label>
+      <div id="dex-ficha" class="bloque ficha" hidden></div>
+      <ul id="dex-lista" class="lista dex"></ul>
+      <button type="button" class="boton-secundario boton-ancho" id="dex-mas" hidden>Ver más</button>
+      <h2 class="separado">Tu mapa de Santiago</h2>
+      <p class="ayuda">Lo que caminaste con la app (azul) y lo que marcaste como conocido (morado), y qué parte de las
+        calles de cada comuna conoces.</p>
+      <button type="button" class="boton-secundario boton-ancho" id="ver-mi-mapa">Ver tu mapa</button>
+      <ul id="avance-comunas" class="lista avance"></ul>
+      <p id="estado-dex" class="estado" role="status"></p>
     </div>
 
     <!-- Lugares guardados -->

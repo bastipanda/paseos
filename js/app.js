@@ -20,7 +20,10 @@ import { crearRegistro, estadoSemanas, conMeta } from './historial.js';
 import { iniciarHoy } from './pantalla-hoy.js';
 import { iniciarHistorial } from './pantalla-historial.js';
 import { nombreLugar, tipoLugar, nombreEstacion, ICONO_TIPO } from './plazas.js';
-import { cargarDatos, cargarTramites, cargarMetro, cargarComunas, cargarDelitos } from './datos.js';
+import { cargarDatos, cargarTramites, cargarMetro, cargarComunas, cargarDelitos, cargarDex } from './datos.js';
+import { radioCaptura, revisarRecorrido, anotarRecorrido, numeroDex, estadoDe } from './dex.js';
+import { iniciarDex } from './pantalla-dex.js';
+import { dibujarPostal } from './postal.js';
 import { comunasDeRuta, textoDelitos, LIMITES_DELITOS } from './territorio.js';
 import { resumir, textoComparacion, TEXTOS_ESTILO } from './explicar.js';
 import { crearGpx, nombreArchivo } from './gpx.js';
@@ -85,6 +88,7 @@ function irA(vista) {
     actualizarMarcadores();
   }
   if (vista === 'historial') historial.mostrar();
+  if (vista === 'dex') dex.mostrar();
   if (vista === 'lugares') {
     mapa.limpiarRuta();
     mostrarLugares();
@@ -690,13 +694,72 @@ async function salirAhora(minutos) {
   if (estado.buscando) return;
   const aj = almacen.ajustes();
   const metros = aMetros(minutos, 'minutos', aj);
+  const rango = { min: metros * 0.88, max: metros * 1.12 };
   try {
     mostrarEstado(aviso, 'Buscando tu ubicación…');
     const punto = await ubicacionActual();
+    if ($('#sorpresa').checked) return await salirSorpresa(punto, rango, aviso);
     await buscarYMostrar({
       aviso,
       origen: 'hoy',
-      pedir: (avance, prefs) => paseosAPie({ inicio: punto, fin: punto, rango: { min: metros * 0.88, max: metros * 1.12 }, avance, prefs }),
+      pedir: (avance, prefs) => paseosAPie({ inicio: punto, fin: punto, rango, avance, prefs }),
+    });
+  } catch (err) {
+    mostrarEstado(aviso, mensajeDeError(err), true);
+  }
+}
+
+// Paseo sorpresa: ida y vuelta a un lugar de la Santiagodex que todavía no capturas, elegido al azar entre los mejores,
+// y parte de inmediato sin mostrar adónde (se revela al llegar).
+async function salirSorpresa(punto, rango, aviso) {
+  if (estado.buscando) return;
+  estado.buscando = true;
+  try {
+    mostrarEstado(aviso, 'Eligiendo un lugar sorpresa…');
+    const [datos, dexLista] = await Promise.all([cargarDatos(), cargarDex()]);
+    const d = almacen.dex();
+    // Sin capturar y no tan cerca como para "llegar" apenas se parte.
+    const lugares = dexLista.filter((l) => !d.capturados[l.id] && distancia(punto, l.punto) > radioCaptura(l) + 100);
+    let consultas = 0;
+    const opciones = await paseosIdaYVuelta({
+      inicio: punto,
+      rango,
+      lugares,
+      prefs: prefsDelFormulario(datos),
+      avance: () => mostrarEstado(aviso, `Armando el paseo sorpresa… (${++consultas} consultas)`),
+      sinLugares: 'No encontré lugares nuevos de la Santiagodex a esa distancia. Prueba con otra duración.',
+    });
+    const buenas = opciones.filter((o) => o.enRango).slice(0, 3);
+    const opcion = (buenas.length ? buenas : opciones)[Math.floor(Math.random() * Math.min(3, (buenas.length ? buenas : opciones).length))];
+    opcion.misterio = true;
+    opcion.explicacion = resumir(opcion, {});
+    estado.opciones = [opcion];
+    estado.indice = 0;
+    estado.comparaciones = new Map();
+    estado.origenBusqueda = 'hoy';
+    mostrarEstado(aviso, '');
+    empezarPaseo(opcion);
+  } finally {
+    estado.buscando = false;
+  }
+}
+
+// "Ir a capturarlo" (Santiagodex): ida y vuelta desde donde estás hasta ese lugar, por otras calles a la vuelta.
+async function irACapturar(lugar) {
+  const aviso = $('#estado-dex');
+  try {
+    mostrarEstado(aviso, 'Buscando tu ubicación…');
+    const punto = await ubicacionActual();
+    const d = distancia(punto, lugar.punto);
+    if (d < 60) return mostrarEstado(aviso, 'Ya estás ahí: camina hasta el lugar o márcalo con "Ya lo conocía".');
+    if (d > 8000) {
+      return mostrarEstado(aviso, `Está a ${formatearDistancia(d)} en línea recta. Mejor ve en metro y arma el paseo desde la estación más cercana (Armar → Partida: una estación de metro).`, true);
+    }
+    // Ida ≈ distancia × 1,3 y la vuelta un poco más larga, por otras calles.
+    await buscarYMostrar({
+      aviso,
+      origen: 'dex',
+      pedir: (avance, prefs) => paseosIdaYVuelta({ inicio: punto, rango: { min: d * 2.2, max: d * 3.6 }, lugares: [lugar], avance, prefs }),
     });
   } catch (err) {
     mostrarEstado(aviso, mensajeDeError(err), true);
@@ -796,7 +859,7 @@ function mostrarOpcion() {
   $('#detalle-opcion').innerHTML = html;
   mostrarEstado($('#estado-resultados'), '');
   pintarBotonFavorita();
-  $('#cambiar-busqueda').textContent = estado.origenBusqueda === 'hoy' ? 'Volver' : 'Cambiar búsqueda';
+  $('#cambiar-busqueda').textContent = estado.origenBusqueda === 'formulario' ? 'Cambiar búsqueda' : 'Volver';
   mapa.dibujarOpcion(o, margenesPanel());
   mostrarComparacion(o);
   mostrarSeguridad(o);
@@ -971,8 +1034,11 @@ $('#siguiente').addEventListener('click', () => {
 
 // ---------- Seguimiento en vivo ----------
 
-$('#empezar').addEventListener('click', () => {
-  const opcion = estado.opciones[estado.indice];
+$('#empezar').addEventListener('click', () => empezarPaseo(estado.opciones[estado.indice]));
+
+// Empieza el seguimiento de una opción. En un paseo sorpresa (`opcion.misterio`) no se dibuja la ruta ni se dice el
+// destino hasta llegar.
+function empezarPaseo(opcion) {
   irA('seguimiento');
   document.body.classList.add('siguiendo');
   estado.seguirme = true;
@@ -982,10 +1048,12 @@ $('#empezar').addEventListener('click', () => {
   $('#faltan-detalle').textContent = '';
   $('#barra-progreso').style.width = '0';
   $('#proximo').hidden = true;
+  $('#captura-aviso').hidden = true;
   estado.anunciadas = new Set();
   pintarBotonVoz();
   // Hablar dentro del toque en "Empezar" deja la voz habilitada en el celular para el resto del paseo.
-  if (vozActiva()) voz.decir('Comienza el paseo');
+  if (vozActiva()) voz.decir(opcion.misterio ? 'Comienza el paseo sorpresa. Te voy diciendo dónde doblar.' : 'Comienza el paseo');
+  if (opcion.misterio) mapa.limpiarRuta();
   estado.opcionSeguida = opcion;
   estado.ultimoGuardado = Date.now();
   $('#ritmo').hidden = true;
@@ -997,6 +1065,16 @@ $('#empezar').addEventListener('click', () => {
       estado.metro = m;
     })
     .catch(() => {});
+  // Lugares de la Santiagodex cerca de la ruta, para capturarlos al pasar (y avisar en voz alta).
+  estado.capturasPaseo = [];
+  estado.dexCercanos = [];
+  const inicioRuta = opcion.partes[0].ruta.coords[0];
+  cargarDex()
+    .then((dexLista) => {
+      const radio = Math.max(1500, opcion.metrosPie / 2 + 500);
+      estado.dexCercanos = dexLista.filter((l) => distancia(l.punto, inicioRuta) < radio);
+    })
+    .catch(() => {});
   estado.seguimiento = new Seguimiento(opcion, {
     alActualizar: actualizarSeguimiento,
     alError: (mensaje) => {
@@ -1005,7 +1083,43 @@ $('#empezar').addEventListener('click', () => {
     },
   });
   estado.seguimiento.iniciar();
-});
+}
+
+// Captura en vivo: al llegar a un lugar de la Santiagodex se guarda y se avisa. En un paseo sorpresa, llegar al
+// destino lo revela.
+function revisarCapturas(punto) {
+  const o = estado.opcionSeguida;
+  let revelado = null;
+  if (o?.misterio && o.destino && distancia(punto, o.destino.punto) <= radioCaptura(o.destino) + 10) {
+    revelarSorpresa(o);
+    revelado = o.destino;
+  }
+  const cerca = estado.dexCercanos.filter((l) => distancia(punto, l.punto) <= radioCaptura(l));
+  if (!cerca.length) return;
+  const d = almacen.dex();
+  const { nuevosCapturados } = anotarRecorrido(d, { capturados: cerca, vistos: [] });
+  if (!nuevosCapturados.length) return;
+  almacen.guardarDex(d);
+  estado.capturasPaseo.push(...nuevosCapturados);
+  const sorpresa = revelado && nuevosCapturados.find((l) => l.id === revelado.id);
+  const l = sorpresa || nuevosCapturados[0];
+  const aviso = $('#captura-aviso');
+  aviso.textContent = sorpresa
+    ? `🎉 El lugar sorpresa era ${l.nombre}: ¡capturado! (${numeroDex(l.numero)} de tu Santiagodex)`
+    : `${ICONO_TIPO[l.tipo] || '⭐'} ¡Capturaste ${l.nombre}! (${numeroDex(l.numero)} de tu Santiagodex)`;
+  aviso.hidden = false;
+  if (vozActiva()) voz.decir(sorpresa ? 'Y queda capturado en tu Santiagodex.' : `Capturaste ${l.nombre} para tu Santiagodex.`, { interrumpir: false });
+}
+
+function revelarSorpresa(o) {
+  o.misterio = false;
+  o.revelado = true;
+  const aviso = $('#captura-aviso');
+  aviso.textContent = `🎉 El lugar sorpresa era: ${mayuscula(nombreLugar(o.destino))}`;
+  aviso.hidden = false;
+  if (vozActiva()) voz.decir(`Llegaste al lugar sorpresa: ${nombreLugar(o.destino)}.`);
+  mapa.dibujarOpcion(o, margenesPanel());
+}
 
 // Lo mínimo para rearmar el paseo si el navegador se cierra sin "Terminar" (se guarda cada 20 segundos).
 function datosEnCurso(seguimiento, opcion) {
@@ -1041,10 +1155,11 @@ function actualizarSeguimiento(d) {
   }
   mapa.mostrarYo(d.punto, d.precision);
   if (estado.seguirme) mapa.centrarEn(d.punto);
-  $('#modo-actual').textContent = f.modoActual === 'bici' ? 'Tramo en bici' : 'Tramo a pie';
+  revisarCapturas(d.punto);
+  $('#modo-actual').textContent = estado.opcionSeguida?.misterio ? 'Paseo sorpresa 🎲' : f.modoActual === 'bici' ? 'Tramo en bici' : 'Tramo a pie';
   if (f.total < 25 && d.recorrido > 0) {
     $('#faltan-principal').textContent = '¡Llegaste!';
-    $('#faltan-detalle').textContent = `Caminaste unos ${formatearPasos(Math.round(desdeMetros(estado.opciones[estado.indice].metrosPie, 'pasos', aj)))}.`;
+    $('#faltan-detalle').textContent = `Caminaste unos ${formatearPasos(Math.round(desdeMetros(estado.opcionSeguida.metrosPie, 'pasos', aj)))}.`;
   } else if (f.pie > 0) {
     $('#faltan-principal').textContent = `Faltan ${formatearPasos(Math.round(desdeMetros(f.pie, 'pasos', aj)))}`;
     $('#faltan-detalle').textContent = `${formatearDistancia(f.pie)} a pie · ${formatearMinutos(Math.round(desdeMetros(f.pie, 'minutos', aj)))}${
@@ -1055,10 +1170,12 @@ function actualizarSeguimiento(d) {
     $('#faltan-detalle').textContent = '';
   }
   $('#barra-progreso').style.width = `${d.total ? Math.min(100, (d.recorrido / d.total) * 100) : 0}%`;
-  mostrarProximo(d.siguiente);
+  // En un paseo sorpresa, la llegada al destino no dice su nombre.
+  const siguiente = estado.opcionSeguida?.misterio && d.siguiente?.tipo === 'destino' ? { ...d.siguiente, texto: 'Llegas al lugar sorpresa' } : d.siguiente;
+  mostrarProximo(siguiente);
   mostrarRitmo(aj);
   mostrarMetroCercano(d.punto);
-  $('#bolsillo-proximo').textContent = d.siguiente ? `${d.siguiente.distancia < 15 ? 'Ahora' : `En ${formatearDistancia(d.siguiente.distancia)}`}: ${d.siguiente.texto}` : '';
+  $('#bolsillo-proximo').textContent = siguiente ? `${siguiente.distancia < 15 ? 'Ahora' : `En ${formatearDistancia(siguiente.distancia)}`}: ${siguiente.texto}` : '';
   $('#bolsillo-falta').textContent = $('#faltan-principal').textContent;
   const aviso = $('#aviso-ruta');
   if (d.fueraDeRuta) {
@@ -1333,10 +1450,54 @@ function mostrarResumen(registro, seguimiento, opcion) {
     if (texto) mostrarEstado($('#estado-resumen'), texto);
     $('#resumen-favorita').hidden = Boolean(opcion.favorita);
   };
+  if (opcion.misterio) {
+    opcion.misterio = false;
+    mostrarEstado($('#estado-resumen'), `🎲 El lugar sorpresa era: ${mayuscula(nombreLugar(opcion.destino))}.`);
+  }
   mapa.dibujarOpcion(opcion, margenesPanel());
   mapa.mostrarRecorridos([registro.rastro], margenesPanel(), { encuadrar: false });
   ofrecerMarcarCaminado(registro);
+  const semanaCorta = `Esta semana: ${Math.round(ahora.minutos)}${ahora.meta ? ` de ${ahora.meta}` : ''} min caminando`;
+  estado.ultimoResumen = { registro, capturas: [...estado.capturasPaseo], semana: semanaCorta };
+  pintarDexResumen(registro);
 }
+
+// Lo nuevo de la Santiagodex en este paseo: lo capturado en vivo más lo que el recorrido completo deja visto o
+// capturado (por si el GPS saltó justo al pasar).
+async function pintarDexResumen(registro) {
+  const caja = $('#resumen-dex');
+  caja.hidden = true;
+  try {
+    const dexLista = await cargarDex();
+    const d = almacen.dex();
+    const { nuevosCapturados, nuevosVistos } = anotarRecorrido(d, revisarRecorrido(registro.rastro, dexLista));
+    almacen.guardarDex(d);
+    const capturas = [...estado.capturasPaseo, ...nuevosCapturados];
+    estado.ultimoResumen.capturas = capturas;
+    if (!capturas.length && !nuevosVistos.length) return;
+    const total = dexLista.filter((l) => estadoDe(l, d) === 'capturado').length;
+    caja.innerHTML =
+      (capturas.length
+        ? `<h3>¡Nuevo en tu Santiagodex!</h3><ul class="explicacion">${capturas
+            .map((l) => `<li>${numeroDex(l.numero)} ${ICONO_TIPO[l.tipo] || ''} ${escapar(l.nombre)}</li>`)
+            .join('')}</ul>`
+        : '') +
+      (nuevosVistos.length ? `<p>Pasaste cerca de ${nuevosVistos.length === 1 ? '1 lugar' : `${nuevosVistos.length} lugares`} sin llegar: quedan como vistos.</p>` : '') +
+      `<p class="ayuda">Llevas ${total} de ${dexLista.length.toLocaleString('es-CL')} capturados.</p>`;
+    caja.hidden = false;
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+$('#compartir-postal').addEventListener('click', async () => {
+  const r = estado.ultimoResumen;
+  if (!r) return;
+  const blob = await dibujarPostal(r.registro, { capturas: r.capturas, semana: r.semana });
+  const fecha = new Date(r.registro.inicio).toISOString().slice(0, 10);
+  const resultado = await compartirODescargar(new File([blob], `paseo-${fecha}.png`, { type: 'image/png' }), 'Mi paseo');
+  if (resultado === 'descargado') mostrarEstado($('#estado-resumen'), 'Postal descargada.');
+});
 
 // ---------- Explorar: lo que ya conoces (solo se marca a mano) ----------
 
@@ -1627,6 +1788,7 @@ const hoy = iniciarHoy({
   siguiendo: () => Boolean(estado.seguimiento),
 });
 const historial = iniciarHistorial({ mapa, margenes: margenesPanel, alCambiar: () => {} });
+const dex = iniciarDex({ mapa, margenes: margenesPanel, irACapturar });
 
 restaurarFormulario();
 irA('hoy');

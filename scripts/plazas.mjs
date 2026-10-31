@@ -89,7 +89,8 @@ function aLugar(e) {
   }
   const nombre = (tags.name || '').trim();
   if (!nombre && tamano < TAMANO_MINIMO_SIN_NOMBRE) return null;
-  return { punto, nombre, tipo: tipoDe(tags, tamano), tamano, caja };
+  // Identificador de OSM (n123, w456, r789): la Santiagodex lo usa para recordar qué capturaste aunque se regenere.
+  return { punto, nombre, tipo: tipoDe(tags, tamano), tamano, caja, id: `${e.type[0]}${e.id}` };
 }
 
 const dentro = (p, c) => c && p[0] >= c[0] && p[0] <= c[2] && p[1] >= c[1] && p[1] <= c[3];
@@ -130,8 +131,8 @@ const redondear = (x) => Math.round(x * 1e5) / 1e5;
 const salida = {
   generado: new Date().toISOString().slice(0, 10),
   fuente: 'OpenStreetMap, © colaboradores de OpenStreetMap (ODbL)',
-  campos: ['lat', 'lon', 'nombre', 'tipo', 'tamano_m'],
-  lugares: lugares.map((l) => [redondear(l.punto[0]), redondear(l.punto[1]), l.nombre, l.tipo, Math.round(l.tamano)]),
+  campos: ['lat', 'lon', 'nombre', 'tipo', 'tamano_m', 'id_osm'],
+  lugares: lugares.map((l) => [redondear(l.punto[0]), redondear(l.punto[1]), l.nombre, l.tipo, Math.round(l.tamano), l.id]),
 };
 await mkdir(new URL('../datos/', import.meta.url), { recursive: true });
 await writeFile(new URL('../datos/plazas.json', import.meta.url), JSON.stringify(salida));

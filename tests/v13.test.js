@@ -21,6 +21,7 @@ import { leerComunas, comunaDe, comunasDeRuta, avancePorComuna, leerDelitos, del
 import { claveCelda } from '../js/explorar.js';
 import { resumir } from '../js/explicar.js';
 import { nombreEstacion } from '../js/plazas.js';
+import { crearDex, numeroDex, radioCaptura, revisarRecorrido, anotarRecorrido, estadoDe, avanceDex, CENTRO_DEX } from '../js/dex.js';
 
 const a = [-33.43, -70.61];
 const aj = { largoPaso: 0.75, velocidadKmh: 4.5, peso: 80, energicoKmh: 5, ppm: 110 };
@@ -217,6 +218,48 @@ test('explicación de destinos: ida y vuelta, estación de metro', () => {
   const metro = resumir({ ...base, destino: { punto: a, nombre: 'Manuel Montt', tipo: 'estacion', lineas: ['1'], idaYVuelta: false } });
   assert.equal(metro[0], 'Terminas en la estación Manuel Montt (línea 1): de ahí puedes volver en metro.');
   assert.equal(nombreEstacion({ nombre: 'Baquedano', lineas: ['1', '5'] }), 'Baquedano (L1, L5)');
+});
+
+test('Santiagodex: lista sin repetidos, numerada desde el centro, captura y vistos', () => {
+  const centro = CENTRO_DEX;
+  const interes = [
+    { punto: destino(centro, 0, 2000), nombre: 'Museo Lejano', tipo: 'museo', tamano: 0, id: 'n1' },
+    { punto: destino(centro, 90, 300), nombre: 'Plaza de Prueba', tipo: 'historia', tamano: 0, id: 'n2' },
+    { punto: destino(centro, 90, 400), nombre: 'Placa sin tipo', tipo: 'agua', tamano: 0, id: 'n3' },
+  ];
+  const plazas = [
+    { punto: destino(centro, 90, 320), nombre: 'Plaza de prueba', tipo: 'plaza', tamano: 80, id: 'w1' }, // repetida
+    { punto: destino(centro, 180, 1000), nombre: 'Parque Sur', tipo: 'parque', tamano: 600, id: 'w2' },
+    { punto: destino(centro, 270, 100), nombre: '', tipo: 'plaza', tamano: 50, id: 'w3' }, // sin nombre: no entra
+  ];
+  const dex = crearDex(plazas, interes);
+  assert.deepEqual(dex.map((l) => l.nombre), ['Plaza de Prueba', 'Parque Sur', 'Museo Lejano']);
+  assert.deepEqual(dex.map((l) => l.numero), [1, 2, 3]);
+  assert.equal(numeroDex(7), '#0007');
+  assert.equal(radioCaptura(dex[1]), 180);
+  // Un recorrido que llega al parque (entra en su radio) y pasa a 100 m de la plaza.
+  const recorrido = [destino(destino(centro, 90, 300), 0, 100), destino(centro, 0, 100), destino(centro, 180, 900)];
+  const revision = revisarRecorrido(recorrido, dex);
+  assert.deepEqual(revision.capturados.map((l) => l.id), ['w2']);
+  assert.deepEqual(revision.vistos.map((l) => l.id), ['n2']);
+  // Un salto largo del GPS que pasa justo por la plaza no la captura (solo queda vista).
+  const salto = revisarRecorrido([destino(centro, 90, 0), destino(centro, 90, 600)], dex);
+  assert.deepEqual(salto.capturados.map((l) => l.id), []);
+  assert.deepEqual(salto.vistos.map((l) => l.id), ['n2']);
+  const caminando = revisarRecorrido(Array.from({ length: 13 }, (_, i) => destino(centro, 90, i * 50)), dex);
+  assert.deepEqual(caminando.capturados.map((l) => l.id), ['n2']);
+  const estado = { capturados: {}, vistos: {} };
+  const nuevos = anotarRecorrido(estado, revision, '2026-10-30T20:00:00Z');
+  assert.equal(nuevos.nuevosCapturados.length, 1);
+  assert.equal(estadoDe(dex[1], estado), 'capturado');
+  assert.equal(estadoDe(dex[0], estado), 'visto');
+  assert.equal(estadoDe(dex[2], estado), 'nuevo');
+  // Lo mismo otra vez no suma nada nuevo.
+  assert.equal(anotarRecorrido(estado, revision).nuevosCapturados.length, 0);
+  const avance = avanceDex(dex, estado);
+  assert.equal(avance.capturados, 1);
+  assert.equal(avance.vistos, 1);
+  assert.deepEqual(avance.porTipo.parque, { total: 1, capturados: 1 });
 });
 
 test('distancia de prueba sana', () => {

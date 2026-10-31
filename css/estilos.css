@@ -405,6 +405,27 @@ input[type="datetime-local"], input[type="time"] {
 .fila.tres > * { padding-left: 6px; padding-right: 6px; font-size: 14px; }
 .boton-secundario.activo { background: var(--acento); color: var(--acento-texto); border-color: var(--acento); }
 
+.captura-aviso {
+  margin: 6px 0; padding: 8px 12px; border-radius: 10px; background: var(--alerta-fondo); color: var(--alerta-texto);
+  font-weight: 700; font-size: 15px;
+}
+
+/* Santiagodex */
+#dex-barra { height: 100%; width: 0; background: var(--buena); transition: width 0.4s ease; }
+.dex .entrada .paseo { flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; text-align: left; background: none; border: 0; padding: 4px 0; color: var(--texto); cursor: pointer; min-width: 0; }
+.dex .entrada .secundario { margin: 0; font-size: 13px; }
+.dex .entrada.nuevo strong { color: var(--texto-suave); font-weight: 600; }
+.dex .entrada.capturado strong { color: var(--buena); }
+.dex .marca { width: 28px; text-align: center; font-weight: 800; color: var(--buena); }
+.ficha h3 { font-size: 17px; }
+.ficha .botones-fila { margin: 8px 0 0; }
+.ficha .botones-fila > * { flex: 1 1 140px; }
+.avance li { gap: 10px; }
+.avance .nombre { flex: 0 0 38%; }
+.avance .barrita { flex: 1; height: 8px; border-radius: 4px; background: var(--fondo-suave); overflow: hidden; }
+.avance .barrita span { display: block; height: 100%; background: var(--acento); }
+.avance .pct { flex: 0 0 auto; font-size: 14px; color: var(--texto-suave); min-width: 44px; text-align: right; }
+
 /* Modo bolsillo: negro puro (en pantallas OLED casi no gasta) y textos tenues. */
 .bolsillo {
   position: fixed; inset: 0; z-index: 3000; background: #000; color: #555;
