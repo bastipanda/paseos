@@ -150,10 +150,16 @@
           </div>
         </fieldset>
 
-        <label class="interruptor">
-          <input type="checkbox" id="evitar-subidas" aria-label="Evitar subidas">
-          <span>Evitar subidas</span>
-        </label>
+        <fieldset class="campo">
+          <legend>Subidas</legend>
+          <div class="segmentado" role="radiogroup" aria-label="Subidas">
+            <label><input type="radio" name="subidas" value="evitar"><span>Evitar</span></label>
+            <label><input type="radio" name="subidas" value="igual" checked><span>Da igual</span></label>
+            <label><input type="radio" name="subidas" value="buscar"><span>Buscar</span></label>
+          </div>
+          <p class="ayuda" id="ayuda-subidas" hidden>Prefiere rutas que suben (hacia miradores y cerros): subir quema
+            bastante más que caminar en plano.</p>
+        </fieldset>
         <label class="interruptor">
           <input type="checkbox" id="explorar" aria-label="Preferir calles que no conozco">
           <span>Explorar: preferir calles que no conozco</span>
@@ -214,6 +220,10 @@
       <p id="faltan-detalle" class="secundario"></p>
       <div class="progreso"><div id="barra-progreso"></div></div>
       <p id="ritmo" class="ritmo" hidden></p>
+      <div id="metro-cercano" class="metro-cercano" hidden>
+        <span id="metro-cercano-texto"></span>
+        <button type="button" class="boton-texto" id="llevame-metro">Llévame</button>
+      </div>
       <div id="intervalo" class="intervalo" hidden>
         <span id="intervalo-fase"></span><span id="intervalo-tiempo"></span>
       </div>

@@ -4,14 +4,24 @@ import { Mapa, escapar, COLORES } from './mapa.js';
 import * as almacen from './almacen.js';
 import { buscarDireccion } from './busqueda.js';
 import { cargarEstaciones } from './bikeitau.js';
-import { paseosAPie, paseosConBici, paseosAPlaza, caminoCorto, recetaDe, rehacerOpcion } from './generador.js';
+import {
+  paseosAPie,
+  paseosConBici,
+  paseosIdaYVuelta,
+  paseosHastaDestino,
+  caminoCorto,
+  recetaDe,
+  rehacerOpcion,
+  rutaHasta,
+} from './generador.js';
 import { ErrorDeRuta } from './brouter.js';
-import { $, mostrarEstado, mensajeDeError, compartirODescargar, descargar } from './ui.js';
+import { $, mostrarEstado, mensajeDeError, compartirODescargar, descargar, formatearHora } from './ui.js';
 import { crearRegistro, estadoSemanas, conMeta } from './historial.js';
 import { iniciarHoy } from './pantalla-hoy.js';
 import { iniciarHistorial } from './pantalla-historial.js';
-import { nombreLugar, tipoLugar } from './plazas.js';
-import { cargarDatos } from './datos.js';
+import { nombreLugar, tipoLugar, nombreEstacion, ICONO_TIPO } from './plazas.js';
+import { cargarDatos, cargarTramites, cargarMetro, cargarComunas, cargarDelitos } from './datos.js';
+import { comunasDeRuta, textoDelitos, LIMITES_DELITOS } from './territorio.js';
 import { resumir, textoComparacion, TEXTOS_ESTILO } from './explicar.js';
 import { crearGpx, nombreArchivo } from './gpx.js';
 import { Voz, fraseHablada } from './guia.js';
@@ -201,10 +211,13 @@ function llenarSelector(cual) {
   if (cual === 'termino') {
     agregar(select, 'igual', 'Volver a la partida (circular)');
     agregar(select, 'plaza', 'Ir a una plaza y volver');
+    agregar(select, 'tramite', 'Ir a un trámite y volver (súper, farmacia…)');
+    agregar(select, 'metro-calce', 'La estación de metro que calce');
   }
   agregar(select, 'gps', 'Mi ubicación (GPS)');
   agregar(select, 'mapa', 'Marcar en el mapa');
   agregar(select, 'buscar', 'Buscar una dirección');
+  agregar(select, 'metro', 'Una estación de metro');
   const lugares = almacen.lugares();
   if (lugares.length) {
     const grupo = document.createElement('optgroup');
@@ -231,6 +244,41 @@ function pintarExtra(cual, enfocar = true) {
     caja.innerHTML =
       '<p class="ayuda">La app elige una plaza, plazoleta, parque o plaza de juegos a la distancia justa para tu ' +
       'duración, y vuelves por otras calles. Con las flechas del resultado ves otras plazas.</p>';
+  } else if (tipo === 'tramite') {
+    const f = almacen.formularioGuardado() || {};
+    caja.innerHTML = `<div class="fila">
+        <select id="tramite-tipo" aria-label="Tipo de trámite">
+          ${Object.entries(TRAMITES).map(([v, t]) => `<option value="${v}"${f.tramite === v ? ' selected' : ''}>${t}</option>`).join('')}
+        </select>
+        <input type="text" id="tramite-nombre" placeholder="Nombre (opcional)" value="${escapar(f.tramiteNombre || '')}" aria-label="Nombre del local (opcional)">
+      </div>
+      <p class="ayuda">La app elige uno a la distancia justa para tu duración (así el trámite suma minutos) y vuelves por
+        otras calles. Si escribes un nombre (por ejemplo "Líder" o "Cruz Verde"), busca solo esos.</p>`;
+    caja.querySelector('#tramite-tipo').addEventListener('change', guardarFormulario);
+    caja.querySelector('#tramite-nombre').addEventListener('input', guardarFormulario);
+  } else if (tipo === 'metro-calce') {
+    caja.innerHTML =
+      '<p class="ayuda">La app elige una estación de metro a la distancia justa para tu duración. Terminas ahí y ' +
+      'vuelves en metro.</p>';
+  } else if (tipo === 'metro') {
+    caja.innerHTML = '<select aria-label="Estación de metro"><option value="">Cargando estaciones…</option></select>';
+    const select = caja.querySelector('select');
+    cargarMetro()
+      .then(({ estaciones }) => {
+        select.innerHTML =
+          '<option value="">Elige una estación</option>' +
+          estaciones.map((e, i) => `<option value="${i}"${p?.estacion === e.nombre ? ' selected' : ''}>${escapar(nombreEstacion(e))}</option>`).join('');
+        select.addEventListener('change', () => {
+          const e = estaciones[Number(select.value)];
+          estado.puntos[cual] = e ? { punto: e.punto, etiqueta: `Estación ${e.nombre}`, origen: 'metro', estacion: e.nombre } : null;
+          actualizarMarcadores();
+          if (e) mapa.centrarEn(e.punto, 15);
+          guardarFormulario();
+        });
+      })
+      .catch(() => {
+        select.innerHTML = '<option value="">No se pudieron cargar las estaciones</option>';
+      });
   } else if (tipo === 'mapa') {
     caja.innerHTML = `<div class="punto-elegido"><span>${p ? 'Punto marcado en el mapa' : 'Aún no marcas el punto'}</span>
       <button type="button" class="boton-texto">${p ? 'Mover' : 'Tocar el mapa'}</button></div>`;
@@ -256,13 +304,31 @@ function pintarExtra(cual, enfocar = true) {
   }
 }
 
-// La vuelta en Bike Itaú todavía no se combina con "ir a una plaza" (quedó como idea en el backlog).
+// Para comparar nombres sin importar tildes ni mayúsculas ("Lider" encuentra "Líder").
+const normalizarTexto = (t) =>
+  [...(t || '').normalize('NFD')]
+    .filter((c) => c.charCodeAt(0) < 0x300 || c.charCodeAt(0) > 0x36f)
+    .join('')
+    .toLowerCase()
+    .trim();
+
+const TRAMITES = {
+  supermercado: 'Supermercado',
+  farmacia: 'Farmacia',
+  panaderia: 'Panadería',
+  feria: 'Feria o mercado',
+  cajero: 'Cajero o banco',
+  ferreteria: 'Ferretería',
+};
+
+// La vuelta en Bike Itaú todavía no se combina con ir a un lugar y volver ni con terminar en el metro (quedó como
+// idea en el backlog).
 function actualizarBici() {
-  const conPlaza = $('#termino-tipo').value === 'plaza';
+  const sinBici = ['plaza', 'tramite', 'metro-calce'].includes($('#termino-tipo').value);
   const casilla = $('#con-bici');
-  casilla.disabled = conPlaza;
-  if (conPlaza) casilla.checked = false;
-  casilla.closest('label').title = conPlaza ? 'No disponible al ir a una plaza' : '';
+  casilla.disabled = sinBici;
+  if (sinBici) casilla.checked = false;
+  casilla.closest('label').title = sinBici ? 'No disponible con este término' : '';
   $('#ayuda-bici').hidden = !casilla.checked;
 }
 
@@ -287,7 +353,7 @@ function puntoConocido(cual) {
   const tipo = $(`#${cual}-tipo`).value;
   const lugar = lugarPorTipo(tipo);
   if (lugar) return [lugar.lat, lugar.lon];
-  if (tipo === 'mapa' || tipo === 'buscar') return estado.puntos[cual]?.punto || null;
+  if (tipo === 'mapa' || tipo === 'buscar' || tipo === 'metro') return estado.puntos[cual]?.punto || null;
   return null;
 }
 
@@ -306,7 +372,7 @@ async function resolverPunto(cual) {
     return { punto: [lugar.lat, lugar.lon], etiqueta: lugar.nombre };
   }
   const p = estado.puntos[cual];
-  if (!p) throw new Error(`Falta marcar ${NOMBRES[cual]}.`);
+  if (!p) throw new Error(tipo === 'metro' ? `Elige la estación de metro para ${NOMBRES[cual]}.` : `Falta marcar ${NOMBRES[cual]}.`);
   return p;
 }
 
@@ -403,6 +469,7 @@ const AYUDA_ESTILO = {
 };
 
 const estiloElegido = () => document.querySelector('input[name="estilo"]:checked').value;
+const subidasElegidas = () => document.querySelector('input[name="subidas"]:checked').value;
 const pasarPorElegido = () =>
   Object.fromEntries([...document.querySelectorAll('input[name="pasar"]')].map((c) => [c.value, c.checked]));
 
@@ -426,7 +493,12 @@ document.querySelectorAll('input[name="estilo"]').forEach((r) =>
   }),
 );
 document.querySelectorAll('input[name="pasar"]').forEach((c) => c.addEventListener('change', guardarFormulario));
-$('#evitar-subidas').addEventListener('change', guardarFormulario);
+document.querySelectorAll('input[name="subidas"]').forEach((r) =>
+  r.addEventListener('change', () => {
+    $('#ayuda-subidas').hidden = subidasElegidas() !== 'buscar';
+    guardarFormulario();
+  }),
+);
 $('#explorar').addEventListener('change', () => {
   actualizarAyudaExplorar();
   guardarFormulario();
@@ -455,8 +527,10 @@ function guardarFormulario() {
     puntos: estado.puntos,
     estilo: estiloElegido(),
     pasarPor: pasarPorElegido(),
-    evitarSubidas: $('#evitar-subidas').checked,
+    subidas: subidasElegidas(),
     explorar: $('#explorar').checked,
+    tramite: $('#tramite-tipo')?.value || almacen.formularioGuardado()?.tramite || 'supermercado',
+    tramiteNombre: $('#tramite-nombre') ? $('#tramite-nombre').value : almacen.formularioGuardado()?.tramiteNombre || '',
   });
 }
 
@@ -478,7 +552,11 @@ function restaurarFormulario() {
     const estilo = document.querySelector(`input[name="estilo"][value="${f.estilo}"]`);
     if (estilo) estilo.checked = true;
     for (const c of document.querySelectorAll('input[name="pasar"]')) c.checked = Boolean(f.pasarPor?.[c.value]);
-    $('#evitar-subidas').checked = Boolean(f.evitarSubidas);
+    // Los formularios guardados antes de la v1.3 tenían solo "evitar subidas" (sí o no).
+    const subidas = f.subidas || (f.evitarSubidas ? 'evitar' : 'igual');
+    const radioSubidas = document.querySelector(`input[name="subidas"][value="${subidas}"]`);
+    if (radioSubidas) radioSubidas.checked = true;
+    $('#ayuda-subidas').hidden = subidas !== 'buscar';
     $('#explorar').checked = Boolean(f.explorar);
     // Si se borró el peso, las calorías ya no se pueden usar.
     if (f.unidad === 'kcal' && !tienePeso(almacen.ajustes())) document.querySelector('input[name="unidad"][value="pasos"]').checked = true;
@@ -501,7 +579,8 @@ function restaurarFormulario() {
 function prefsDelFormulario(datos) {
   return {
     estilo: estiloElegido(),
-    evitarSubidas: $('#evitar-subidas').checked,
+    subidas: subidasElegidas(),
+    evitarSubidas: subidasElegidas() === 'evitar',
     pasarPor: pasarPorElegido(),
     datos,
     conocidas: $('#explorar').checked ? almacen.conocidas() : null,
@@ -561,7 +640,8 @@ $('#formulario').addEventListener('submit', async (e) => {
     mostrarEstado(aviso, 'Ubicando la partida y el término…');
     const tipoTermino = $('#termino-tipo').value;
     const partida = await resolverPunto('partida');
-    const termino = tipoTermino === 'igual' || tipoTermino === 'plaza' ? partida : await resolverPunto('termino');
+    const sinTermino = ['igual', 'plaza', 'tramite', 'metro-calce'].includes(tipoTermino);
+    const termino = sinTermino ? partida : await resolverPunto('termino');
     const conBici = $('#con-bici').checked;
     await buscarYMostrar({
       aviso,
@@ -569,14 +649,29 @@ $('#formulario').addEventListener('submit', async (e) => {
       pedir: async (avance, prefs, datos) => {
         if (tipoTermino === 'plaza') {
           if (!datos.plazas.length) throw new Error('No se pudo cargar la lista de plazas. Intenta de nuevo.');
-          return paseosAPlaza({ inicio: partida.punto, rango, plazas: datos.plazas, avance, prefs });
+          return paseosIdaYVuelta({ inicio: partida.punto, rango, lugares: datos.plazas, avance, prefs, sinLugares: 'No encontré plazas a una distancia que calce con la duración pedida.' });
+        }
+        if (tipoTermino === 'tramite') {
+          const tipo = $('#tramite-tipo').value;
+          const filtro = normalizarTexto($('#tramite-nombre').value);
+          const lugares = (await cargarTramites()).filter((l) => l.tipo === tipo && (!filtro || normalizarTexto(l.nombre).includes(filtro)));
+          if (!lugares.length) throw new Error(`No encontré ${TRAMITES[tipo].toLowerCase()} con ese nombre en el mapa.`);
+          return paseosIdaYVuelta({ inicio: partida.punto, rango, lugares, avance, prefs, sinLugares: `No encontré un local de ese tipo a una distancia que calce con la duración pedida.` });
+        }
+        if (tipoTermino === 'metro-calce') {
+          const { estaciones } = await cargarMetro();
+          return paseosHastaDestino({ inicio: partida.punto, rango, lugares: estaciones, avance, prefs });
         }
         if (conBici) {
           mostrarEstado(aviso, 'Revisando las estaciones Bike Itaú…');
           const estaciones = await cargarEstaciones({ forzar: true });
           return paseosConBici({ inicio: partida.punto, fin: termino.punto, rango, estaciones, avance, prefs });
         }
-        return paseosAPie({ inicio: partida.punto, fin: termino.punto, rango, avance, prefs });
+        const opciones = await paseosAPie({ inicio: partida.punto, fin: termino.punto, rango, avance, prefs });
+        // Si el término es una estación de metro elegida, se muestra como destino (nombre y líneas).
+        const estacion = $('#termino-tipo').value === 'metro' && (await cargarMetro()).estaciones.find((e) => e.nombre === termino.estacion);
+        if (estacion) for (const o of opciones) o.destino = { ...estacion, idaYVuelta: false };
+        return opciones;
       },
     });
   } catch (err) {
@@ -667,9 +762,12 @@ function mostrarOpcion() {
   const clima = estado.clima && leerClima(estado.clima);
   if (clima?.avisos.length) html += `<p class="alerta">${clima.avisos.map(escapar).join(' ')}</p>`;
   if (!o.enRango) html += '<p class="alerta">No encontré una ruta dentro del rango pedido. Esta es la más cercana.</p>';
-  if (o.plaza) {
-    html += `<div class="bloque"><h3>Destino: ${escapar(nombreLugar(o.plaza))}</h3>
-      <p>${escapar(tipoLugar(o.plaza)).replace(/^./, (c) => c.toUpperCase())}. Con las flechas de arriba ves otras plazas.</p></div>`;
+  if (o.destino && !o.misterio) {
+    const d = o.destino;
+    const otras = estado.opciones.length > 1 ? ' Con las flechas de arriba ves otros destinos.' : '';
+    const detalle = d.tipo === 'estacion' ? `Línea ${d.lineas.join(' y ')} del metro.` : `${mayuscula(tipoLugar(d))}${d.idaYVuelta ? ', ida y vuelta' : ''}.`;
+    html += `<div class="bloque"><h3>${ICONO_TIPO[d.tipo] || '📍'} Destino: ${escapar(mayuscula(nombreLugar(d)))}</h3>
+      <p>${escapar(detalle)}${otras}</p></div>`;
   }
   if (o.explicacion?.length) {
     html += `<div class="bloque"><h3>Por qué esta ruta</h3>
@@ -684,8 +782,9 @@ function mostrarOpcion() {
       <p>La dejas en <strong>${escapar(o.estacionLlegada.nombre)}</strong> (${o.estacionLlegada.anclajes} anclajes libres ahora).</p>
       <p class="ayuda">La disponibilidad cambia minuto a minuto.</p></div>`;
   }
-  if (o.repetida > 0.15 && !o.plaza) html += '<p class="alerta">Parte de la ruta va y vuelve por la misma calle.</p>';
+  if (o.repetida > 0.15 && !o.destino?.idaYVuelta) html += '<p class="alerta">Parte de la ruta va y vuelve por la misma calle.</p>';
   html += '<div class="bloque" id="comparacion" hidden></div>';
+  html += '<div class="bloque" id="seguridad" hidden></div>';
   html += `<div class="leyenda">
     <span><i style="background:${COLORES.buena}"></i>${escapar(mayuscula(textosEstilo.buena))}</span>
     <span><i style="background:${COLORES.media}"></i>${escapar(mayuscula(textosEstilo.media))}</span>
@@ -700,6 +799,46 @@ function mostrarOpcion() {
   $('#cambiar-busqueda').textContent = estado.origenBusqueda === 'hoy' ? 'Volver' : 'Cambiar búsqueda';
   mapa.dibujarOpcion(o, margenesPanel());
   mostrarComparacion(o);
+  mostrarSeguridad(o);
+}
+
+// Lo que se sabe de seguridad, con datos reales: si terminarías de noche (puesta de sol de Open-Meteo), el cierre del
+// metro y los robos violentos de las comunas por las que pasa la ruta (CEAD). Nada de esto es por calle.
+async function mostrarSeguridad(o) {
+  const caja = $('#seguridad');
+  if (!caja) return;
+  const aj = almacen.ajustes();
+  const avisos = [];
+  const ahora = new Date();
+  // En bici se calcula a unos 15 km/h (250 m por minuto).
+  const minutos = desdeMetros(o.metrosPie, 'minutos', aj) + (o.metrosBici || 0) / 250;
+  const fin = new Date(ahora.getTime() + minutos * 60000);
+  const puesta = estado.clima?.puesta;
+  const sugerirNoche = o.estilo === 'noche' ? '' : ' Si no conoces la zona, considera el estilo Noche o un paseo más corto.';
+  if (puesta && ahora > new Date(puesta.getTime() + 20 * 60000)) {
+    avisos.push(o.estilo === 'noche' ? 'Ya oscureció: vas con el estilo Noche (iluminado y con movimiento).' : `Ya oscureció (el sol se puso a las ${formatearHora(puesta)}).${sugerirNoche}`);
+  } else if (puesta && fin > new Date(puesta.getTime() + 10 * 60000)) {
+    avisos.push(`Si sales ahora, terminarías cerca de las ${formatearHora(fin)}, después de la puesta de sol (${formatearHora(puesta)}).${sugerirNoche}`);
+  }
+  if (o.destino?.tipo === 'estacion' && (fin.getHours() >= 23 || (fin.getHours() === 22 && fin.getMinutes() >= 30))) {
+    avisos.push('Ojo: el metro suele cerrar cerca de las 23:00 (según la prensa). Revisa el horario del día en metro.cl.');
+  }
+  let delitos = null;
+  try {
+    const [comunas, datosDelitos] = await Promise.all([cargarComunas(), cargarDelitos()]);
+    if (estado.opciones[estado.indice] !== o) return;
+    delitos = textoDelitos(comunasDeRuta(o.partes.flatMap((p) => p.ruta.coords), comunas), datosDelitos);
+  } catch (err) {
+    console.error(err);
+  }
+  if (!avisos.length && !delitos) {
+    caja.hidden = true;
+    return;
+  }
+  caja.innerHTML =
+    `<h3>Seguridad: lo que se sabe</h3>${avisos.map((a) => `<p>${escapar(a)}</p>`).join('')}` +
+    (delitos ? `<p>${escapar(delitos)}</p><p class="nota-limites">${escapar(LIMITES_DELITOS)}</p>` : '');
+  caja.hidden = false;
 }
 
 const ESTILO_NOMBRE = { tranquilo: 'Tranquilo', vida: 'Con vida', noche: 'Noche' };
@@ -709,13 +848,13 @@ const mayuscula = (t) => t.charAt(0).toUpperCase() + t.slice(1);
 // estación Bike Itaú. En un paseo circular no hay "camino más corto" con qué comparar.
 function datosComparacion(o) {
   const coords = o.partes[0].ruta.coords;
-  if (o.plaza) {
+  if (o.destino?.idaYVuelta) {
     return {
       desde: coords[0],
-      hasta: o.plaza.punto,
+      hasta: o.destino.punto,
       factor: 2,
       ruta: { metros: o.metrosPie, evaluacion: o.evaluacionPie },
-      destino: ' a la plaza',
+      destino: ` a ${nombreLugar(o.destino)}`,
       etiqueta: 'Esta ruta, ida y vuelta,',
     };
   }
@@ -775,7 +914,7 @@ async function mostrarComparacion(o) {
 $('#exportar-gpx').addEventListener('click', async () => {
   const o = estado.opciones[estado.indice];
   const fecha = new Date();
-  const nombre = o.plaza ? `Paseo a ${nombreLugar(o.plaza)}` : 'Paseo';
+  const nombre = o.destino ? `Paseo a ${nombreLugar(o.destino)}` : 'Paseo';
   const texto = crearGpx(o, { nombre, fecha });
   const archivo = new File([texto], nombreArchivo(fecha), { type: 'application/gpx+xml' });
   // En el celular se intenta abrir el menú de compartir para elegir OsmAnd u Organic Maps directamente.
@@ -787,7 +926,7 @@ $('#exportar-gpx').addEventListener('click', async () => {
 function nombrePorDefecto(o) {
   const aj = almacen.ajustes();
   const minutos = Math.round(desdeMetros(o.metrosPie, 'minutos', aj) / 5) * 5;
-  if (o.plaza) return `${nombreLugar(o.plaza)} (${minutos} min)`;
+  if (o.destino) return `${mayuscula(nombreLugar(o.destino))} (${minutos} min)`;
   const coords = o.partes[0].ruta.coords;
   const circular = distancia(coords[0], o.partes.at(-1).ruta.coords.at(-1)) < 80;
   return `${circular ? 'Vuelta' : 'Paseo'} de ${minutos} min (${ESTILO_NOMBRE[o.estilo] || 'Tranquilo'})`;
@@ -850,7 +989,14 @@ $('#empezar').addEventListener('click', () => {
   estado.opcionSeguida = opcion;
   estado.ultimoGuardado = Date.now();
   $('#ritmo').hidden = true;
+  $('#metro-cercano').hidden = true;
   pintarAyudasRitmo();
+  estado.metro = null;
+  cargarMetro()
+    .then((m) => {
+      estado.metro = m;
+    })
+    .catch(() => {});
   estado.seguimiento = new Seguimiento(opcion, {
     alActualizar: actualizarSeguimiento,
     alError: (mensaje) => {
@@ -877,9 +1023,10 @@ function datosEnCurso(seguimiento, opcion) {
 const subidaDe = (o) => o.partes.filter((p) => p.modo === 'pie').reduce((s, p) => s + (p.ruta.subida || 0), 0);
 
 function tituloPaseo(o) {
+  if (o.tituloOriginal) return o.tituloOriginal;
   const favorita = o.favorita && almacen.favoritas().find((f) => f.id === o.favorita);
   if (favorita) return favorita.nombre;
-  if (o.plaza) return `A ${nombreLugar(o.plaza)}`;
+  if (o.destino) return `A ${nombreLugar(o.destino)}`;
   if (o.estacionSalida) return 'Paseo con Bike Itaú';
   const coords = o.partes[0].ruta.coords;
   return distancia(coords[0], o.partes.at(-1).ruta.coords.at(-1)) < 80 ? 'Vuelta' : 'Paseo';
@@ -910,6 +1057,7 @@ function actualizarSeguimiento(d) {
   $('#barra-progreso').style.width = `${d.total ? Math.min(100, (d.recorrido / d.total) * 100) : 0}%`;
   mostrarProximo(d.siguiente);
   mostrarRitmo(aj);
+  mostrarMetroCercano(d.punto);
   $('#bolsillo-proximo').textContent = d.siguiente ? `${d.siguiente.distancia < 15 ? 'Ahora' : `En ${formatearDistancia(d.siguiente.distancia)}`}: ${d.siguiente.texto}` : '';
   $('#bolsillo-falta').textContent = $('#faltan-principal').textContent;
   const aviso = $('#aviso-ruta');
@@ -968,6 +1116,50 @@ $('#centrar').addEventListener('click', () => {
   estado.seguirme = true;
   $('#centrar').textContent = 'Siguiéndote';
   if (mapa.yo) mapa.centrarEn([mapa.yo.getLatLng().lat, mapa.yo.getLatLng().lng]);
+});
+
+// ---------- Llévame al metro ----------
+
+// Durante el paseo se muestra la estación de metro más cercana (en línea recta) como salida de emergencia: si te
+// sientes incómodo, un toque te lleva hasta ella por calles con movimiento (estilo "Con vida").
+function mostrarMetroCercano(punto) {
+  const caja = $('#metro-cercano');
+  if (!estado.metro) return;
+  let cercana = null;
+  for (const e of estado.metro.estaciones) {
+    const d = distancia(punto, e.punto);
+    if (!cercana || d < cercana.d) cercana = { e, d };
+  }
+  const yendo = estado.opcionSeguida?.destino?.tipo === 'estacion' && estado.opcionSeguida.destino.nombre === cercana?.e.nombre;
+  caja.hidden = !cercana || cercana.d > 3000 || (yendo && estado.opcionSeguida.haciaMetro);
+  if (caja.hidden) return;
+  estado.metroCercano = { ...cercana, desde: punto };
+  $('#metro-cercano-texto').textContent = `🚇 Metro más cercano: ${nombreEstacion(cercana.e)}, a ${formatearDistancia(cercana.d)}`;
+}
+
+$('#llevame-metro').addEventListener('click', async () => {
+  const c = estado.metroCercano;
+  if (!c || !estado.seguimiento) return;
+  const boton = $('#llevame-metro');
+  boton.disabled = true;
+  boton.textContent = 'Buscando…';
+  try {
+    const nueva = await rutaHasta(c.desde, c.e.punto, c.e, 'vida');
+    nueva.haciaMetro = true;
+    nueva.tituloOriginal = tituloPaseo(estado.opcionSeguida);
+    estado.opcionSeguida = nueva;
+    estado.anunciadas = new Set();
+    estado.seguimiento.cambiarRuta(nueva);
+    mapa.dibujarOpcion(nueva, margenesPanel());
+    if (vozActiva()) voz.decir(`Te llevo a la estación ${c.e.nombre}, a ${Math.round(nueva.metrosPie / 10) * 10} metros.`);
+    $('#metro-cercano').hidden = true;
+  } catch (err) {
+    $('#aviso-ruta').textContent = mensajeDeError(err);
+    $('#aviso-ruta').hidden = false;
+  } finally {
+    boton.disabled = false;
+    boton.textContent = 'Llévame';
+  }
 });
 
 // ---------- Ritmo, metrónomo, intervalos y modo bolsillo ----------

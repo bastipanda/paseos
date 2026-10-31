@@ -1,0 +1,277 @@
+{
+ "generado": "2026-10-30",
+ "fuente": "CEAD, Subsecretaría de Prevención del Delito (cead.minsegpublica.gob.cl), casos policiales 2025",
+ "delito": "Robos violentos: robos con violencia o intimidación y robos por sorpresa",
+ "como": "Consulta \"Estadísticas por unidad territorial\" del portal del CEAD, copiada a mano (no hay descarga abierta)",
+ "region": {
+  "tasa": 922.9,
+  "casos": 78177
+ },
+ "campos": [
+  "comuna",
+  "tasa_por_100_mil_habitantes",
+  "casos"
+ ],
+ "comunas": [
+  [
+   "Santiago",
+   2871.5,
+   15855
+  ],
+  [
+   "Cerrillos",
+   1459,
+   1317
+  ],
+  [
+   "Cerro Navia",
+   816.3,
+   1132
+  ],
+  [
+   "Conchalí",
+   890.5,
+   1208
+  ],
+  [
+   "El Bosque",
+   600.6,
+   1016
+  ],
+  [
+   "Estación Central",
+   1831.6,
+   4100
+  ],
+  [
+   "Huechuraba",
+   823.5,
+   984
+  ],
+  [
+   "Independencia",
+   822.5,
+   1278
+  ],
+  [
+   "La Cisterna",
+   1593.7,
+   1616
+  ],
+  [
+   "La Florida",
+   728.4,
+   2970
+  ],
+  [
+   "La Granja",
+   1156.3,
+   1369
+  ],
+  [
+   "La Pintana",
+   755.3,
+   1426
+  ],
+  [
+   "La Reina",
+   415.3,
+   410
+  ],
+  [
+   "Las Condes",
+   295.1,
+   1021
+  ],
+  [
+   "Lo Barnechea",
+   106.6,
+   141
+  ],
+  [
+   "Lo Espejo",
+   910.1,
+   908
+  ],
+  [
+   "Lo Prado",
+   1014.6,
+   1027
+  ],
+  [
+   "Macul",
+   881.6,
+   1225
+  ],
+  [
+   "Maipú",
+   756.8,
+   4444
+  ],
+  [
+   "Ñuñoa",
+   1036.1,
+   2803
+  ],
+  [
+   "Pedro Aguirre Cerda",
+   913.6,
+   945
+  ],
+  [
+   "Peñalolén",
+   475.3,
+   1302
+  ],
+  [
+   "Providencia",
+   1908.1,
+   3151
+  ],
+  [
+   "Pudahuel",
+   970.6,
+   2552
+  ],
+  [
+   "Quilicura",
+   826.1,
+   2311
+  ],
+  [
+   "Quinta Normal",
+   1434.8,
+   2047
+  ],
+  [
+   "Recoleta",
+   1629.7,
+   3224
+  ],
+  [
+   "Renca",
+   896.7,
+   1464
+  ],
+  [
+   "San Joaquín",
+   1190.5,
+   1224
+  ],
+  [
+   "San Miguel",
+   1488,
+   2208
+  ],
+  [
+   "San Ramón",
+   1077,
+   893
+  ],
+  [
+   "Vitacura",
+   316.5,
+   306
+  ],
+  [
+   "Puente Alto",
+   536.3,
+   3599
+  ],
+  [
+   "Pirque",
+   98.2,
+   33
+  ],
+  [
+   "San José de Maipo",
+   167.5,
+   33
+  ],
+  [
+   "Colina",
+   383.6,
+   771
+  ],
+  [
+   "Lampa",
+   439.8,
+   645
+  ],
+  [
+   "Tiltil",
+   339.3,
+   77
+  ],
+  [
+   "San Bernardo",
+   789.2,
+   2775
+  ],
+  [
+   "Buin",
+   369.5,
+   443
+  ],
+  [
+   "Calera de Tango",
+   211.9,
+   65
+  ],
+  [
+   "Paine",
+   345.1,
+   309
+  ],
+  [
+   "Melipilla",
+   320.3,
+   482
+  ],
+  [
+   "Alhué",
+   25.1,
+   2
+  ],
+  [
+   "Curacaví",
+   229.4,
+   89
+  ],
+  [
+   "María Pinto",
+   101,
+   16
+  ],
+  [
+   "San Pedro",
+   78.9,
+   10
+  ],
+  [
+   "Talagante",
+   286.1,
+   247
+  ],
+  [
+   "El Monte",
+   189.6,
+   81
+  ],
+  [
+   "Isla de Maipo",
+   172.5,
+   74
+  ],
+  [
+   "Padre Hurtado",
+   318.4,
+   266
+  ],
+  [
+   "Peñaflor",
+   261.7,
+   283
+  ]
+ ]
+}

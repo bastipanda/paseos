@@ -1,6 +1,6 @@
 // Exporta una opción como archivo GPX, el formato estándar para rutas que abren OsmAnd, Organic Maps y otras apps.
 // Toda la ruta va en un solo trazado continuo, para que la app de navegación la siga de principio a fin. Las
-// estaciones y la plaza van como puntos marcados.
+// estaciones y el destino van como puntos marcados.
 
 import { distancia } from './geo.js';
 import { nombreLugar } from './plazas.js';
@@ -16,7 +16,7 @@ export function crearGpx(opcion, { nombre = 'Paseo', fecha = new Date() } = {}) 
   const inicio = coords[0];
   const fin = coords[coords.length - 1];
   const marcas = [[inicio, 'Partida']];
-  if (opcion.plaza) marcas.push([opcion.plaza.punto, nombreLugar(opcion.plaza)]);
+  if (opcion.destino) marcas.push([opcion.destino.punto, nombreLugar(opcion.destino)]);
   if (opcion.estacionSalida) marcas.push([opcion.estacionSalida.punto, `Tomar bici: ${opcion.estacionSalida.nombre}`]);
   if (opcion.estacionLlegada) marcas.push([opcion.estacionLlegada.punto, `Dejar bici: ${opcion.estacionLlegada.nombre}`]);
   if (distancia(inicio, fin) > 50) marcas.push([fin, 'Término']);

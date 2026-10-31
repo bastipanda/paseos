@@ -40,11 +40,13 @@ export function crearInstrucciones(opcion, linea) {
     lista.push({ recorrido: t.desde, texto: `Toma una bici en ${opcion.estacionSalida?.nombre || 'la estación'}`, tipo: 'estacion' });
     lista.push({ recorrido: t.hasta, texto: `Deja la bici en ${opcion.estacionLlegada?.nombre || 'la estación'}`, tipo: 'estacion' });
   }
-  if (opcion.plaza) {
-    const u = ubicarEnLinea(coords, acc, opcion.plaza.punto, 0, coords.length);
-    if (u && u.distancia < 150) lista.push({ recorrido: u.recorrido, texto: `Llegas a ${nombreLugar(opcion.plaza)}`, tipo: 'plaza' });
+  const destino = opcion.destino;
+  if (destino?.idaYVuelta) {
+    const u = ubicarEnLinea(coords, acc, destino.punto, 0, coords.length);
+    if (u && u.distancia < 150) lista.push({ recorrido: u.recorrido, texto: `Llegas a ${nombreLugar(destino)}`, tipo: 'destino' });
   }
-  lista.push({ recorrido: linea.total, texto: 'Llegas al final del paseo', tipo: 'fin' });
+  const final = destino && !destino.idaYVuelta ? `Llegas a ${nombreLugar(destino)}` : 'Llegas al final del paseo';
+  lista.push({ recorrido: linea.total, texto: final, tipo: 'fin' });
   lista.sort((a, b) => a.recorrido - b.recorrido);
   // Dos giros casi en el mismo punto confunden: se deja solo el primero.
   return lista.filter((x, i) => i === 0 || x.tipo !== 'giro' || x.recorrido - lista[i - 1].recorrido > 8);

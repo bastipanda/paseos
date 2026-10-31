@@ -146,15 +146,20 @@ export function resumir(opcion, { pasarPor = {} } = {}) {
   const tramosPie = partesPie.flatMap((p) => p.ruta.tramos);
   const totalPie = tramosPie.reduce((s, x) => s + x.metros, 0);
 
-  if (opcion.plaza) {
+  const destino = opcion.destino;
+  if (destino?.idaYVuelta) {
     frases.push(
       opcion.repetida > 0.3
-        ? `Vas hasta ${nombreLugar(opcion.plaza)} y vuelves en parte por las mismas calles.`
-        : `Vas hasta ${nombreLugar(opcion.plaza)} y vuelves por otras calles.`,
+        ? `Vas hasta ${nombreLugar(destino)} y vuelves en parte por las mismas calles.`
+        : `Vas hasta ${nombreLugar(destino)} y vuelves por otras calles.`,
     );
+  } else if (destino?.tipo === 'estacion') {
+    frases.push(`Terminas en la ${nombreLugar(destino)} (línea ${destino.lineas.join(' y ')}): de ahí puedes volver en metro.`);
+  } else if (destino) {
+    frases.push(`Terminas en ${nombreLugar(destino)}.`);
   }
   if (extras.interes?.length) frases.push(`Pasa por lugares interesantes: ${listarLugares(extras.interes)}.`);
-  const plazas = (extras.plazas || []).filter((l) => l !== opcion.plaza);
+  const plazas = (extras.plazas || []).filter((l) => !destino || l.punto !== destino.punto);
   if (plazas.length) frases.push(`Pasa por ${listarLugares(plazas)}.`);
 
   if (totalPie > 0) {

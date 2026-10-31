@@ -17,6 +17,10 @@ import {
 import { mejorHora, textoMejorHora, incomodidad } from '../js/clima.js';
 import { crearIcs, primeraFecha } from '../js/calendario.js';
 import { faseIntervalo, ppmDeFase } from '../js/metronomo.js';
+import { leerComunas, comunaDe, comunasDeRuta, avancePorComuna, leerDelitos, delitosDe, textoDelitos } from '../js/territorio.js';
+import { claveCelda } from '../js/explorar.js';
+import { resumir } from '../js/explicar.js';
+import { nombreEstacion } from '../js/plazas.js';
 
 const a = [-33.43, -70.61];
 const aj = { largoPaso: 0.75, velocidadKmh: 4.5, peso: 80, energicoKmh: 5, ppm: 110 };
@@ -167,6 +171,52 @@ test('intervalos: 3 minutos suave, 3 rápido, y el metrónomo se adapta', () => 
   assert.equal(ppmDeFase(110, 'rapido'), 120);
   assert.equal(ppmDeFase(110, 'suave'), 95);
   assert.equal(ppmDeFase(110, null), 110);
+});
+
+test('comunas: en cuál cae un punto, por cuáles pasa una ruta y cuánto conoces de cada una', () => {
+  const cuadrado = (s, o, n, e) => [[s, o], [s, e], [n, e], [n, o], [s, o]];
+  const comunas = leerComunas({
+    comunas: [
+      { nombre: 'Providencia', celdas: 4, caja: [-33.44, -70.63, -33.42, -70.61], anillos: [cuadrado(-33.44, -70.63, -33.42, -70.61)] },
+      { nombre: 'Ñuñoa', celdas: 10, caja: [-33.46, -70.63, -33.44, -70.61], anillos: [cuadrado(-33.46, -70.63, -33.44, -70.61)] },
+    ],
+  });
+  assert.equal(comunaDe([-33.43, -70.62], comunas), 'Providencia');
+  assert.equal(comunaDe([-33.45, -70.62], comunas), 'Ñuñoa');
+  assert.equal(comunaDe([-33.5, -70.62], comunas), null);
+  const ruta = [[-33.425, -70.62], [-33.455, -70.62]];
+  const porComuna = comunasDeRuta(ruta, comunas);
+  assert.deepEqual(porComuna.map((c) => c.nombre), ['Providencia', 'Ñuñoa']);
+  const conocidas = new Set([claveCelda([-33.43, -70.62]), claveCelda([-33.431, -70.621]), claveCelda([-33.45, -70.62])]);
+  const avance = avancePorComuna(conocidas, comunas);
+  assert.equal(avance[0].nombre, 'Providencia');
+  assert.equal(avance[0].fraccion, 0.5);
+  assert.equal(avance[1].fraccion, 0.1);
+});
+
+test('robos violentos por comuna (CEAD): texto con comparación y sin inventar', () => {
+  const delitos = leerDelitos({
+    fuente: 'CEAD, casos policiales 2025',
+    region: { tasa: 922.9, casos: 78177 },
+    comunas: [['Providencia', 1908.1, 3151], ['Ñuñoa', 1036.1, 2803], ['Las Condes', 295.1, 1021]],
+  });
+  assert.equal(delitosDe('Nunoa', delitos).tasa, 1036.1);
+  const texto = textoDelitos([{ nombre: 'Providencia', fraccion: 0.6 }, { nombre: 'Ñuñoa', fraccion: 0.35 }, { nombre: 'Las Condes', fraccion: 0.05 }], delitos);
+  assert.match(texto, /Robos violentos en 2025 \(CEAD\)/);
+  assert.match(texto, /Providencia: 1\.908 por cada 100 mil habitantes \(2,1 veces el promedio de la región\)/);
+  assert.match(texto, /Ñuñoa: 1\.036 .*cerca del promedio/);
+  assert.doesNotMatch(texto, /Las Condes/);
+  assert.equal(textoDelitos([{ nombre: 'Comuna Inventada', fraccion: 1 }], delitos), null);
+});
+
+test('explicación de destinos: ida y vuelta, estación de metro', () => {
+  const ruta = { coords: [a, destino(a, 90, 300)], metros: 300, tramos: [{ metros: 300, tags: { highway: 'residential' } }] };
+  const base = { partes: [{ modo: 'pie', ruta }], estilo: 'tranquilo', extras: {}, repetida: 0 };
+  const ida = resumir({ ...base, destino: { punto: a, nombre: 'Cruz Verde', tipo: 'farmacia', idaYVuelta: true } });
+  assert.equal(ida[0], 'Vas hasta Cruz Verde y vuelves por otras calles.');
+  const metro = resumir({ ...base, destino: { punto: a, nombre: 'Manuel Montt', tipo: 'estacion', lineas: ['1'], idaYVuelta: false } });
+  assert.equal(metro[0], 'Terminas en la estación Manuel Montt (línea 1): de ahí puedes volver en metro.');
+  assert.equal(nombreEstacion({ nombre: 'Baquedano', lineas: ['1', '5'] }), 'Baquedano (L1, L5)');
 });
 
 test('distancia de prueba sana', () => {

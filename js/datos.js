@@ -1,7 +1,8 @@
 // Carga los archivos de datos/ (generados desde OpenStreetMap con scripts/) una sola vez por sesión.
 
-import { leerPlazas, leerInteres, leerServicios } from './plazas.js';
+import { leerPlazas, leerInteres, leerServicios, leerTramites, leerMetro } from './plazas.js';
 import { leerComercio } from './comercio.js';
+import { leerComunas, leerDelitos } from './territorio.js';
 
 const cache = new Map();
 
@@ -23,6 +24,11 @@ export const cargarPlazas = () => cargar('plazas', leerPlazas);
 export const cargarInteres = () => cargar('interes', leerInteres);
 export const cargarComercio = () => cargar('comercio', leerComercio);
 export const cargarServicios = () => cargar('servicios', leerServicios);
+// Estos se cargan solo cuando se usan (trámites, metro, Santiagodex, seguridad), para no gastar datos del celular.
+export const cargarTramites = () => cargar('tramites', leerTramites);
+export const cargarMetro = () => cargar('metro', leerMetro);
+export const cargarComunas = () => cargar('comunas', leerComunas);
+export const cargarDelitos = () => cargar('delitos', leerDelitos);
 
 // Todo junto. Si un archivo falla, ese dato queda vacío y la app sigue funcionando sin él.
 export async function cargarDatos() {

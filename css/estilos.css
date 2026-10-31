@@ -392,6 +392,10 @@ input[type="datetime-local"], input[type="time"] {
 #barra-progreso { height: 100%; width: 0; background: var(--acento); transition: width 0.4s ease; }
 
 .ritmo { margin: 6px 0; font-size: 14px; font-weight: 600; color: var(--texto-suave); }
+.metro-cercano {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 6px 0; padding: 4px 4px 4px 12px;
+  border-radius: 10px; background: var(--fondo-suave); font-size: 14px;
+}
 .ritmo.energico { color: var(--buena); }
 .intervalo {
   display: flex; justify-content: space-between; align-items: center; margin: 8px 0; padding: 8px 12px;

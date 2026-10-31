@@ -2,7 +2,7 @@
 
 import { categoria } from './tranquilidad.js';
 import { describirTramo } from './explicar.js';
-import { nombreLugar, tipoLugar } from './plazas.js';
+import { nombreLugar, tipoLugar, ICONO_TIPO } from './plazas.js';
 
 export const COLORES = { buena: '#1a9850', media: '#e0a100', mala: '#d73027' };
 const CENTRO_SANTIAGO = [-33.4372, -70.6106];
@@ -75,7 +75,8 @@ export class Mapa {
       L.marker(ultima[ultima.length - 1], { icon: icono('termino', 'B') }).addTo(this.capaRuta);
     }
     const extras = opcion.extras || {};
-    for (const l of (extras.plazas || []).filter((p) => p !== opcion.plaza).slice(0, 8)) {
+    const destino = opcion.destino;
+    for (const l of (extras.plazas || []).filter((p) => !destino || p.punto !== destino.punto).slice(0, 8)) {
       L.marker(l.punto, { icon: icono('lugar-ruta', '', 14) })
         .bindTooltip(escapar(nombreLugar(l)))
         .addTo(this.capaRuta);
@@ -90,9 +91,9 @@ export class Mapa {
         .bindTooltip(escapar(s.nombre || nombreLugar(s)))
         .addTo(this.capaRuta);
     }
-    if (opcion.plaza) {
-      L.marker(opcion.plaza.punto, { icon: icono('plaza', '🌳') })
-        .bindPopup(`<strong>${escapar(nombreLugar(opcion.plaza))}</strong><br>Destino del paseo (${tipoLugar(opcion.plaza)})`)
+    if (destino && !opcion.misterio) {
+      L.marker(destino.punto, { icon: icono('plaza', ICONO_TIPO[destino.tipo] || '📍'), zIndexOffset: 500 })
+        .bindPopup(`<strong>${escapar(nombreLugar(destino))}</strong><br>Destino del paseo (${tipoLugar(destino)})`)
         .addTo(this.capaRuta);
     }
     for (const e of [opcion.estacionSalida, opcion.estacionLlegada].filter(Boolean)) {

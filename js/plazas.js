@@ -13,25 +13,71 @@ const NOMBRE_TIPO = {
   cultura: 'Lugar cultural',
   historia: 'Lugar histórico',
   atraccion: 'Atractivo',
+  cerro: 'Cerro',
   agua: 'Bebedero',
   baño: 'Baño público',
+  supermercado: 'Supermercado',
+  farmacia: 'Farmacia',
+  panaderia: 'Panadería',
+  feria: 'Feria o mercado',
+  cajero: 'Cajero o banco',
+  ferreteria: 'Ferretería',
+  estacion: 'Estación de metro',
 };
 
+// Ícono de cada tipo de lugar, para el mapa y las listas.
+export const ICONO_TIPO = {
+  plaza: '🌳',
+  parque: '🌳',
+  juegos: '🛝',
+  museo: '🏛️',
+  mirador: '🔭',
+  arte: '🎨',
+  cultura: '🎭',
+  historia: '📜',
+  atraccion: '⭐',
+  cerro: '⛰️',
+  supermercado: '🛒',
+  farmacia: '💊',
+  panaderia: '🥖',
+  feria: '🧺',
+  cajero: '🏧',
+  ferreteria: '🔨',
+  estacion: '🚇',
+};
+
+// El último campo (id) es el identificador de OSM; los archivos antiguos no lo tienen.
 export function leerPlazas(json) {
-  return json.lugares.map(([lat, lon, nombre, tipo, tamano]) => ({ punto: [lat, lon], nombre, tipo, tamano }));
+  return json.lugares.map(([lat, lon, nombre, tipo, tamano, id]) => ({ punto: [lat, lon], nombre, tipo, tamano, id: id || null }));
 }
 
 export function leerInteres(json) {
   return json.lugares
     .filter(([, , nombre]) => !/^bibliometro/i.test(nombre))
-    .map(([lat, lon, nombre, tipo, wikipedia]) => ({ punto: [lat, lon], nombre, tipo, tamano: 0, wikipedia }));
+    .map(([lat, lon, nombre, tipo, wikipedia, id]) => ({ punto: [lat, lon], nombre, tipo, tamano: 0, wikipedia, id: id || null }));
 }
 
 export function leerServicios(json) {
   return json.lugares.map(([lat, lon, tipo, nombre]) => ({ punto: [lat, lon], nombre, tipo, tamano: 0 }));
 }
 
+export function leerTramites(json) {
+  return json.lugares.map(([lat, lon, nombre, tipo]) => ({ punto: [lat, lon], nombre, tipo, tamano: 0 }));
+}
+
+// Estaciones de metro: { lineas: { '1': '#cc0000', … }, estaciones: [{ punto, nombre, lineas: ['1', '6'], … }] }.
+export function leerMetro(json) {
+  return {
+    lineas: json.lineas,
+    estaciones: json.estaciones.map(([lat, lon, nombre, lineas]) => ({ punto: [lat, lon], nombre, tipo: 'estacion', tamano: 0, lineas: lineas.split(';') })),
+  };
+}
+
+// "Manuel Montt (L1)" o "Baquedano (L1, L5)".
+export const nombreEstacion = (e) => `${e.nombre} (${e.lineas.map((l) => `L${l}`).join(', ')})`;
+
 export function nombreLugar(lugar) {
+  if (lugar.tipo === 'estacion') return `estación ${lugar.nombre}`;
   return lugar.nombre || `${NOMBRE_TIPO[lugar.tipo] || 'Plaza'} sin nombre`;
 }
 

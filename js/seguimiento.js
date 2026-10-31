@@ -63,6 +63,14 @@ export class Seguimiento {
     };
   }
 
+  // Cambia la ruta a seguir sin perder lo ya caminado (por ejemplo, "Llévame al metro").
+  cambiarRuta(opcion) {
+    this.linea = unirPartes(opcion.partes);
+    this.instrucciones = crearInstrucciones(opcion, this.linea);
+    this.indice = 0;
+    this.recorrido = 0;
+  }
+
   iniciar() {
     if (!('geolocation' in navigator)) {
       this.alError('Este navegador no da acceso al GPS.');
