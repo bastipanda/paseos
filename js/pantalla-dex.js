@@ -15,10 +15,16 @@ import { ubicacionActual } from './seguimiento.js';
 const POR_PAGINA = 40;
 const mayuscula = (t) => t.charAt(0).toUpperCase() + t.slice(1);
 
-export function iniciarDex({ mapa, margenes, irACapturar }) {
+export function iniciarDex({ mapa, margenes, verEnMapa, cerrarMapa, irACapturar }) {
   let dex = [];
   let pagina = 1;
   let origen = null;
+
+  // Al tocar un lugar en el mapa se vuelve a la página con su ficha abierta.
+  const abrirDesdeMapa = (l) => {
+    cerrarMapa();
+    mostrarFicha(l);
+  };
 
   async function mostrar() {
     mapa.limpiarRuta();
@@ -86,12 +92,20 @@ export function iniciarDex({ mapa, margenes, irACapturar }) {
     }
     if (!lista.length) ul.innerHTML = '<li class="vacia">No hay lugares con ese filtro.</li>';
     $('#dex-mas').hidden = lista.length <= pagina * POR_PAGINA;
-    // En el mapa, los 400 primeros del filtro (más que eso se vuelve lento en el celular).
+  }
+
+  // En el mapa, los 400 primeros del filtro (más que eso se vuelve lento en el celular).
+  $('#dex-ver-mapa').addEventListener('click', () => {
+    const { lista, estado } = filtrados();
+    if (!lista.length) return mostrarEstado($('#estado-dex'), 'No hay lugares con ese filtro.', true);
+    const n = lista.length;
+    verEnMapa(n > 400 ? `Los primeros 400 de ${n.toLocaleString('es-CL')} lugares` : `${n} ${n === 1 ? 'lugar' : 'lugares'}`);
     mapa.mostrarDex(
       lista.slice(0, 400).map((l) => ({ lugar: l, estado: estadoDe(l, estado) })),
-      mostrarFicha,
+      abrirDesdeMapa,
+      margenes(),
     );
-  }
+  });
 
   function mostrarFicha(l) {
     const estado = almacen.dex();
@@ -115,7 +129,11 @@ export function iniciarDex({ mapa, margenes, irACapturar }) {
     if (l.wikipedia) caja.append(parrafoWikipedia(l.wikipedia));
     caja.hidden = false;
     caja.scrollIntoView({ block: 'nearest' });
-    caja.querySelector('[data-accion="mapa"]').addEventListener('click', () => mapa.centrarEn(l.punto, 17));
+    caja.querySelector('[data-accion="mapa"]').addEventListener('click', () => {
+      verEnMapa(l.nombre);
+      mapa.mostrarDex([{ lugar: l, estado: e }], abrirDesdeMapa);
+      mapa.centrarEn(l.punto, 17);
+    });
     caja.querySelector('[data-accion="ir"]')?.addEventListener('click', () => irACapturar(l));
     caja.querySelector('[data-accion="mano"]')?.addEventListener('click', () => {
       const d = almacen.dex();
@@ -166,11 +184,16 @@ export function iniciarDex({ mapa, margenes, irACapturar }) {
   }
 
   $('#ver-mi-mapa').addEventListener('click', () => {
-    mapa.ocultarDex();
-    mapa.mostrarConocidas([...almacen.conocidas()].map(limitesCelda));
+    const conocidas = [...almacen.conocidas()];
     const lineas = almacen.historial().map((r) => r.rastro);
-    if (lineas.some((l) => l.length > 1)) mapa.mostrarRecorridos(lineas, margenes());
-    else mostrarEstado($('#estado-dex'), 'Todavía no hay paseos con seguimiento para dibujar.');
+    const hayPaseos = lineas.some((l) => l.length > 1);
+    if (!hayPaseos && !conocidas.length) {
+      return mostrarEstado($('#estado-dex'), 'Todavía no caminas con la app ni marcas zonas conocidas.');
+    }
+    verEnMapa('Tu mapa de Santiago');
+    mapa.ocultarDex();
+    mapa.mostrarConocidas(conocidas.map(limitesCelda));
+    if (hayPaseos) mapa.mostrarRecorridos(lineas, margenes());
   });
 
   document.querySelectorAll('input[name="dex-filtro"]').forEach((r) => r.addEventListener('change', () => ((pagina = 1), pintar())));

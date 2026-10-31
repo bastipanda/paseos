@@ -147,18 +147,21 @@ export class Mapa {
   }
 
   // Lugares de la Santiagodex como puntos: verde capturado, amarillo visto, gris por capturar.
-  // `lugares` es [{ lugar, estado }]; `alTocar(lugar)` se llama al tocar uno.
-  mostrarDex(lugares, alTocar) {
+  // `lugares` es [{ lugar, estado }]; `alTocar(lugar)` se llama al tocar uno. Con `margenes`, encuadra los puntos.
+  mostrarDex(lugares, alTocar, margenes = null) {
     this.ocultarDex();
     const renderer = this.rendererCanvas || (this.rendererCanvas = L.canvas({ padding: 0.3 }));
     const colores = { capturado: '#1a9850', visto: '#e0a100', nuevo: '#78909c' };
     this.capaDex = L.layerGroup().addTo(this.mapa);
+    const limites = L.latLngBounds([]);
     for (const { lugar, estado } of lugares) {
       L.circleMarker(lugar.punto, { renderer, radius: estado === 'capturado' ? 7 : 5, color: '#fff', weight: 1.5, fillColor: colores[estado], fillOpacity: 0.95 })
         .bindTooltip(escapar(lugar.nombre))
         .on('click', () => alTocar(lugar))
         .addTo(this.capaDex);
+      limites.extend(lugar.punto);
     }
+    if (margenes && limites.isValid()) this.encuadrar(limites, margenes);
   }
 
   ocultarDex() {
@@ -186,7 +189,8 @@ export class Mapa {
 
   // `margenes` deja espacio para el panel, que tapa parte del mapa (abajo en celular, a la izquierda en pantalla ancha).
   encuadrar(limites, { abajo = 0, izquierda = 0 } = {}) {
-    this.mapa.fitBounds(limites, { paddingTopLeft: [20 + izquierda, 70], paddingBottomRight: [20, 20 + abajo] });
+    // Tope de acercamiento: con un solo punto, el encuadre llegaría al máximo y no se vería nada alrededor.
+    this.mapa.fitBounds(limites, { paddingTopLeft: [20 + izquierda, 70], paddingBottomRight: [20, 20 + abajo], maxZoom: 17 });
   }
 
   // Muestra los lugares guardados como puntos morados (solo en la vista de lugares).

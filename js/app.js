@@ -66,6 +66,13 @@ const estado = {
 
 // ---------- Vistas y panel ----------
 
+// Las páginas ocupan toda la pantalla, sin mapa detrás; las demás vistas son el mapa con el panel abajo.
+const PAGINAS = ['hoy', 'dex', 'mas', 'historial', 'lugares', 'respaldo', 'ajustes'];
+// Resultados, paseo y resumen esconden la barra de pestañas: cada una tiene su salida y así se ve más mapa.
+const SIN_PESTANAS = ['resultados', 'seguimiento', 'resumen'];
+// Pestaña que queda marcada en cada vista.
+const PESTANA = { resultados: 'formulario', historial: 'mas', lugares: 'mas', respaldo: 'mas', ajustes: 'mas' };
+
 function irA(vista) {
   if (estado.esperando) terminarEspera();
   if (estado.seguimiento && vista !== 'seguimiento') terminarSeguimiento(false);
@@ -73,10 +80,17 @@ function irA(vista) {
   document.querySelectorAll('.vista').forEach((v) => {
     v.hidden = v.dataset.vista !== vista;
   });
-  document.querySelectorAll('.barra [data-ir]').forEach((b) => b.classList.toggle('activo', b.dataset.ir === vista));
+  const pestana = PESTANA[vista] || vista;
+  document.querySelectorAll('.pestana').forEach((b) => {
+    b.classList.toggle('activa', b.dataset.ir === pestana);
+    if (b.dataset.ir === pestana) b.setAttribute('aria-current', 'page');
+    else b.removeAttribute('aria-current');
+  });
+  document.body.classList.toggle('sin-pestanas', SIN_PESTANAS.includes(vista));
   panel.classList.remove('chico', 'grande');
+  panel.classList.toggle('pagina', PAGINAS.includes(vista));
   // En resultados, seguimiento y resumen el panel es más bajo para que se vea la ruta.
-  panel.classList.toggle('compacto', ['resultados', 'seguimiento', 'resumen'].includes(vista));
+  panel.classList.toggle('compacto', SIN_PESTANAS.includes(vista));
   panel.scrollTop = 0;
   if (vista === 'hoy') {
     mapa.limpiarRuta();
@@ -96,12 +110,14 @@ function irA(vista) {
   if (vista === 'ajustes') cargarAjustes();
 }
 
-// Cuánto tapa el panel. En el celular se calcula con el alto final del panel (no el de ese instante), porque al
-// cambiar de vista el panel se achica con una animación y el mapa se encuadraría mal.
+// Cuánto tapan el panel y la barra de pestañas. En el celular se calcula con el alto final del panel (no el de ese
+// instante), porque al cambiar de vista el panel se achica con una animación y el mapa se encuadraría mal.
 function margenesPanel() {
-  if (window.innerWidth >= 720) return { izquierda: panel.offsetWidth + 16, abajo: 0 };
+  const barra = document.body.classList.contains('sin-pestanas') ? 0 : $('#pestanas').offsetHeight;
+  if (document.body.classList.contains('viendo-mapa')) return { izquierda: 0, abajo: barra };
+  if (window.innerWidth >= 720) return { izquierda: panel.offsetWidth + 16, abajo: barra };
   const tope = panel.classList.contains('chico') ? 74 : window.innerHeight * (panel.classList.contains('compacto') ? 0.46 : 0.62);
-  return { izquierda: 0, abajo: Math.min(panel.scrollHeight, tope) };
+  return { izquierda: 0, abajo: Math.min(panel.scrollHeight, tope) + barra };
 }
 
 $('#asa').addEventListener('click', () => panel.classList.toggle('chico'));
@@ -109,18 +125,26 @@ document.querySelectorAll('[data-ir]').forEach((b) => b.addEventListener('click'
 
 // ---------- Elegir puntos en el mapa ----------
 
+// Muestra el aviso de arriba y deja ver el mapa: en una página el mapa queda entero; en Armar el panel se achica.
 function esperarClic(destino, texto, textoBoton = 'Cancelar') {
   estado.esperando = destino;
   $('#aviso-mapa-texto').textContent = texto;
   $('#aviso-mapa-cancelar').textContent = textoBoton;
   $('#aviso-mapa').hidden = false;
-  panel.classList.add('chico');
+  if (panel.classList.contains('pagina')) document.body.classList.add('viendo-mapa');
+  else panel.classList.add('chico');
+}
+
+// "Ver en el mapa" desde una página (historial, Dex): el mapa completo, con "Volver" para regresar a la página.
+function verEnMapa(titulo) {
+  esperarClic('ver', titulo, 'Volver');
 }
 
 function terminarEspera() {
   const eraConocidas = estado.esperando === 'conocidas';
   estado.esperando = null;
   $('#aviso-mapa').hidden = true;
+  document.body.classList.remove('viendo-mapa');
   panel.classList.remove('chico');
   if (eraConocidas) {
     mapa.ocultarConocidas();
@@ -132,7 +156,7 @@ $('#aviso-mapa-cancelar').addEventListener('click', terminarEspera);
 
 mapa.alTocar((punto) => {
   const destino = estado.esperando;
-  if (!destino) return;
+  if (!destino || destino === 'ver') return;
   if (destino === 'conocidas') {
     // Modo pintar: cada toque marca una zona (~120 m) o la desmarca si ya estaba marcada. Sigue activo hasta "Listo".
     const zona = celdasDeZona(punto, 120);
@@ -1653,7 +1677,7 @@ $('#importar').addEventListener('change', async (e) => {
   const archivo = e.target.files[0];
   e.target.value = '';
   if (!archivo) return;
-  const aviso = $('#estado-lugares');
+  const aviso = $('#estado-respaldo');
   try {
     const agregados = almacen.restaurar(JSON.parse(await archivo.text()));
     alCambiarLugares();
@@ -1790,8 +1814,8 @@ const hoy = iniciarHoy({
   },
   siguiendo: () => Boolean(estado.seguimiento),
 });
-const historial = iniciarHistorial({ mapa, margenes: margenesPanel, alCambiar: () => {} });
-const dex = iniciarDex({ mapa, margenes: margenesPanel, irACapturar });
+const historial = iniciarHistorial({ mapa, margenes: margenesPanel, verEnMapa, alCambiar: () => {} });
+const dex = iniciarDex({ mapa, margenes: margenesPanel, verEnMapa, cerrarMapa: terminarEspera, irACapturar });
 
 restaurarFormulario();
 irA('hoy');

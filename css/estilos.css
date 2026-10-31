@@ -15,6 +15,8 @@
   --itau: #ec7000;
   --sombra: 0 -4px 24px rgba(0, 0, 0, 0.18);
   --radio: 14px;
+  /* Alto de la barra de pestañas, más la zona de la rayita del iPhone. */
+  --alto-pestanas: calc(56px + env(safe-area-inset-bottom));
   color-scheme: light;
 }
 
@@ -60,42 +62,44 @@ html, body {
   z-index: 0;
 }
 
-/* Barra superior flotante */
-.barra {
+/* Barra de pestañas abajo. `--abajo` es lo que ocupa: el panel y los controles del mapa quedan encima. */
+body { --abajo: var(--alto-pestanas); }
+body.sin-pestanas { --abajo: 0px; }
+.pestanas {
   position: fixed;
-  top: calc(10px + env(safe-area-inset-top));
-  left: 10px;
-  right: 10px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--alto-pestanas);
+  z-index: 1100;
   display: flex;
-  gap: 8px;
-  z-index: 1000;
-  pointer-events: none;
-}
-.barra .separador { flex: 1; }
-body.siguiendo .barra { display: none; }
-.chip {
-  pointer-events: auto;
-  border: 1px solid var(--borde);
   background: var(--fondo);
-  color: var(--texto);
-  border-radius: 999px;
-  padding: 8px 14px;
-  font: inherit;
-  font-size: 15px;
+  border-top: 1px solid var(--borde);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+body.sin-pestanas .pestanas { display: none; }
+.pestana {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: 0;
+  background: none;
+  color: var(--texto-suave);
+  font-size: 11px;
   font-weight: 600;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
-.chip.activo { background: var(--acento); color: var(--acento-texto); border-color: var(--acento); }
-.chip-icono { padding: 8px 12px; }
-@media (max-width: 380px) {
-  .barra { gap: 6px; }
-  .chip { padding: 7px 11px; font-size: 14px; }
-}
+.pestana svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.pestana svg .relleno { fill: currentColor; stroke: none; }
+.pestana.activa { color: var(--acento); }
 
 .aviso-mapa {
   position: fixed;
-  top: calc(60px + env(safe-area-inset-top));
+  top: calc(12px + env(safe-area-inset-top));
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;
@@ -117,7 +121,7 @@ body.siguiendo .barra { display: none; }
   position: fixed;
   left: 0;
   right: 0;
-  bottom: 0;
+  bottom: var(--abajo);
   z-index: 1000;
   max-height: 62vh;
   overflow-y: auto;
@@ -136,13 +140,47 @@ body.siguiendo .barra { display: none; }
   .panel {
     left: 16px;
     right: auto;
-    bottom: 16px;
+    bottom: calc(16px + var(--abajo));
     width: 400px;
-    max-height: calc(100vh - 90px);
+    max-height: calc(100vh - 90px - var(--abajo));
     border-radius: var(--radio);
   }
-  .panel.grande, .panel.compacto { max-height: calc(100vh - 90px); }
+  .panel.grande, .panel.compacto { max-height: calc(100vh - 90px - var(--abajo)); }
 }
+
+/* Páginas (Hoy, Dex, Más y lo que cuelga de ahí): el panel ocupa toda la pantalla y el mapa no se ve. */
+.panel.pagina {
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: var(--abajo);
+  width: auto;
+  max-height: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding-top: calc(16px + env(safe-area-inset-top));
+}
+.panel.pagina .asa { display: none; }
+.panel.pagina > .vista { max-width: 560px; margin: 0 auto; }
+/* "Ver en el mapa" desde una página: el mapa queda entero, con "Volver" arriba. */
+body.viendo-mapa .panel { display: none; }
+
+.volver {
+  background: none; border: 0; padding: 4px 0; margin: 0 0 2px; min-height: 40px;
+  color: var(--acento); font-size: 16px; font-weight: 700; cursor: pointer;
+}
+.menu { list-style: none; margin: 0 0 12px; padding: 0; }
+.menu button {
+  position: relative; width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  text-align: left; background: none; border: 0; border-bottom: 1px solid var(--borde); padding: 12px 32px 12px 0;
+  min-height: 60px; color: var(--texto); cursor: pointer;
+}
+.menu button::after {
+  content: "›"; position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  font-size: 26px; color: var(--texto-suave);
+}
+.menu strong { font-size: 17px; }
+.menu span { font-size: 14px; color: var(--texto-suave); }
 
 .asa {
   display: block;
@@ -317,7 +355,12 @@ button { font: inherit; }
 .ayuda-gpx a { color: var(--acento); }
 
 /* Hoy */
-.semana { display: flex; align-items: center; gap: 14px; margin: 2px 0 12px; }
+.semana {
+  display: flex; align-items: center; gap: 14px; margin: 2px 0 12px; width: 100%; padding: 0;
+  background: none; border: 0; color: inherit; text-align: left; cursor: pointer;
+}
+.semana .flecha { font-size: 26px; color: var(--texto-suave); }
+.semana-titulo, .semana-texto .secundario { display: block; }
 .anillo { width: 104px; height: 104px; flex: 0 0 auto; }
 .anillo circle { fill: none; stroke-width: 12; }
 .anillo-fondo { stroke: var(--fondo-suave); }
@@ -476,5 +519,7 @@ input[type="datetime-local"], input[type="time"] {
   border: 3px solid #fff; box-shadow: 0 0 0 2px rgba(30, 136, 229, 0.35), 0 1px 6px rgba(0, 0, 0, 0.4);
 }
 .leaflet-container { font: inherit; }
-/* Los botones de zoom van bajo la barra superior para no tapar "Ajustes". */
+/* Los botones de zoom van bajo el aviso de arriba ("Toca el mapa…", "Volver") para que no se tapen. */
 .leaflet-top.leaflet-right { top: calc(56px + env(safe-area-inset-top)); }
+/* La atribución de OpenStreetMap queda sobre la barra de pestañas, a la vista. */
+.leaflet-bottom { bottom: var(--abajo); }

@@ -6,7 +6,7 @@ import { $, mostrarEstado, formatearFecha, formatearHora } from './ui.js';
 import { totales, ultimasSemanas, registroAMano, claveDia } from './historial.js';
 import { formatearDistancia, formatearMinutos, formatearKcal } from './duracion.js';
 
-export function iniciarHistorial({ mapa, margenes, alCambiar }) {
+export function iniciarHistorial({ mapa, margenes, verEnMapa, alCambiar }) {
   function mostrar() {
     const lista = almacen.historial();
     const ahora = new Date();
@@ -57,7 +57,10 @@ export function iniciarHistorial({ mapa, margenes, alCambiar }) {
           <span class="secundario">${escapar(cifras)}</span>
         </button>
         <button type="button" class="boton-texto" style="color:var(--peligro)">Borrar</button>`;
-      li.querySelector('.paseo').addEventListener('click', () => mapa.mostrarRecorridos([r.rastro], margenes()));
+      li.querySelector('.paseo').addEventListener('click', () => {
+        verEnMapa(`${formatearFecha(inicio)}, ${formatearHora(inicio)}`);
+        mapa.mostrarRecorridos([r.rastro], margenes());
+      });
       li.querySelector('.boton-texto').addEventListener('click', () => {
         if (!confirm(`¿Borrar el paseo del ${formatearFecha(inicio)}? No se puede deshacer (salvo con un respaldo).`)) return;
         almacen.borrarDelHistorial(r.id);
@@ -75,6 +78,7 @@ export function iniciarHistorial({ mapa, margenes, alCambiar }) {
   }
 
   $('#ver-todos').addEventListener('click', () => {
+    verEnMapa('Todos tus paseos');
     mapa.mostrarRecorridos(almacen.historial().map((r) => r.rastro), margenes());
   });
 
