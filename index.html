@@ -213,11 +213,20 @@
       <p class="texto-grande" id="faltan-principal">Buscando tu ubicación…</p>
       <p id="faltan-detalle" class="secundario"></p>
       <div class="progreso"><div id="barra-progreso"></div></div>
+      <p id="ritmo" class="ritmo" hidden></p>
+      <div id="intervalo" class="intervalo" hidden>
+        <span id="intervalo-fase"></span><span id="intervalo-tiempo"></span>
+      </div>
       <p id="aviso-ruta" class="alerta" hidden></p>
       <div class="acciones">
         <div class="fila">
           <button type="button" class="boton-secundario" id="centrar">Seguirme</button>
           <button type="button" class="boton-secundario" id="voz" aria-pressed="true">Voz: sí</button>
+        </div>
+        <div class="fila tres">
+          <button type="button" class="boton-secundario" id="boton-bolsillo">Bolsillo</button>
+          <button type="button" class="boton-secundario" id="boton-metronomo" aria-pressed="false">Metrónomo</button>
+          <button type="button" class="boton-secundario" id="boton-intervalos" aria-pressed="false">Intervalos</button>
         </div>
         <button type="button" class="boton-peligro" id="terminar">Terminar</button>
       </div>
@@ -313,6 +322,12 @@
           <input id="velocidad" type="number" inputmode="decimal" min="2" max="8" step="0.1">
         </label>
         <p class="ayuda">Se usa para convertir minutos en distancia. Un paso tranquilo es unos 4,5 km/h.</p>
+        <div class="fila">
+          <label class="mini">Paso enérgico desde (km/h)<input id="energico" type="number" inputmode="decimal" min="3" max="8" step="0.1"></label>
+          <label class="mini">Metrónomo (pasos/min)<input id="ppm" type="number" inputmode="numeric" min="80" max="150" step="1"></label>
+        </div>
+        <p class="ayuda">Caminar a 5 km/h o más, o a unos 100-120 pasos por minuto, suele ser intensidad moderada: la
+          que más ayuda a la salud. Durante el paseo se muestra cuántos minutos llevas a ese ritmo.</p>
         <label class="campo">Tu peso (kg, opcional)
           <input id="peso" type="number" inputmode="decimal" min="30" max="250" step="0.5" placeholder="Solo para calorías">
         </label>
@@ -351,6 +366,14 @@
         <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a>. Resúmenes: Wikipedia.</p>
     </div>
   </section>
+
+  <!-- Modo bolsillo: pantalla negra mientras caminas con el celular guardado; la voz te guía. -->
+  <div id="bolsillo" class="bolsillo" hidden>
+    <p class="bolsillo-proximo" id="bolsillo-proximo"></p>
+    <p class="bolsillo-falta" id="bolsillo-falta"></p>
+    <p class="bolsillo-ayuda">Modo bolsillo. La voz te guía.<br>Mantén apretado para salir.</p>
+    <div class="bolsillo-carga"><div id="bolsillo-carga"></div></div>
+  </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script type="module" src="js/app.js"></script>

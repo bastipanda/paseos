@@ -75,12 +75,13 @@ export class Voz {
     }
   }
 
-  decir(texto) {
+  // `interrumpir` corta lo que se esté diciendo (para los giros); los avisos de intervalos esperan su turno.
+  decir(texto, { interrumpir = true } = {}) {
     if (!this.disponible) return;
     const frase = new SpeechSynthesisUtterance(texto);
     frase.lang = this.voz?.lang || 'es-CL';
     if (this.voz) frase.voice = this.voz;
-    speechSynthesis.cancel();
+    if (interrumpir) speechSynthesis.cancel();
     speechSynthesis.speak(frase);
   }
 

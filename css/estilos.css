@@ -391,6 +391,30 @@ input[type="datetime-local"], input[type="time"] {
 .progreso { height: 8px; background: var(--fondo-suave); border-radius: 4px; overflow: hidden; margin: 8px 0; }
 #barra-progreso { height: 100%; width: 0; background: var(--acento); transition: width 0.4s ease; }
 
+.ritmo { margin: 6px 0; font-size: 14px; font-weight: 600; color: var(--texto-suave); }
+.ritmo.energico { color: var(--buena); }
+.intervalo {
+  display: flex; justify-content: space-between; align-items: center; margin: 8px 0; padding: 8px 12px;
+  border-radius: 10px; background: var(--fondo-suave); font-weight: 800; font-size: 18px;
+}
+.intervalo.rapido { background: var(--alerta-fondo); color: var(--alerta-texto); }
+.fila.tres > * { padding-left: 6px; padding-right: 6px; font-size: 14px; }
+.boton-secundario.activo { background: var(--acento); color: var(--acento-texto); border-color: var(--acento); }
+
+/* Modo bolsillo: negro puro (en pantallas OLED casi no gasta) y textos tenues. */
+.bolsillo {
+  position: fixed; inset: 0; z-index: 3000; background: #000; color: #555;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  padding: 24px; text-align: center; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+  touch-action: none;
+}
+.bolsillo p { margin: 0; }
+.bolsillo-proximo { font-size: 24px; font-weight: 800; color: #777; }
+.bolsillo-falta { font-size: 16px; }
+.bolsillo-ayuda { font-size: 13px; color: #444; margin-top: 30px !important; }
+.bolsillo-carga { width: 160px; height: 4px; background: #111; border-radius: 2px; overflow: hidden; }
+.bolsillo-carga div { height: 100%; width: 0; background: #555; }
+
 /* Lugares */
 .lista { list-style: none; padding: 0; margin: 0 0 12px; }
 .lista li { display: flex; align-items: center; gap: 6px; border-bottom: 1px solid var(--borde); padding: 6px 0; }

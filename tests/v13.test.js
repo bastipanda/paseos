@@ -16,6 +16,7 @@ import {
 } from '../js/historial.js';
 import { mejorHora, textoMejorHora, incomodidad } from '../js/clima.js';
 import { crearIcs, primeraFecha } from '../js/calendario.js';
+import { faseIntervalo, ppmDeFase } from '../js/metronomo.js';
 
 const a = [-33.43, -70.61];
 const aj = { largoPaso: 0.75, velocidadKmh: 4.5, peso: 80, energicoKmh: 5, ppm: 110 };
@@ -156,6 +157,16 @@ test('evento semanal para el calendario (.ics)', () => {
   assert.match(ics, /TRIGGER:-PT10M/);
   assert.ok(ics.endsWith('END:VCALENDAR\r\n'));
   assert.throws(() => crearIcs({ dias: [], hora: '19:30', minutos: 30 }));
+});
+
+test('intervalos: 3 minutos suave, 3 rápido, y el metrónomo se adapta', () => {
+  assert.deepEqual(faseIntervalo(0), { fase: 'suave', restante: 180, numero: 0 });
+  assert.equal(faseIntervalo(200).fase, 'rapido');
+  assert.equal(faseIntervalo(200).restante, 160);
+  assert.equal(faseIntervalo(400).fase, 'suave');
+  assert.equal(ppmDeFase(110, 'rapido'), 120);
+  assert.equal(ppmDeFase(110, 'suave'), 95);
+  assert.equal(ppmDeFase(110, null), 110);
 });
 
 test('distancia de prueba sana', () => {

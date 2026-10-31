@@ -18,6 +18,8 @@ import { Voz, fraseHablada } from './guia.js';
 import { distancia } from './geo.js';
 import { consultarClima, leerClima, mejorHora, textoMejorHora } from './clima.js';
 import { crearIcs } from './calendario.js';
+import { Metronomo, faseIntervalo, FRASE_FASE, ppmDeFase } from './metronomo.js';
+import { medirMovimiento, ritmoReciente } from './movimiento.js';
 import { celdasDeRuta, celdasDeZona, claveCelda, limitesCelda } from './explorar.js';
 import {
   aMetros,
@@ -847,6 +849,8 @@ $('#empezar').addEventListener('click', () => {
   if (vozActiva()) voz.decir('Comienza el paseo');
   estado.opcionSeguida = opcion;
   estado.ultimoGuardado = Date.now();
+  $('#ritmo').hidden = true;
+  pintarAyudasRitmo();
   estado.seguimiento = new Seguimiento(opcion, {
     alActualizar: actualizarSeguimiento,
     alError: (mensaje) => {
@@ -905,6 +909,9 @@ function actualizarSeguimiento(d) {
   }
   $('#barra-progreso').style.width = `${d.total ? Math.min(100, (d.recorrido / d.total) * 100) : 0}%`;
   mostrarProximo(d.siguiente);
+  mostrarRitmo(aj);
+  $('#bolsillo-proximo').textContent = d.siguiente ? `${d.siguiente.distancia < 15 ? 'Ahora' : `En ${formatearDistancia(d.siguiente.distancia)}`}: ${d.siguiente.texto}` : '';
+  $('#bolsillo-falta').textContent = $('#faltan-principal').textContent;
   const aviso = $('#aviso-ruta');
   if (d.fueraDeRuta) {
     aviso.textContent = d.distanciaARuta
@@ -963,10 +970,112 @@ $('#centrar').addEventListener('click', () => {
   if (mapa.yo) mapa.centrarEn([mapa.yo.getLatLng().lat, mapa.yo.getLatLng().lng]);
 });
 
+// ---------- Ritmo, metrónomo, intervalos y modo bolsillo ----------
+
+// Ritmo de los últimos ~45 segundos y minutos a paso enérgico en lo que va del paseo.
+function mostrarRitmo(aj) {
+  const seguimiento = estado.seguimiento;
+  if (!seguimiento || seguimiento.rastro.length < 3) return;
+  const kmh = ritmoReciente(seguimiento.rastro);
+  const m = medirMovimiento(seguimiento.rastro, aj.energicoKmh);
+  if (kmh === null && m.minutos < 1) return;
+  const decimal = (x) => x.toLocaleString('es-CL', { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+  const ritmo = kmh === null ? '' : kmh === 0 ? 'Detenido · ' : `${decimal(kmh)} km/h${kmh >= aj.energicoKmh ? ' (enérgico)' : ''} · `;
+  $('#ritmo').textContent = `${ritmo}${Math.round(m.minutos)} min caminando, ${Math.round(m.minutosEnergicos)} a paso enérgico`;
+  $('#ritmo').classList.toggle('energico', kmh !== null && kmh >= aj.energicoKmh);
+  $('#ritmo').hidden = false;
+}
+
+const metronomo = new Metronomo();
+
+function pintarAyudasRitmo() {
+  $('#boton-metronomo').hidden = !metronomo.disponible;
+  $('#boton-metronomo').setAttribute('aria-pressed', String(metronomo.activo));
+  $('#boton-metronomo').classList.toggle('activo', metronomo.activo);
+  $('#boton-intervalos').setAttribute('aria-pressed', String(Boolean(estado.intervalos)));
+  $('#boton-intervalos').classList.toggle('activo', Boolean(estado.intervalos));
+  $('#intervalo').hidden = !estado.intervalos;
+}
+
+const faseActual = () => (estado.intervalos ? faseIntervalo((Date.now() - estado.intervalos.inicio) / 1000).fase : null);
+
+$('#boton-metronomo').addEventListener('click', () => {
+  if (metronomo.activo) metronomo.detener();
+  else metronomo.iniciar(ppmDeFase(almacen.ajustes().ppm, faseActual()));
+  pintarAyudasRitmo();
+});
+
+$('#boton-intervalos').addEventListener('click', () => {
+  if (estado.intervalos) {
+    detenerIntervalos();
+  } else {
+    estado.intervalos = { inicio: Date.now(), numero: -1, reloj: setInterval(actualizarIntervalo, 1000) };
+    actualizarIntervalo();
+  }
+  pintarAyudasRitmo();
+});
+
+function actualizarIntervalo() {
+  const f = faseIntervalo((Date.now() - estado.intervalos.inicio) / 1000);
+  $('#intervalo-fase').textContent = f.fase === 'rapido' ? 'Paso rápido' : 'Paso suave';
+  $('#intervalo').classList.toggle('rapido', f.fase === 'rapido');
+  const s = Math.ceil(f.restante);
+  $('#intervalo-tiempo').textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  if (f.numero !== estado.intervalos.numero) {
+    estado.intervalos.numero = f.numero;
+    if (vozActiva()) voz.decir(FRASE_FASE[f.fase], { interrumpir: false });
+    if (metronomo.activo) metronomo.cambiar(ppmDeFase(almacen.ajustes().ppm, f.fase));
+  }
+}
+
+function detenerIntervalos() {
+  if (!estado.intervalos) return;
+  clearInterval(estado.intervalos.reloj);
+  estado.intervalos = null;
+  if (metronomo.activo) metronomo.cambiar(almacen.ajustes().ppm);
+}
+
+// Modo bolsillo: pantalla negra (gasta menos batería y no llama la atención) y la voz guía. Para salir hay que
+// mantener apretado 1,5 segundos, así un roce en el bolsillo no lo cierra.
+$('#boton-bolsillo').addEventListener('click', () => {
+  if (voz.disponible && !vozActiva()) {
+    almacen.guardarAjustes({ voz: true });
+    pintarBotonVoz();
+  }
+  $('#bolsillo').hidden = false;
+  if (vozActiva()) voz.decir('Modo bolsillo. Te aviso cada giro.');
+});
+
+function cerrarBolsillo() {
+  $('#bolsillo').hidden = true;
+  cancelarSalidaBolsillo();
+}
+
+function cancelarSalidaBolsillo() {
+  clearTimeout(estado.salidaBolsillo);
+  $('#bolsillo-carga').style.transition = 'none';
+  $('#bolsillo-carga').style.width = '0';
+}
+
+const pantallaBolsillo = $('#bolsillo');
+pantallaBolsillo.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  const carga = $('#bolsillo-carga');
+  carga.style.transition = 'width 1.5s linear';
+  carga.style.width = '100%';
+  estado.salidaBolsillo = setTimeout(cerrarBolsillo, 1500);
+});
+for (const evento of ['pointerup', 'pointercancel', 'pointerleave']) pantallaBolsillo.addEventListener(evento, cancelarSalidaBolsillo);
+pantallaBolsillo.addEventListener('contextmenu', (e) => e.preventDefault());
+
 // Termina el paseo, lo guarda en el historial y muestra el resumen. Con `volver = false` (al salir de la vista por
 // otro camino) igual se guarda, para no perder lo caminado.
 function terminarSeguimiento(volver = true) {
   voz.callar();
+  metronomo.detener();
+  detenerIntervalos();
+  pintarAyudasRitmo();
+  cerrarBolsillo();
   const seguimiento = estado.seguimiento;
   seguimiento?.detener();
   estado.seguimiento = null;
@@ -1210,6 +1319,8 @@ function cargarAjustes() {
   $('#meta-minutos').value = estadoSemanas([], almacen.metas().lista).meta ?? '';
   $('#largo-paso').value = aj.largoPaso;
   $('#velocidad').value = aj.velocidadKmh;
+  $('#energico').value = aj.energicoKmh;
+  $('#ppm').value = aj.ppm;
   $('#ver-estaciones').checked = Boolean(aj.verEstaciones);
   $('#peso').value = aj.peso ?? '';
   mostrarEstado($('#estado-ajustes'), '');
@@ -1240,9 +1351,19 @@ $('#form-ajustes').addEventListener('submit', (e) => {
     mostrarEstado(aviso, 'La meta semanal debe estar entre 10 y 1.000 minutos.', true);
     return;
   }
+  const energicoKmh = Number($('#energico').value);
+  const ppm = Number($('#ppm').value);
+  if (!(energicoKmh >= 3 && energicoKmh <= 8)) {
+    mostrarEstado(aviso, 'El paso enérgico debe estar entre 3 y 8 km/h.', true);
+    return;
+  }
+  if (!(ppm >= 80 && ppm <= 150)) {
+    mostrarEstado(aviso, 'El metrónomo debe estar entre 80 y 150 pasos por minuto.', true);
+    return;
+  }
   const metaActual = estadoSemanas([], almacen.metas().lista).meta;
   if (textoMeta !== '' && meta !== metaActual) almacen.guardarMetas({ lista: conMeta(almacen.metas().lista, meta) });
-  almacen.guardarAjustes({ largoPaso, velocidadKmh, peso, verEstaciones: $('#ver-estaciones').checked });
+  almacen.guardarAjustes({ largoPaso, velocidadKmh, peso, energicoKmh, ppm, verEstaciones: $('#ver-estaciones').checked });
   aplicarEstaciones();
   actualizarAyudaDuracion();
   mostrarEstado(aviso, 'Guardado.');
