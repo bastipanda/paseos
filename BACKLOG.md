@@ -32,8 +32,8 @@
   noche, "Pasar por…", calorías, aviso de clima y marcar lo caminado en el modo explorar.
 - Calibrar el largo del paso (Ajustes) y anotar aquí el valor real.
 - Regenerar los datos cada algunos meses: `node scripts/plazas.mjs`, `node scripts/lugares.mjs` y
-  `node scripts/comunas.mjs`. Última vez: plazas, lugares, trámites y metro el 2026-10-30. **Falta generar
-  `datos/comunas.json` por primera vez** (sin él no funcionan "Tu mapa" ni los datos del CEAD en los resultados).
+  `node scripts/comunas.mjs`. Última vez: plazas, lugares, trámites y metro el 2026-10-30; comunas el 2026-10-31
+  (43 comunas, ~230 mil cuadros con calles; Overpass falló en varios pedazos y el script reintentó solo).
 
 ## Por verificar
 - **En el iPhone (v1.3):** si el evento `.ics` abre el calendario con "Añadir todo" (en Safari y en la app de la

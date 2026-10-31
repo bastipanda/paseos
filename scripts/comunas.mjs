@@ -123,9 +123,14 @@ const filtro =
   'way["highway"~"^(primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified|residential|living_street|pedestrian|footway|path|steps|cycleway|track|service)$"]' +
   '["service"!~"parking_aisle|driveway"]["access"!~"^(private|no)$"]';
 let n = 0;
-const total = Math.ceil((CAJA[2] - CAJA[0]) / LADO) * Math.ceil((CAJA[3] - CAJA[1]) / LADO);
-for (let sur = CAJA[0]; sur < CAJA[2]; sur += LADO) {
-  for (let oeste = CAJA[1]; oeste < CAJA[3]; oeste += LADO) {
+// Se cuenta con enteros: sumar 0,05 muchas veces acumula error y agregaba una fila de pedazos vacíos.
+const filas = Math.round((CAJA[2] - CAJA[0]) / LADO);
+const columnas = Math.round((CAJA[3] - CAJA[1]) / LADO);
+const total = filas * columnas;
+for (let f = 0; f < filas; f++) {
+  for (let k = 0; k < columnas; k++) {
+    const sur = CAJA[0] + f * LADO;
+    const oeste = CAJA[1] + k * LADO;
     n++;
     const caja = [sur, oeste, Math.min(sur + LADO, CAJA[2]), Math.min(oeste + LADO, CAJA[3])].map((x) => x.toFixed(4)).join(',');
     // Por pedazo se guardan solo los cuadros (no las calles): ocupa poco y alcanza para retomar.

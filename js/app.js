@@ -877,8 +877,11 @@ async function mostrarSeguridad(o) {
   const minutos = desdeMetros(o.metrosPie, 'minutos', aj) + (o.metrosBici || 0) / 250;
   const fin = new Date(ahora.getTime() + minutos * 60000);
   const puesta = estado.clima?.puesta;
+  const salida = estado.clima?.salida;
   const sugerirNoche = o.estilo === 'noche' ? '' : ' Si no conoces la zona, considera el estilo Noche o un paseo más corto.';
-  if (puesta && ahora > new Date(puesta.getTime() + 20 * 60000)) {
+  if (salida && ahora < new Date(salida.getTime() - 20 * 60000)) {
+    avisos.push(o.estilo === 'noche' ? 'Todavía no amanece: vas con el estilo Noche (iluminado y con movimiento).' : `Todavía no amanece (el sol sale a las ${formatearHora(salida)}).${sugerirNoche}`);
+  } else if (puesta && ahora > new Date(puesta.getTime() + 20 * 60000)) {
     avisos.push(o.estilo === 'noche' ? 'Ya oscureció: vas con el estilo Noche (iluminado y con movimiento).' : `Ya oscureció (el sol se puso a las ${formatearHora(puesta)}).${sugerirNoche}`);
   } else if (puesta && fin > new Date(puesta.getTime() + 10 * 60000)) {
     avisos.push(`Si sales ahora, terminarías cerca de las ${formatearHora(fin)}, después de la puesta de sol (${formatearHora(puesta)}).${sugerirNoche}`);
