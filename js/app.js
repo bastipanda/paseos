@@ -16,7 +16,8 @@ import { resumir, textoComparacion, TEXTOS_ESTILO } from './explicar.js';
 import { crearGpx, nombreArchivo } from './gpx.js';
 import { Voz, fraseHablada } from './guia.js';
 import { distancia } from './geo.js';
-import { consultarClima, leerClima } from './clima.js';
+import { consultarClima, leerClima, mejorHora, textoMejorHora } from './clima.js';
+import { crearIcs } from './calendario.js';
 import { celdasDeRuta, celdasDeZona, claveCelda, limitesCelda } from './explorar.js';
 import {
   aMetros,
@@ -1247,6 +1248,26 @@ $('#form-ajustes').addEventListener('submit', (e) => {
   mostrarEstado(aviso, 'Guardado.');
 });
 
+// Evento semanal en el calendario del celular. En el iPhone, Safari abre los .ics con el calendario si se navega a
+// ellos; en el resto se descarga el archivo.
+$('#crear-agenda').addEventListener('click', () => {
+  const aviso = $('#estado-agenda');
+  const dias = [...document.querySelectorAll('#dias-agenda input:checked')].map((c) => Number(c.value));
+  const hora = $('#agenda-hora').value;
+  const minutos = Number($('#agenda-minutos').value);
+  if (!dias.length) return mostrarEstado(aviso, 'Elige al menos un día.', true);
+  if (!/^\d{2}:\d{2}$/.test(hora)) return mostrarEstado(aviso, 'Elige una hora.', true);
+  if (!(minutos >= 5 && minutos <= 240)) return mostrarEstado(aviso, 'Los minutos deben estar entre 5 y 240.', true);
+  const texto = crearIcs({ dias, hora, minutos, meta: estadoSemanas([], almacen.metas().lista).meta });
+  const archivo = new File([texto], 'salir-a-caminar.ics', { type: 'text/calendar' });
+  if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+    location.href = `data:text/calendar;charset=utf-8,${encodeURIComponent(texto)}`;
+  } else {
+    descargar(archivo);
+  }
+  mostrarEstado(aviso, 'Listo. Revisa tu calendario: el evento se repite cada semana.');
+});
+
 async function aplicarEstaciones() {
   if (!almacen.ajustes().verEstaciones) {
     mapa.ocultarEstaciones();
@@ -1269,8 +1290,11 @@ async function mostrarClima(punto) {
     estado.clima = await consultarClima(punto);
     const { linea, avisos, nivel } = leerClima(estado.clima);
     if (!linea) return;
+    const mejor = textoMejorHora(mejorHora(estado.clima));
     caja.className = `clima ${nivel}`;
-    caja.innerHTML = `<p><strong>Ahora:</strong> ${escapar(linea)}</p>${avisos.map((a) => `<p>${escapar(a)}</p>`).join('')}`;
+    caja.innerHTML =
+      `<p><strong>Ahora:</strong> ${escapar(linea)}</p>${avisos.map((a) => `<p>${escapar(a)}</p>`).join('')}` +
+      (mejor ? `<p class="mejor-hora">🕖 ${escapar(mejor)}</p>` : '');
     caja.hidden = false;
   } catch (err) {
     console.error(err);

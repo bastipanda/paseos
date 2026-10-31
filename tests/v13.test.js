@@ -14,6 +14,8 @@ import {
   conMeta,
   ultimasSemanas,
 } from '../js/historial.js';
+import { mejorHora, textoMejorHora, incomodidad } from '../js/clima.js';
+import { crearIcs, primeraFecha } from '../js/calendario.js';
 
 const a = [-33.43, -70.61];
 const aj = { largoPaso: 0.75, velocidadKmh: 4.5, peso: 80, energicoKmh: 5, ppm: 110 };
@@ -120,6 +122,40 @@ test('propuesta de meta: subir si cumpliste, bajar si quedaste lejos dos semanas
   assert.equal(metaDe(nuevas, '2026-10-19'), 90);
   const semanas = ultimasSemanas(cumplio, metas, 3, hoy);
   assert.deepEqual(semanas.map((s) => s.minutos), [0, 100, 0]);
+});
+
+test('mejor hora para salir: evita calor, lluvia, smog y oscuridad', () => {
+  const ahora = new Date(2026, 0, 15, 13, 20); // verano, 13:20
+  const hora = (h, sensacion, lluvia = 0, pm25 = 20) => ({ t: new Date(2026, 0, 15, h), temperatura: sensacion, sensacion, lluvia, codigo: 0, pm25 });
+  const pronostico = {
+    horas: [hora(13, 31), hora(14, 33), hora(15, 33), hora(16, 32), hora(17, 30), hora(18, 28), hora(19, 26), hora(20, 22), hora(21, 20), hora(22, 18)],
+    salida: new Date(2026, 0, 15, 6, 40),
+    puesta: new Date(2026, 0, 15, 20, 55),
+  };
+  const m = mejorHora(pronostico, ahora);
+  assert.equal(m.hora.t.getHours(), 20);
+  assert.equal(m.ahora, false);
+  assert.match(textoMejorHora(m), /^Mejor hora hoy: 20:00 \(22 °C, sin lluvia, aire bueno\)/);
+  // Con smog a las 20, conviene a las 21 (todavía no oscurece del todo); a las 22 ya cuenta como de noche.
+  pronostico.horas[7].pm25 = 90;
+  assert.equal(mejorHora(pronostico, ahora).hora.t.getHours(), 21);
+  assert.ok(incomodidad(pronostico.horas[9], pronostico) >= 15);
+  // Después de las 22 ya no hay sugerencia.
+  assert.equal(mejorHora(pronostico, new Date(2026, 0, 15, 23)), null);
+  assert.ok(incomodidad(hora(12, 18, 80)) > incomodidad(hora(12, 18, 0)));
+});
+
+test('evento semanal para el calendario (.ics)', () => {
+  const desde = new Date(2026, 9, 30, 20, 0); // viernes 30 de octubre, 20:00
+  assert.equal(primeraFecha([0, 2, 4], '19:30', desde).getDate(), 2); // ya pasó la hora del viernes: lunes 2
+  assert.equal(primeraFecha([4], '21:00', desde).getDate(), 30);
+  const ics = crearIcs({ dias: [4, 0, 2], hora: '19:30', minutos: 30, meta: 150, desde });
+  assert.match(ics, /DTSTART:20261102T193000\r\n/);
+  assert.match(ics, /DTEND:20261102T200000\r\n/);
+  assert.match(ics, /RRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR\r\n/);
+  assert.match(ics, /TRIGGER:-PT10M/);
+  assert.ok(ics.endsWith('END:VCALENDAR\r\n'));
+  assert.throws(() => crearIcs({ dias: [], hora: '19:30', minutos: 30 }));
 });
 
 test('distancia de prueba sana', () => {

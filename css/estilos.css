@@ -367,7 +367,10 @@ button { font: inherit; }
 }
 .historial .paseo:disabled { cursor: default; color: var(--texto); }
 .historial .paseo .secundario { margin: 0; font-size: 13px; }
-input[type="datetime-local"] {
+h2.separado { margin-top: 24px; }
+.mejor-hora { font-weight: 600; }
+.agenda { margin: 10px 0 4px; }
+input[type="datetime-local"], input[type="time"] {
   width: 100%; font: inherit; padding: 10px 12px; border: 1px solid var(--borde); border-radius: 10px;
   background: var(--fondo-suave); color: var(--texto); min-height: 44px;
 }

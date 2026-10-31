@@ -325,6 +325,26 @@
         <button type="submit" class="boton-principal">Guardar</button>
         <p id="estado-ajustes" class="estado" role="status"></p>
       </form>
+      <h2 class="separado">Agendar paseos en tu calendario</h2>
+      <p class="ayuda">Crea un evento que se repite cada semana en el calendario del celular, con aviso 10 minutos
+        antes. Así el celular te recuerda salir, sin que la app necesite un servidor.</p>
+      <div class="chips" id="dias-agenda">
+        <label class="chip-opcion"><input type="checkbox" value="0" checked><span>L</span></label>
+        <label class="chip-opcion"><input type="checkbox" value="1"><span>M</span></label>
+        <label class="chip-opcion"><input type="checkbox" value="2" checked><span>X</span></label>
+        <label class="chip-opcion"><input type="checkbox" value="3"><span>J</span></label>
+        <label class="chip-opcion"><input type="checkbox" value="4" checked><span>V</span></label>
+        <label class="chip-opcion"><input type="checkbox" value="5"><span>S</span></label>
+        <label class="chip-opcion"><input type="checkbox" value="6"><span>D</span></label>
+      </div>
+      <div class="fila agenda">
+        <label class="mini">Hora<input id="agenda-hora" type="time" value="19:30" aria-label="Hora"></label>
+        <label class="mini">Minutos<input id="agenda-minutos" type="number" inputmode="numeric" min="5" max="240" value="30" aria-label="Minutos"></label>
+      </div>
+      <button type="button" class="boton-secundario boton-ancho" id="crear-agenda">Crear evento en el calendario</button>
+      <p class="ayuda">En el iPhone debería abrirse el calendario con "Añadir todo". Si en cambio se descarga un archivo
+        <code>.ics</code>, ábrelo desde la app Archivos.</p>
+      <p id="estado-agenda" class="estado" role="status"></p>
       <p class="creditos">Rutas: <a href="https://brouter.de" target="_blank" rel="noopener">BRouter</a>.
         Mapa y calles: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>.
         Búsqueda: Nominatim. Estaciones: feed público de Bike Itaú. Clima y aire:
