@@ -15,8 +15,14 @@
   3. **Santiagodex como álbum:** cartas con un color por tipo; las capturadas con foto de Wikipedia (con el crédito
      de la foto); **siluetas con "?"** para lo no encontrado (tipo y distancia), con un interruptor en Ajustes para
      ver los nombres; comunas como "regiones" con insignias al 25, 50 y 100 %; ficha a pantalla completa con foto,
-     historia e "Ir a capturarlo". **Foto propia opcional** al capturar (no es requisito para capturar): se guarda
-     achicada (~40 KB) en el navegador (IndexedDB) y reemplaza la de Wikipedia en la carta; va en el respaldo.
+     historia e "Ir a capturarlo". **Capturar = sacar una foto propia** (decidido 2026-10-31, "muy a lo Pokémon
+     Go"): sin foto no hay captura. A conciencia de Bastián: no se revisa si la foto coincide con el lugar. Al llegar
+     con el GPS, la app avisa "Llegaste a X: sácale una foto para capturarlo"; si no es buen momento (apuro, zona
+     que no conoce), el lugar queda como **"falta la foto"** y se completa después, también desde la galería. Los
+     lugares que ya conocía se capturan subiendo una foto. "Visto" sigue siendo automático. La foto de Wikipedia es
+     solo el **placeholder** (en la ficha y mientras falta la propia; no todos los artículos tienen). Las fotos se
+     guardan achicadas (~40 KB) en el navegador (IndexedDB) y van en el respaldo (100 fotos ≈ 4 MB). Las capturas de
+     la v1.3 hechas sin foto pasan a "falta la foto".
 - **Probar en terreno la v1.3** (construida el 2026-10-30): Salir ahora, Sorpresa, meta y semanas, historial,
   resumen y postal, favoritas, trámites, metro y "Llévame al metro", metrónomo, intervalos, capturas de la
   Santiagodex y el evento del calendario.
@@ -112,5 +118,3 @@
 - **"Avisar a alguien" por WhatsApp:** Bastián no lo eligió entre las medidas de seguridad (2026-10-30).
 - **Modo bolsillo y guía por voz como forma principal:** Bastián no usa la voz; mira el mapa un momento y se orienta
   (2026-10-31). La voz queda como opción apagada; el modo bolsillo se elimina en la v1.4.
-- **Foto propia obligatoria para capturar:** agregaría un paso cada vez; capturar sigue siendo automático y la foto
-  es opcional (2026-10-31).
