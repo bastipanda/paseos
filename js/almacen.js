@@ -159,11 +159,12 @@ export function renombrarFavorita(id, nombre) {
   );
 }
 
-// Santiagodex: { capturados: { id: { fecha, como: 'gps' | 'mano' | 'foto', foto?: fecha } }, vistos: { id: fecha } }.
-// Sin `foto` el lugar está como "falta la foto". Las fotos mismas van en IndexedDB (fotos.js).
+// Santiagodex: { capturados: { id: { fecha, como: 'gps' | 'mano' | 'foto', foto?: fecha } }, vistos: { id: fecha },
+// notas: { id: texto } }. Sin `foto` el lugar está como "falta la foto". Las fotos mismas van en IndexedDB (fotos.js).
+// Las notas las escribe Bastián en la ficha de cada lugar: no se regeneran, van en el respaldo.
 export function dex() {
   const d = leer(CLAVE_DEX, null);
-  return { capturados: d?.capturados || {}, vistos: d?.vistos || {} };
+  return { capturados: d?.capturados || {}, vistos: d?.vistos || {}, notas: d?.notas || {} };
 }
 
 export function guardarDex(d) {
@@ -243,6 +244,8 @@ export function restaurar(datos) {
       if (!d.capturados[id] || (c?.foto && !d.capturados[id].foto)) d.capturados[id] = c;
     }
     for (const [id, f] of Object.entries(datos.dex.vistos || {})) if (!d.vistos[id]) d.vistos[id] = f;
+    // Una nota que ya está en este celular no se pisa.
+    for (const [id, n] of Object.entries(datos.dex.notas || {})) if (!d.notas[id] && typeof n === 'string') d.notas[id] = n;
     guardarDex(d);
   }
   return { lugares: agregados, paseos: nuevosPaseos.length };

@@ -3,6 +3,12 @@
 
 const resumenes = new Map();
 
+// Dirección del artículo en la versión para celular ("es:Juan XXIII" → https://es.m.wikipedia.org/wiki/Juan_XXIII).
+export function enlaceWikipedia(ref) {
+  const m = /^(\w{2,3}):(.+)$/.exec(ref || '');
+  return m ? `https://${m[1]}.m.wikipedia.org/wiki/${encodeURIComponent(m[2].replace(/ /g, '_'))}` : null;
+}
+
 export function resumenWikipedia(ref) {
   const m = /^(\w{2,3}):(.+)$/.exec(ref || '');
   if (!m) return Promise.resolve(null);
@@ -16,6 +22,7 @@ export function resumenWikipedia(ref) {
         .then((j) =>
           j
             ? {
+                titulo: j.title || titulo,
                 texto: j.extract || '',
                 enlace: j.content_urls?.mobile?.page || null,
                 miniatura: j.thumbnail?.source || null,

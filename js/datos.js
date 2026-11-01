@@ -30,13 +30,20 @@ export const cargarTramites = () => cargar('tramites', leerTramites);
 export const cargarMetro = () => cargar('metro', leerMetro);
 export const cargarComunas = () => cargar('comunas', leerComunas);
 export const cargarDelitos = () => cargar('delitos', leerDelitos);
+// Contexto de cada lugar de la Santiagodex (scripts/contexto.mjs): { id_osm: { w, e, h, i, a, y, d, t } }.
+export const cargarContexto = () => cargar('contexto', (json) => json.lugares);
 
-// La Santiagodex se arma una vez con las plazas, los lugares interesantes y (si cargan) las comunas.
+// La Santiagodex se arma una vez con las plazas, los lugares interesantes y (si cargan) las comunas y el contexto,
+// que suma artículos de Wikipedia que el mapa no enlazaba.
 let dexPromesa = null;
 export function cargarDex() {
   if (!dexPromesa) {
-    dexPromesa = Promise.all([cargarPlazas(), cargarInteres(), cargarComunas().catch(() => null)])
-      .then(([plazas, interes, comunas]) => crearDex(plazas, interes, comunas))
+    dexPromesa = Promise.all([cargarPlazas(), cargarInteres(), cargarComunas().catch(() => null), cargarContexto().catch(() => null)])
+      .then(([plazas, interes, comunas, contexto]) => {
+        const dex = crearDex(plazas, interes, comunas);
+        if (contexto) for (const l of dex) if (!l.wikipedia && contexto[l.id]?.w) l.wikipedia = contexto[l.id].w;
+        return dex;
+      })
       .catch((e) => {
         dexPromesa = null;
         throw e;

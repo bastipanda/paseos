@@ -595,6 +595,15 @@ body.ubicarme .rosa { display: block; }
 .ficha-historia { margin-top: 18px; }
 .ficha-historia p { font-size: 15px; line-height: 1.5; margin: 0 0 6px; }
 .ficha-historia a { color: var(--acento); font-weight: 700; }
+.ficha-contexto { margin-top: 18px; }
+.ficha-contexto ul { margin: 0; padding-left: 20px; }
+.ficha-contexto li { font-size: 15px; line-height: 1.5; margin: 0 0 6px; }
+.ficha-contexto a { color: var(--acento); font-weight: 700; }
+.ficha-nota { margin-top: 18px; }
+.ficha-nota textarea {
+  width: 100%; box-sizing: border-box; font: inherit; font-size: 16px; padding: 10px 12px; resize: vertical;
+  border: 1px solid var(--borde); border-radius: 12px; background: var(--fondo-suave); color: var(--texto);
+}
 .boton-texto.peligro { color: var(--peligro); align-self: center; }
 .archivo-oculto { position: fixed; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 

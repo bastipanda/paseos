@@ -6,16 +6,16 @@
 import * as almacen from './almacen.js';
 import { escapar } from './mapa.js';
 import { $, mostrarEstado, formatearFecha } from './ui.js';
-import { cargarDex, cargarComunas } from './datos.js';
+import { cargarDex, cargarComunas, cargarContexto, cargarMetro } from './datos.js';
 import { TIPOS_DEX, numeroDex, estadoDe, avanceDex, insigniasDe, INSIGNIAS } from './dex.js';
 import { avancePorComuna } from './territorio.js';
 import { celdasDeRuta, limitesCelda } from './explorar.js';
-import { ICONO_TIPO, tipoLugar } from './plazas.js';
+import { ICONO_TIPO, tipoLugar, nombreLugar } from './plazas.js';
 import { distancia } from './geo.js';
 import { formatearDistancia } from './duracion.js';
 import { ubicacionActual } from './seguimiento.js';
 import { leerFoto, borrarFoto } from './fotos.js';
-import { resumenWikipedia, creditoFoto } from './wikipedia.js';
+import { resumenWikipedia, creditoFoto, enlaceWikipedia } from './wikipedia.js';
 import { pedirFoto } from './captura.js';
 
 const POR_PAGINA = 30;
@@ -24,6 +24,14 @@ const MEDALLA = { 25: '🥉', 50: '🥈', 100: '🥇' };
 const mayuscula = (t) => t.charAt(0).toUpperCase() + t.slice(1);
 // Para buscar sin importar tildes ni mayúsculas.
 const normalizar = (t) => (t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+
+// Patrimonio según las etiquetas de OSM (`heritage` y su operador). Se dice de dónde viene: el mapa puede estar
+// desactualizado.
+function textoPatrimonio([nivel, operador]) {
+  if (nivel === '1') return 'Patrimonio de la Humanidad (según OpenStreetMap).';
+  if (/cmn|monumentos/i.test(operador || '')) return 'Monumento Nacional, protegido por el Consejo de Monumentos Nacionales (según OpenStreetMap).';
+  return 'Marcado como patrimonio protegido en OpenStreetMap.';
+}
 
 export function iniciarDex({ mapa, margenes, verEnMapa, cerrarMapa, irACapturar }) {
   let dex = [];
@@ -213,7 +221,14 @@ export function iniciarDex({ mapa, margenes, verEnMapa, cerrarMapa, irACapturar 
         <p class="estado" id="estado-ficha" role="status"></p>
         ${e === 'capturado' || e === 'falta' ? '<button type="button" class="boton-texto peligro" data-accion="quitar">Quitar la captura</button>' : ''}
       </div>
-      <div class="ficha-historia" hidden><h2>Historia</h2><p></p></div>`;
+      <div class="ficha-contexto" hidden><h2>Contexto</h2><ul></ul></div>
+      <div class="ficha-historia" hidden><h2>Historia</h2><p></p></div>
+      <div class="ficha-nota"${visible ? '' : ' hidden'}>
+        <h2>Tu nota</h2>
+        <textarea rows="3" maxlength="2000" aria-label="Tu nota sobre este lugar"
+          placeholder="Lo que aprendiste o recuerdas de este lugar…">${escapar(estado.notas[l.id] || '')}</textarea>
+        <p class="ayuda">Se guarda sola en este celular y va en el respaldo.</p>
+      </div>`;
     const aviso = caja.querySelector('#estado-ficha');
     caja.querySelector('[data-accion="volver"]').addEventListener('click', () => cerrarFicha());
     caja.querySelector('[data-accion="ir"]')?.addEventListener('click', () => irACapturar(l, aviso));
@@ -244,7 +259,62 @@ export function iniciarDex({ mapa, margenes, verEnMapa, cerrarMapa, irACapturar 
       pintarRegiones();
       pintarFicha(l);
     });
-    pintarFotoYHistoria(caja, l, e, visible, ++fichaActual);
+    // La nota se guarda mientras escribes (medio segundo después de la última tecla).
+    const nota = caja.querySelector('.ficha-nota textarea');
+    let espera = null;
+    nota.addEventListener('input', () => {
+      clearTimeout(espera);
+      espera = setTimeout(() => {
+        const d = almacen.dex();
+        if (nota.value.trim()) d.notas[l.id] = nota.value;
+        else delete d.notas[l.id];
+        almacen.guardarDex(d);
+      }, 500);
+    });
+    const id = ++fichaActual;
+    pintarFotoYHistoria(caja, l, e, visible, id);
+    pintarContexto(caja, l, visible, id);
+  }
+
+  // Contexto: solo datos verificables (OpenStreetMap, Wikidata y la misma Santiagodex), nunca inventados. Sin el nombre
+  // a la vista no se muestra: delataría el lugar. Los lugares cercanos se cuentan sin nombrarlos, por lo mismo.
+  async function pintarContexto(caja, l, visible, id) {
+    if (!visible) return;
+    const [contexto, metro] = await Promise.all([cargarContexto().catch(() => ({})), cargarMetro().catch(() => null)]);
+    if (id !== fichaActual) return;
+    const c = contexto[l.id] || {};
+    const items = [];
+    for (const [nombre, descripcion, articulo] of c.e || []) {
+      const enlace = enlaceWikipedia(articulo);
+      items.push(
+        `Lleva el nombre de <strong>${escapar(nombre)}</strong>${descripcion ? `: ${escapar(descripcion)}` : ''}.` +
+          (enlace ? ` <a href="${escapar(enlace)}" target="_blank" rel="noopener">Leer en Wikipedia</a>` : ''),
+      );
+    }
+    if (c.h) items.push(escapar(textoPatrimonio(c.h)));
+    if (c.t && !['historia', 'arte'].includes(l.tipo)) items.push(escapar(`${c.t}.`));
+    if (c.a) items.push(`Obra de ${escapar(c.a)}${c.y ? `, del año ${escapar(c.y)}` : ''}.`);
+    else if (c.y) items.push(`Del año ${escapar(c.y)}.`);
+    if (c.q) items.push(`Arquitectura de ${escapar(c.q)}.`);
+    if (c.i) items.push(`En su placa dice: «${escapar(c.i)}»`);
+    if (c.d) items.push(escapar(c.d));
+    if (l.tamano >= 60) items.push(`Mide unos ${formatearDistancia(Math.round(l.tamano / 10) * 10)} de punta a punta.`);
+    const estacion = metro?.estaciones
+      .map((m) => ({ m, d: distancia(m.punto, l.punto) }))
+      .sort((a, b) => a.d - b.d)[0];
+    if (estacion && estacion.d <= 1500) {
+      items.push(`Metro más cercano: ${escapar(nombreLugar(estacion.m))} (línea ${escapar(estacion.m.lineas.join(' y '))}), a ${formatearDistancia(estacion.d)}.`);
+    }
+    const estado = almacen.dex();
+    const cerca = dex.filter((o) => o !== l && distancia(o.punto, l.punto) <= 300);
+    if (cerca.length) {
+      const faltan = cerca.filter((o) => estadoDe(o, estado) !== 'capturado').length;
+      items.push(`A menos de 300 m hay ${cerca.length === 1 ? 'otro lugar' : `${cerca.length} lugares más`} de la Dex` + (faltan ? ` (${faltan} sin capturar).` : '.'));
+    }
+    if (!items.length) return;
+    const caja2 = caja.querySelector('.ficha-contexto');
+    caja2.querySelector('ul').innerHTML = items.map((t) => `<li>${t}</li>`).join('');
+    caja2.hidden = false;
   }
 
   // Foto grande (la tuya, o la de Wikipedia con su crédito mientras falta la tuya) y el resumen del artículo.
@@ -272,6 +342,13 @@ export function iniciarDex({ mapa, margenes, verEnMapa, cerrarMapa, irACapturar 
     if (!w?.texto || id !== fichaActual) return;
     const historia = caja.querySelector('.ficha-historia');
     historia.querySelector('p').textContent = w.texto;
+    // Si el artículo es de otra cosa (la persona de una estatua, la plaza donde está un monumento), se dice cuál es.
+    if (normalizar(w.titulo).replace(/_/g, ' ') !== normalizar(l.nombre)) {
+      const sobre = document.createElement('p');
+      sobre.className = 'ayuda';
+      sobre.textContent = `Del artículo de Wikipedia «${w.titulo.replace(/_/g, ' ')}».`;
+      historia.querySelector('h2').after(sobre);
+    }
     if (w.enlace) {
       const a = document.createElement('a');
       a.href = w.enlace;
