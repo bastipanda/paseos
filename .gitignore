@@ -5,6 +5,8 @@
 
 # Dependencias y builds
 node_modules/
+# Avance de los scripts largos (para seguir donde quedaron si se cortan)
+scripts/.cache/
 dist/
 
 # Archivos del sistema y editores

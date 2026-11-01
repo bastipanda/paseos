@@ -33,8 +33,9 @@ export function anguloEn(coords, acc, i, tramo = 15) {
 // "Aprender a ubicarme": hacia qué punto cardinal se sigue. En Santiago la cordillera siempre está al oriente, así que
 // se nombra como referencia (al frente o a la espalda).
 const PUNTOS_CARDINALES = ['norte', 'nororiente', 'oriente', 'suroriente', 'sur', 'surponiente', 'poniente', 'norponiente'];
+export const puntoCardinal = (grados) => PUNTOS_CARDINALES[Math.round((((grados % 360) + 360) % 360) / 45) % 8];
 export function textoRumbo(grados) {
-  const punto = PUNTOS_CARDINALES[Math.round((((grados % 360) + 360) % 360) / 45) % 8];
+  const punto = puntoCardinal(grados);
   const referencia = { oriente: ' (la cordillera al frente)', poniente: ' (la cordillera a tu espalda)' }[punto] || '';
   return `Hacia el ${punto}${referencia}`;
 }

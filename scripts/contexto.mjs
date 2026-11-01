@@ -1,73 +1,20 @@
 // Genera datos/contexto.json: lo que se sabe de cada lugar de la Santiagodex, solo de fuentes verificables.
 //   - De OpenStreetMap (consulta a Overpass): si es patrimonio, el texto de su placa, el artista, el año, su
-//     descripción y a quién homenajea su nombre (name:etymology:wikidata).
+//     descripción, a quién homenajea su nombre (name:etymology:wikidata), su horario, cómo se llamaba antes, qué tipo
+//     de obra es y de qué material, la altura de los cerros y la foto de Commons que tenga enlazada.
 //   - De Wikidata: el artículo de Wikipedia en español de los lugares que traen `wikidata` pero no `wikipedia`, y quién
 //     es la persona del nombre (nombre y descripción corta).
-//   - De Wikipedia: artículos con ubicación cerca del lugar y con el mismo nombre (búsqueda por zona).
+//   - De Wikipedia: artículos con ubicación cerca del lugar y con el mismo nombre (búsqueda por zona), y si el nombre
+//     (sin "Plaza", "Parque", "Monumento a"…) coincide con el de una persona que tiene artículo ("¿Por qué se llama
+//     así?": se muestra como coincidencia, nunca como afirmación).
+//   - De Wikimedia Commons: una foto con ubicación cerca del lugar cuyo nombre de archivo lo nombra completo, para los
+//     lugares sin artículo (y por eso sin foto).
 // No se adivina nada: si el nombre no calza exacto o el mapa no dice a quién homenajea, no se agrega.
-// Se corre a mano después de regenerar plazas y lugares:  node scripts/contexto.mjs   (tarda unos minutos)
+// Se corre a mano después de regenerar plazas y lugares:  node scripts/contexto.mjs   (tarda unos 15 minutos)
 
-import { readFile, writeFile } from 'node:fs/promises';
-import { leerPlazas, leerInteres } from '../js/plazas.js';
-import { crearDex } from '../js/dex.js';
+import { writeFile } from 'node:fs/promises';
 import { distancia } from '../js/geo.js';
-
-const UA = { 'User-Agent': 'paseos (https://github.com/bastipanda/paseos)' };
-const SERVIDORES = [
-  'https://overpass-api.de/api/interpreter',
-  'https://overpass.private.coffee/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter',
-];
-const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
-
-async function overpass(consulta) {
-  for (const url of SERVIDORES) {
-    try {
-      console.log(`Overpass: consultando ${url}…`);
-      const resp = await fetch(url, {
-        method: 'POST',
-        headers: { ...UA, 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ data: consulta }),
-        signal: AbortSignal.timeout(300_000),
-      });
-      const texto = await resp.text();
-      if (resp.ok && texto.trim().startsWith('{')) return JSON.parse(texto).elements;
-      console.log(`  falló (${resp.status})`);
-    } catch (e) {
-      console.log(`  falló: ${e.message}`);
-    }
-  }
-  throw new Error('Ningún servidor de Overpass respondió. Intenta más tarde.');
-}
-
-// API de Wikimedia (Wikipedia o Wikidata), con reintentos cuando dice que está ocupada.
-async function wikimedia(sitio, params) {
-  const url = `https://${sitio}/w/api.php?${new URLSearchParams({ format: 'json', ...params })}`;
-  for (let intento = 0; intento < 6; intento++) {
-    try {
-      const r = await fetch(url, { headers: UA, signal: AbortSignal.timeout(60_000) });
-      if (r.status === 429 || r.status >= 500) throw new Error(`HTTP ${r.status}`);
-      const json = await r.json();
-      if (json.error && /busy|ratelimit|toomany/i.test(`${json.error.code} ${json.error.info}`)) throw new Error(json.error.info);
-      if (json.error) throw Object.assign(new Error(json.error.info), { definitivo: true });
-      return json;
-    } catch (e) {
-      if (e.definitivo) throw e;
-      await esperar(2000 * (intento + 1));
-    }
-  }
-  throw new Error(`${sitio} no respondió.`);
-}
-
-// "Plaza Ñuñoa" y "plaza ñuñoa (santiago)" se comparan igual: sin tildes, sin mayúsculas ni lo que va entre paréntesis.
-const normalizar = (t) =>
-  t
-    .replace(/\s*\(.*?\)\s*/g, ' ')
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9ñ]+/g, ' ')
-    .trim();
+import { overpass, wikimedia, normalizar, leerDatos, santiagodex, avance } from './comun.mjs';
 
 // Calce parcial, para casos como "Museo Palacio Cousiño" ~ "Palacio Cousiño" o "Andrés Bello" ~ "Monumento a Andrés
 // Bello". Se descartan estaciones de metro, comunas y ciudades; si el título es el más largo, tiene que nombrar un
@@ -85,9 +32,8 @@ function calzaParcial(nombre, titulo, comunas) {
 const recortar = (t, max = 400) => (t.length > max ? `${t.slice(0, max - 1).trimEnd()}…` : t);
 
 // --- 1. La Santiagodex, igual que en la app ---
-const leer = async (nombre) => JSON.parse(await readFile(new URL(`../datos/${nombre}.json`, import.meta.url), 'utf8'));
-const dex = crearDex(leerPlazas(await leer('plazas')), leerInteres(await leer('interes')));
-const COMUNAS = new Set((await leer('comunas')).comunas.map((c) => normalizar(c.nombre)));
+const dex = await santiagodex();
+const COMUNAS = new Set((await leerDatos('comunas')).comunas.map((c) => normalizar(c.nombre)));
 console.log(`Santiagodex: ${dex.length} lugares (${dex.filter((l) => l.wikipedia).length} ya con Wikipedia).`);
 
 // --- 2. Etiquetas de OSM de cada lugar ---
@@ -162,7 +108,7 @@ for (const a of unicos.values()) {
 // --- 5. Juntar todo por lugar ---
 const PATRIMONIO = { monument: 'Monumento', memorial: 'Memorial', ruins: 'Ruinas', building: 'Edificio histórico', church: 'Iglesia histórica' };
 const lugares = {};
-const cuenta = { articuloWikidata: 0, articuloCercano: 0, articuloParcial: 0, nombre: 0, patrimonio: 0, placa: 0, artista: 0, anio: 0, descripcion: 0 };
+const cuenta = { articuloWikidata: 0, articuloCercano: 0, articuloParcial: 0, nombre: 0, patrimonio: 0, placa: 0, artista: 0, anio: 0, descripcion: 0, horario: 0, antes: 0 };
 for (const l of dex) {
   const t = etiquetas.get(l.id) || {};
   const c = {};
@@ -225,6 +171,18 @@ for (const l of dex) {
     cuenta.descripcion++;
   }
   if (PATRIMONIO[t.historic]) c.t = PATRIMONIO[t.historic];
+  if (t.opening_hours) {
+    c.o = recortar(t.opening_hours, 120);
+    cuenta.horario++;
+  }
+  if (t.old_name) {
+    c.v = recortar(t.old_name, 80);
+    cuenta.antes++;
+  }
+  if (t.alt_name && normalizar(t.alt_name) !== normalizar(l.nombre)) c.x = recortar(t.alt_name, 80);
+  if (t.artwork_type || (t.material && l.tipo === 'arte')) c.k = [t.artwork_type || null, t.material || null];
+  if (l.tipo === 'cerro' && /^\d+(\.\d+)?$/.test(t.ele || '')) c.z = Math.round(Number(t.ele));
+  if (/^File:/i.test(t.wikimedia_commons || '')) c.f = t.wikimedia_commons;
   if (Object.keys(c).length) lugares[l.id] = c;
 }
 
@@ -255,6 +213,116 @@ for (const [id, c] of Object.entries(lugares)) {
   if (!Object.keys(c).length) delete lugares[id];
 }
 console.log(`Wikipedia: ${redirecciones.size} artículos descartados por ser redirecciones.`);
+const ficha = (id) => (lugares[id] ||= {});
+
+// --- 6. "¿Por qué se llama así?": el nombre sin "Plaza", "Parque", "Monumento a"… coincide con una persona que tiene
+// artículo en Wikipedia (según Wikidata, "instancia de: ser humano"). Solo nombres de dos palabras o más y sin páginas
+// de desambiguación: con una sola palabra ("Plaza Ercilla", "Plaza Bulnes") hay demasiados homónimos.
+const PREFIJO =
+  /^(plaza|plazoleta|plazuela|parque|[áa]rea verde|bandej[óo]n|paseo|jard[íi]n|mirador|monumento|busto|estatua|homenaje|memorial|anfiteatro)( (a|al|de|del|en honor a))?( (la|los|las|el))? /i;
+const restoDelNombre = (nombre) => nombre.replace(PREFIJO, '').trim();
+const posibles = dex.filter((l) => !lugares[l.id]?.e && restoDelNombre(l.nombre).split(/\s+/).length >= 2);
+const titulos = [...new Set(posibles.map((l) => restoDelNombre(l.nombre)))];
+const paginaDe = new Map();
+for (let i = 0; i < titulos.length; i += 50) {
+  const grupo = titulos.slice(i, i + 50);
+  const r = await wikimedia('es.wikipedia.org', { action: 'query', redirects: 1, prop: 'pageprops', ppprop: 'wikibase_item|disambiguation', titles: grupo.join('|') });
+  const cambio = new Map([...(r.query?.normalized || []), ...(r.query?.redirects || [])].map((x) => [x.from, x.to]));
+  const porTituloFinal = new Map(Object.values(r.query?.pages || {}).map((p) => [p.title, p]));
+  for (const original of grupo) {
+    let t = original;
+    for (let k = 0; k < 3 && cambio.has(t); k++) t = cambio.get(t);
+    const p = porTituloFinal.get(t);
+    if (p && !('missing' in p) && p.pageprops?.wikibase_item && !('disambiguation' in p.pageprops)) paginaDe.set(original, { titulo: p.title, q: p.pageprops.wikibase_item });
+  }
+}
+// Además, la persona tiene que ser chilena (Wikidata, "país de nacionalidad": Chile) o muy conocida (artículo en 15 o
+// más Wikipedias): así entra José Martí o Conan Doyle, pero no un futbolista extranjero que se llama igual que un
+// vecino ilustre de la comuna.
+const CHILE = 'Q298';
+const personas = new Map();
+const listaP = [...new Set([...paginaDe.values()].map((p) => p.q))];
+for (let i = 0; i < listaP.length; i += 50) {
+  const r = await wikimedia('www.wikidata.org', { action: 'wbgetentities', ids: listaP.slice(i, i + 50).join('|'), props: 'claims|descriptions|sitelinks', languages: 'es' });
+  for (const [q, e] of Object.entries(r.entities || {})) {
+    const valores = (p) => (e.claims?.[p] || []).map((c) => c.mainsnak?.datavalue?.value?.id);
+    const chilena = valores('P27').includes(CHILE);
+    const conocida = Object.keys(e.sitelinks || {}).filter((s) => /wiki$/.test(s) && !/^commons|wikidata|species/.test(s)).length >= 15;
+    if (valores('P31').includes('Q5') && (chilena || conocida)) personas.set(q, e.descriptions?.es?.value || null);
+  }
+}
+for (const l of posibles) {
+  const p = paginaDe.get(restoDelNombre(l.nombre));
+  if (!p || !personas.has(p.q)) continue;
+  ficha(l.id).p = [p.titulo, personas.get(p.q)];
+  cuenta.persona = (cuenta.persona || 0) + 1;
+}
+console.log(`Wikipedia: ${cuenta.persona || 0} lugares cuyo nombre coincide con una persona.`);
+
+// --- 7. Foto de Commons para los lugares sin artículo: la que el mapa tenga enlazada o una con ubicación cerca cuyo
+// nombre de archivo nombra el lugar completo (por ejemplo "Plaza Pedro Montt 2.jpg").
+const sinFoto = dex.filter((l) => !l.wikipedia && !lugares[l.id]?.w && l.nombre.split(/\s+/).length >= 2);
+// Se piden todas las fotos con ubicación de la zona por cuadros (como los artículos del paso 4: a lo más 500 por
+// cuadro, y los llenos se parten en cuatro) y se cruzan acá: es mucho menos que preguntar lugar por lugar. Commons a
+// veces responde lento: cada cuadro queda guardado en scripts/.cache/ y, si se corta, al correrlo de nuevo sigue.
+// Fuera lo que no es una foto del lugar: documentos, audio, y letreros, paraderos, mapas o escudos que lo nombran.
+const NO_FOTO = /\.(pdf|djvu|ogg|oga|ogv|webm|mp3|wav|mid|stl)$|paradero|letrero|se[ñn]al|cartel|mapa|plano|escudo|logo/i;
+const cajas = await avance('commons-cajas');
+const fotos = [];
+async function fotosEn(n, o, s, e) {
+  const clave = [n, o, s, e].map((x) => x.toFixed(5)).join(',');
+  if (!cajas.tiene(clave)) {
+    const r = await wikimedia('commons.wikimedia.org', { action: 'query', list: 'geosearch', gsbbox: `${n}|${o}|${s}|${e}`, gsnamespace: 6, gslimit: 500 });
+    await cajas.poner(clave, (r.query?.geosearch || []).map((a) => [a.title, a.lat, a.lon]));
+    if (Object.keys(cajas.datos).length % 25 === 0) console.log(`  Commons: ${Object.keys(cajas.datos).length} cuadros…`);
+  }
+  const lista = cajas.datos[clave];
+  if (lista.length >= 500 && n - s > 0.001) {
+    const [mlat, mlon] = [(n + s) / 2, (o + e) / 2];
+    for (const [a, b, c, d] of [[n, o, mlat, mlon], [n, mlon, mlat, e], [mlat, o, s, mlon], [mlat, mlon, s, e]]) await fotosEn(a, b, c, d);
+    return;
+  }
+  fotos.push(...lista);
+}
+const PASO_FOTOS = 0.05;
+for (let n = norte; n > sur; n -= PASO_FOTOS) for (let o = oeste; o < este; o += PASO_FOTOS) await fotosEn(n, o, Math.max(sur, n - PASO_FOTOS), Math.min(este, o + PASO_FOTOS));
+await cajas.guardar();
+console.log(`Commons: ${fotos.length} fotos con ubicación en la zona.`);
+for (const l of sinFoto) {
+  if (lugares[l.id]?.f) continue;
+  const radio = Math.min(300, Math.max(60, (l.tamano || 0) / 2 + 30));
+  const nombre = ` ${normalizar(l.nombre)} `;
+  const archivo = fotos.find(
+    ([titulo, lat, lon]) =>
+      Math.abs(lat - l.punto[0]) < 0.003 &&
+      !NO_FOTO.test(titulo) &&
+      ` ${normalizar(titulo.replace(/^File:|\.\w+$/g, ''))} `.includes(nombre) &&
+      distancia(l.punto, [lat, lon]) <= radio,
+  );
+  if (archivo) ficha(l.id).f = archivo[0];
+}
+// El archivo se guarda como la dirección de su miniatura de 800 px (la misma forma que las fotos de Wikipedia, así la
+// app saca el autor y la licencia igual).
+const archivos = [...new Set(Object.values(lugares).map((c) => c.f).filter(Boolean))];
+const miniatura = new Map();
+for (let i = 0; i < archivos.length; i += 50) {
+  const r = await wikimedia('commons.wikimedia.org', { action: 'query', prop: 'imageinfo', iiprop: 'url|mime', iiurlwidth: 800, titles: archivos.slice(i, i + 50).join('|') });
+  const cambio = new Map((r.query?.normalized || []).map((x) => [x.to, x.from]));
+  for (const p of Object.values(r.query?.pages || {})) {
+    const info = p.imageinfo?.[0];
+    // Sin lo que va después del "?" (Commons agrega datos de seguimiento que no hacen falta).
+    if (info && /^image\//.test(info.mime)) miniatura.set(cambio.get(p.title) || p.title, (info.thumburl || info.url).split('?')[0]);
+  }
+}
+for (const [id, c] of Object.entries(lugares)) {
+  if (!c.f) continue;
+  if (miniatura.has(c.f)) {
+    c.f = miniatura.get(c.f);
+    cuenta.foto = (cuenta.foto || 0) + 1;
+  } else delete c.f;
+  if (!Object.keys(c).length) delete lugares[id];
+}
+console.log(`Commons: ${cuenta.foto || 0} fotos para lugares sin artículo.`);
 
 const conHistoria = dex.filter((l) => l.wikipedia || lugares[l.id]?.w).length;
 console.log('\nLo que se gana:');
@@ -262,6 +330,7 @@ console.log(`  Historia de Wikipedia: ${dex.filter((l) => l.wikipedia).length} �
 console.log(`    por el enlace de Wikidata: ${cuenta.articuloWikidata}; mismo nombre y cerca: ${cuenta.articuloCercano}; nombre parecido y cerca: ${cuenta.articuloParcial}`);
 console.log(`  "Lleva el nombre de…": ${cuenta.nombre}`);
 console.log(`  Patrimonio: ${cuenta.patrimonio} · Placa: ${cuenta.placa} · Artista: ${cuenta.artista} · Año: ${cuenta.anio} · Descripción: ${cuenta.descripcion}`);
+console.log(`  Horario: ${cuenta.horario} · Nombre antiguo: ${cuenta.antes} · "¿Por qué se llama así?": ${cuenta.persona || 0} · Foto de Commons: ${cuenta.foto || 0}`);
 console.log(`  Con algo de contexto extra: ${Object.keys(lugares).length} de ${dex.length}`);
 const valores = (k) => [...etiquetas.values()].map((t) => t[k]).filter(Boolean);
 console.log(`  Valores de heritage: ${JSON.stringify(Object.entries(valores('heritage').reduce((m, v) => ({ ...m, [v]: (m[v] || 0) + 1 }), {})))}`);
@@ -271,8 +340,25 @@ await writeFile(
   new URL('../datos/contexto.json', import.meta.url),
   JSON.stringify({
     generado: new Date().toISOString().slice(0, 10),
-    fuente: 'OpenStreetMap (© colaboradores de OpenStreetMap, ODbL), Wikidata (CC0) y Wikipedia',
-    campos: { w: 'artículo de Wikipedia', e: 'a quién homenajea el nombre: [nombre, descripción, artículo]', h: '[heritage, operador]', i: 'placa', a: 'artista', q: 'arquitecto', y: 'año de la obra', d: 'descripción', t: 'tipo histórico' },
+    fuente: 'OpenStreetMap (© colaboradores de OpenStreetMap, ODbL), Wikidata (CC0), Wikipedia y Wikimedia Commons',
+    campos: {
+      w: 'artículo de Wikipedia',
+      e: 'a quién homenajea el nombre: [nombre, descripción, artículo]',
+      h: '[heritage, operador]',
+      i: 'placa',
+      a: 'artista',
+      q: 'arquitecto',
+      y: 'año de la obra',
+      d: 'descripción',
+      t: 'tipo histórico',
+      o: 'horario (formato de OSM)',
+      v: 'nombre antiguo',
+      x: 'otro nombre',
+      k: '[tipo de obra, material] (valores de OSM)',
+      z: 'altura de la cumbre (cerros)',
+      p: 'su nombre coincide con: [artículo de la persona, descripción]',
+      f: 'foto de Commons (miniatura de 800 px)',
+    },
     lugares,
   }),
 );
