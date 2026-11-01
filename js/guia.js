@@ -14,16 +14,29 @@ export function textoGiro(angulo) {
   return 'Da la vuelta';
 }
 
-// Ángulo del giro en el punto `i` (positivo = derecha). Mira unos metros antes y después para que una curva suave
-// o un punto muy cercano no engañen.
-export function anguloEn(coords, acc, i, tramo = 15) {
+// Rumbos de entrada y salida en el punto `i` (0 = norte, 90 = oriente). Mira unos metros antes y después para que
+// una curva suave o un punto muy cercano no engañen.
+function rumbosEn(coords, acc, i, tramo) {
   let a = i - 1;
   while (a > 0 && acc[i] - acc[a] < tramo) a--;
   let b = i + 1;
   while (b < coords.length - 1 && acc[b] - acc[i] < tramo) b++;
-  const entra = rumbo(coords[Math.max(0, a)], coords[i]);
-  const sale = rumbo(coords[i], coords[Math.min(coords.length - 1, b)]);
+  return { entra: rumbo(coords[Math.max(0, a)], coords[i]), sale: rumbo(coords[i], coords[Math.min(coords.length - 1, b)]) };
+}
+
+// Ángulo del giro en el punto `i` (positivo = derecha).
+export function anguloEn(coords, acc, i, tramo = 15) {
+  const { entra, sale } = rumbosEn(coords, acc, i, tramo);
   return ((sale - entra + 540) % 360) - 180;
+}
+
+// "Aprender a ubicarme": hacia qué punto cardinal se sigue. En Santiago la cordillera siempre está al oriente, así que
+// se nombra como referencia (al frente o a la espalda).
+const PUNTOS_CARDINALES = ['norte', 'nororiente', 'oriente', 'suroriente', 'sur', 'surponiente', 'poniente', 'norponiente'];
+export function textoRumbo(grados) {
+  const punto = PUNTOS_CARDINALES[Math.round((((grados % 360) + 360) % 360) / 45) % 8];
+  const referencia = { oriente: ' (la cordillera al frente)', poniente: ' (la cordillera a tu espalda)' }[punto] || '';
+  return `Hacia el ${punto}${referencia}`;
 }
 
 // Lista ordenada de indicaciones a lo largo de la ruta. `linea` viene de unirPartes (seguimiento.js).
@@ -31,10 +44,11 @@ export function crearInstrucciones(opcion, linea) {
   const { coords, acc } = linea;
   const lista = [];
   for (const g of linea.giros) {
-    const angulo = anguloEn(coords, acc, g.indice);
+    const { entra, sale } = rumbosEn(coords, acc, g.indice, 15);
+    const angulo = ((sale - entra + 540) % 360) - 180;
     const texto = textoGiro(angulo);
-    // El ángulo sirve para dibujar la flecha de la franja del paseo.
-    if (texto) lista.push({ recorrido: acc[g.indice], texto, tipo: 'giro', angulo });
+    // El ángulo sirve para dibujar la flecha de la franja del paseo; el rumbo, para decir hacia dónde se sigue.
+    if (texto) lista.push({ recorrido: acc[g.indice], texto, tipo: 'giro', angulo, rumbo: sale });
   }
   for (const t of linea.tramos) {
     if (t.modo !== 'bici') continue;

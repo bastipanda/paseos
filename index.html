@@ -449,6 +449,12 @@
           <span>Mostrar estaciones Bike Itaú en el mapa</span>
         </label>
         <label class="interruptor">
+          <input type="checkbox" id="ubicarme">
+          <span>Aprender a ubicarme: rosa de los vientos y puntos cardinales</span>
+        </label>
+        <p class="ayuda">Muestra una rosa en el mapa y, en el paseo, hacia dónde sigues después de cada giro ("hacia el
+          oriente"). La regla de Santiago: la cordillera siempre está al oriente.</p>
+        <label class="interruptor">
           <input type="checkbox" id="ver-nombres-dex">
           <span>Santiagodex: ver los nombres de lo que no has encontrado</span>
         </label>
@@ -498,10 +504,32 @@
       <div class="franja-texto">
         <p class="proximo-distancia" id="proximo-distancia"></p>
         <p class="proximo-texto" id="proximo-texto"></p>
+        <p class="proximo-rumbo" id="proximo-rumbo"></p>
       </div>
     </div>
     <p id="aviso-ruta" class="aviso-ruta" role="status" hidden></p>
     <button type="button" class="boton-flotante" id="centrar" hidden>◎ Seguirme</button>
+  </div>
+
+  <!-- Rosa de los vientos ("Aprender a ubicarme"): va bajo el zoom del mapa y, en el paseo, bajo la franja. El mapa
+       siempre tiene el norte arriba, así que no gira. Al tocarla explica la regla de la cordillera. -->
+  <div id="rosa" class="rosa">
+    <button type="button" class="rosa-boton" id="rosa-boton" aria-expanded="false" aria-controls="rosa-ayuda"
+      aria-label="Rosa de los vientos: norte arriba, cordillera al oriente">
+      <svg viewBox="0 0 80 80" width="64" height="64" aria-hidden="true">
+        <circle cx="40" cy="40" r="37" class="rosa-fondo"/>
+        <path d="M40 24 L44 40 L36 40 Z" class="rosa-norte"/>
+        <path d="M40 56 L44 40 L36 40 Z" class="rosa-sur"/>
+        <path d="M54 33 l5 -8 l3 4 l3 -5 l6 9 z" class="rosa-cordillera"/>
+        <text x="40" y="17" class="rosa-letra rosa-n">N</text>
+        <text x="40" y="72" class="rosa-letra">S</text>
+        <text x="17" y="44" class="rosa-letra">Pte</text>
+        <text x="63" y="45" class="rosa-letra">Ote</text>
+      </svg>
+    </button>
+    <p class="rosa-ayuda" id="rosa-ayuda" hidden>En Santiago la cordillera siempre está al <strong>oriente</strong>
+      (Ote). Si la tienes al frente, a tu derecha está el sur, a tu izquierda el norte y a tu espalda el
+      <strong>poniente</strong> (Pte).</p>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>

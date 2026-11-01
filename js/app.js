@@ -30,7 +30,7 @@ import { dibujarPostal } from './postal.js';
 import { comunasDeRuta, zonaDeComunas, textoDelitos, LIMITES_DELITOS } from './territorio.js';
 import { resumir, textoComparacion, listar, TEXTOS_ESTILO } from './explicar.js';
 import { crearGpx, nombreArchivo } from './gpx.js';
-import { Voz, fraseHablada } from './guia.js';
+import { Voz, fraseHablada, textoRumbo } from './guia.js';
 import { distancia, parecido } from './geo.js';
 import { consultarClima, leerClima, mejorHora, textoMejorHora } from './clima.js';
 import { crearIcs } from './calendario.js';
@@ -1237,6 +1237,7 @@ $('#empezar').addEventListener('click', () => empezarPaseo(estado.opciones[estad
 function empezarPaseo(opcion) {
   irA('seguimiento');
   document.body.classList.add('siguiendo');
+  ubicarRosa(true);
   estado.seguirme = true;
   $('#centrar').hidden = true;
   $('#aviso-ruta').hidden = true;
@@ -1456,6 +1457,7 @@ function mostrarProximo(siguiente) {
   pintarFlecha(siguiente);
   $('#proximo-distancia').textContent = siguiente.distancia < 15 ? 'Ahora' : `En ${formatearDistancia(siguiente.distancia)}`;
   $('#proximo-texto').textContent = siguiente.texto;
+  $('#proximo-rumbo').textContent = typeof siguiente.rumbo === 'number' ? textoRumbo(siguiente.rumbo) : '';
   const umbral = siguiente.tipo === 'giro' ? 45 : 35;
   if (siguiente.distancia <= umbral && !estado.anunciadas.has(siguiente.recorrido)) {
     estado.anunciadas.add(siguiente.recorrido);
@@ -1600,6 +1602,7 @@ function terminarSeguimiento(volver = true) {
   estado.seguimiento = null;
   mapa.ocultarYo();
   document.body.classList.remove('siguiendo');
+  ubicarRosa(false);
   if (!seguimiento) return;
   const registro = guardarPaseo(datosEnCurso(seguimiento, estado.opcionSeguida));
   if (!volver) return;
@@ -1906,6 +1909,7 @@ function cargarAjustes() {
   $('#ppm').value = aj.ppm;
   $('#ver-estaciones').checked = Boolean(aj.verEstaciones);
   $('#ver-nombres-dex').checked = Boolean(aj.verNombresDex);
+  $('#ubicarme').checked = aj.ubicarme !== false;
   $('#peso').value = aj.peso ?? '';
   mostrarEstado($('#estado-ajustes'), '');
   pintarMisBarrios();
@@ -1981,10 +1985,12 @@ $('#form-ajustes').addEventListener('submit', (e) => {
     ppm,
     verEstaciones: $('#ver-estaciones').checked,
     verNombresDex: $('#ver-nombres-dex').checked,
+    ubicarme: $('#ubicarme').checked,
     // Si las comunas no alcanzaron a cargar, se mantienen las que ya estaban elegidas.
     misBarrios: document.querySelector('#mis-barrios input') ? barriosMarcados() : misBarrios(),
   });
   aplicarEstaciones();
+  aplicarUbicarme();
   actualizarAyudaDuracion();
   actualizarAyudaBarrios();
   mostrarEstado(aviso, 'Guardado.');
@@ -2009,6 +2015,26 @@ $('#crear-agenda').addEventListener('click', () => {
   }
   mostrarEstado(aviso, 'Listo. Revisa tu calendario: el evento se repite cada semana.');
 });
+
+// ---------- Aprender a ubicarme ----------
+
+// Rosa de los vientos: bajo el zoom del mapa; durante el paseo, bajo la franja de la indicación (arriba el zoom no se
+// ve y la franja taparía la esquina). Viene prendida salvo que se apague en Ajustes.
+const casaRosa = mapa.agregarControl('control-rosa');
+casaRosa.append($('#rosa'));
+function ubicarRosa(paseando) {
+  abrirAyudaRosa(false);
+  if (paseando) $('#franja-paseo').after($('#rosa'));
+  else casaRosa.append($('#rosa'));
+}
+function abrirAyudaRosa(si) {
+  $('#rosa-ayuda').hidden = !si;
+  $('#rosa-boton').setAttribute('aria-expanded', String(si));
+}
+$('#rosa-boton').addEventListener('click', () => abrirAyudaRosa($('#rosa-ayuda').hidden));
+function aplicarUbicarme() {
+  document.body.classList.toggle('ubicarme', almacen.ajustes().ubicarme !== false);
+}
 
 async function aplicarEstaciones() {
   if (!almacen.ajustes().verEstaciones) {
@@ -2061,6 +2087,7 @@ const dex = iniciarDex({ mapa, margenes: margenesPanel, verEnMapa, cerrarMapa: t
 restaurarFormulario();
 irA('hoy');
 aplicarEstaciones();
+aplicarUbicarme();
 
 // Si el permiso de ubicación ya estaba dado, centra el mapa en ti sin preguntar.
 const centroInicial = () => {

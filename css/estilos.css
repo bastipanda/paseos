@@ -463,6 +463,27 @@ body.siguiendo .arriba-paseo { display: flex; }
 .franja-texto { min-width: 0; }
 .proximo-distancia { font-size: 14px; font-weight: 600; opacity: 0.9; }
 .proximo-texto { font-size: 20px; font-weight: 800; line-height: 1.2; }
+.proximo-rumbo { display: none; font-size: 14px; font-weight: 600; opacity: 0.9; margin-top: 2px !important; }
+body.ubicarme .proximo-rumbo:not(:empty) { display: block; }
+
+/* Rosa de los vientos ("Aprender a ubicarme"). */
+.rosa { display: none; position: relative; }
+body.ubicarme .rosa { display: block; }
+.rosa-boton { display: block; padding: 0; border: 0; background: none; cursor: pointer; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.35)); }
+.rosa-fondo { fill: var(--fondo); fill-opacity: 0.9; stroke: var(--borde); stroke-width: 1.5; }
+.rosa-norte { fill: #e53935; }
+.rosa-sur { fill: var(--texto-suave); }
+.rosa-cordillera { fill: #8d6e63; }
+.rosa-letra { font: 700 12px system-ui, sans-serif; fill: var(--texto); text-anchor: middle; }
+.rosa-n { fill: #e53935; }
+.rosa-ayuda {
+  position: absolute; top: 0; right: calc(100% + 8px); width: 230px; margin: 0; padding: 10px 12px; font-size: 14px;
+  background: var(--fondo); color: var(--texto); border: 1px solid var(--borde); border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+/* En el paseo la rosa va a la izquierda, bajo la franja, y la explicación se abre hacia la derecha. */
+.arriba-paseo .rosa { align-self: flex-start; }
+.arriba-paseo .rosa-ayuda { right: auto; left: calc(100% + 8px); }
 .aviso-ruta {
   margin: 0; align-self: center; background: var(--peligro); color: #fff; border-radius: 999px; padding: 6px 14px;
   font-size: 14px; font-weight: 700; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);

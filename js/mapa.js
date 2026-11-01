@@ -30,6 +30,16 @@ export class Mapa {
     this.precision = null;
   }
 
+  // Un control propio bajo los botones de zoom (la rosa de los vientos). Devuelve la caja donde va. Los toques en él
+  // no llegan al mapa (no marcan un punto).
+  agregarControl(clase) {
+    const caja = L.DomUtil.create('div', `leaflet-control ${clase}`);
+    L.DomEvent.disableClickPropagation(caja);
+    const Control = L.Control.extend({ onAdd: () => caja });
+    new Control({ position: 'topright' }).addTo(this.mapa);
+    return caja;
+  }
+
   alTocar(funcion) {
     this.mapa.on('click', (e) => funcion([e.latlng.lat, e.latlng.lng]));
   }
