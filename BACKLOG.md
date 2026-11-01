@@ -1,6 +1,17 @@
 # Backlog — Paseos
 
 ## Pendiente acordado
+- **Probar en terreno la v1.7 "Una razón para ir"** (pedida y decidida el 2026-11-01, "sí a todo"; construida el
+  mismo día): la ficha de la Dex en cuatro grupos (Qué hay, Su historia, Dónde estás, Tú y este lugar). Fichas con
+  algo propio: de 570 a **2.705 de 3.236 (84 %)**; 531 quedan solo con lo general (altura, calles, referencias,
+  metro), 386 de ellas con el nombre del barrio. Por fuente: especies de iNaturalist 2.048; barrio 2.264 (489 con
+  artículo); OSM (placa, obra, horario 178, nombre antiguo 51…) 930; qué hay 833; monumento o zona típica del CMN 424
+  (contornos y, si el monumento es solo un punto, a menos de 60 m); artículo de Wikipedia 413; foto de Commons 336
+  (nombre del archivo con el nombre completo del lugar; sin letreros ni paraderos); "su nombre coincide con…" 315
+  (persona chilena o con artículo en 15+ Wikipedias); árboles con especie 237; mención subrayada 218.
+  - **IA que solo subraya:** `menciones.mjs` juntó 1.093 frases de 484 lugares; Claude Code eligió una en 218 (las
+    demás eran de otro lugar con el mismo nombre o no decían nada del lugar) y `--verificar` confirmó las 218 letra
+    por letra. Los decretos del CMN no se subrayaron: son escaneos sin texto.
 - **Probar en terreno la v1.6 "Conocer y ubicarse"** (pedida, decidida y construida el 2026-11-01): la rosa y el
   punto cardinal al caminar, el Contexto y Tu nota en fichas de distintos tipos. Lo que dio la medición
   (`node scripts/contexto.mjs`): historia de Wikipedia de 264 a 413 lugares (77 por Wikidata, 35 por mismo nombre,
@@ -81,6 +92,11 @@
   (43 comunas, ~230 mil cuadros con calles; Overpass falló en varios pedazos y el script reintentó solo).
 
 ## Por verificar
+- **v1.7:** si la ficha con cuatro grupos se lee bien en el iPhone o es muy larga (¿plegar Dónde estás?); cuánto
+  tarda en abrir la primera ficha con 4G (baja ~900 KB de datos sin comprimir: entorno, especies, contexto,
+  menciones; GitHub Pages los comprime); si las menciones elegidas se sienten útiles o algunas son solo ubicación;
+  si "su nombre coincide con…" acierta (puede haber homónimos chilenos); si las fotos de Commons son del lugar; si
+  "Junto a" y los lados de las calles calzan con lo que se ve al llegar.
 - **v1.6:** si "Hacia el oriente (la cordillera al frente)" se lee de un vistazo al caminar o conviene más corto; si la
   rosa estorba en la esquina del mapa; si las historias por "nombre parecido" calzan (la ficha dice de qué artículo
   vienen); si vale la pena completar a mano en OSM a quién homenajean las plazas (name:etymology:wikidata).
@@ -125,6 +141,9 @@
   sin descarga abierta documentada (CSV o Excel). Carabineros publica datos semanales en stop.carabineros.cl.
 
 ## Ideas sin decidir
+- **Después de la v1.7** (surgidas al construirla, 2026-11-01): "Pasar por… máquinas de ejercicio" en Armar (833
+  lugares ya saben qué hay); cuándo florece cada árbol (jacarandá, ciruelo…) desde una fuente botánica verificable;
+  marcar como "rincón" las 531 fichas sin nada propio (como los Pokémon comunes) en vez de sacarlas de la Dex.
 - **Que la app sepa lo "humano" de una calle** (pedido 2026-10-27). Hecho en parte en la v1.2: estilos Con vida y
   Noche, comercio y lugares interesantes. Falta:
   - Belleza y patrimonio: monumentos y zonas típicas del Consejo de Monumentos Nacionales (¿datos abiertos?),
@@ -142,6 +161,10 @@
   Falta verificar qué datos escribe Mi Fitness en Salud y armar el Atajo a mano (no se puede probar desde el PC).
 
 ## Descartadas
+- **Fuentes revisadas para la v1.7 que no sirven (2026-11-01):** catálogos municipales con la historia de cada plaza
+  (no se encontró ninguno), Archivo Visual de Santiago (sin API ni ubicación), catastro del SII con el año de
+  construcción (va por rol, sin coordenadas), Mapillary (pide cuenta y clave), Wikidata por cercanía (solo 30 fichas
+  pobres calzan) y una capa abierta del crecimiento de Santiago por década (no se encontró).
 - **Minimizar virajes en bici:** no era la necesidad. Lo que importa es evitar calles sin ciclovía o con mucha
   gente (ver "Bike-friendly" en `CLAUDE.md`).
 - **Hacerla pública o venderla:** es para uso propio. Lo que vale son los ajustes a medida.

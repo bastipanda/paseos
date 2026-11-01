@@ -5,21 +5,18 @@ registra el avance. Uso propio de Bastián, no comercial. Se usa en su **iPhone*
 Meta de fondo (2026-10-30): caminar más para bajar de peso y dejar el sedentarismo.
 
 ## Estado
-v1 y v1.1 publicadas el 2026-10-27; v1.2 el 2026-10-30. v1.3 ("salir más y conocer Santiago") construida el
-2026-10-30. v1.4 ("interfaz limpia": pestañas, pantallas con mapa y Dex como álbum con foto propia) publicada el
-2026-10-31, igual que la v1.5 (Buscar más y Mis barrios). v1.6 (contexto de la Dex y aprender a ubicarse)
-construida el 2026-11-01. Falta probar v1.1 a v1.6 en terreno.
+Publicadas: v1 y v1.1 el 2026-10-27; v1.2 y v1.3 el 2026-10-30; v1.4 y v1.5 el 2026-10-31; v1.6 el 2026-11-01.
+v1.7 ("una razón para ir": la ficha de la Dex en cuatro grupos con datos del entorno) construida el 2026-11-01.
+Falta probar v1.1 a v1.7 en terreno.
 
 ## Qué hace
 - **Barra de pestañas abajo:** Hoy, Armar, Dex y Más (Historial, Lugares, Respaldo, Ajustes y créditos).
-- **Hoy** (inicio): anillo con los minutos caminados de la semana y la meta semanal, semanas cumplidas, propuesta de
-  subir la meta 10 % (o bajarla), mejor hora para salir hoy, **Salir ahora** (15/30/45/60 min, ida y vuelta desde
-  el GPS), **Sorpresa** (paseo misterio a un lugar sin capturar), rutas favoritas y aviso mensual de respaldo.
+- **Hoy** (inicio): anillo con los minutos de la semana y la meta, semanas cumplidas, subir o bajar la meta 10 %, mejor
+  hora para salir, **Salir ahora** (15-60 min, ida y vuelta), **Sorpresa** (lugar sin capturar), favoritas y respaldo.
 - **Armar** (a medida): partida y término libres (GPS, lugar guardado, punto del mapa, dirección, estación de
-  metro). Término también puede ser: circular, una plaza y volver, un trámite y volver (súper, farmacia, panadería,
-  feria, cajero, ferretería) o "la estación de metro que calce". Duración en pasos, minutos, km o kcal. En "Más
-  opciones" (plegado): estilo (Tranquilo, Con vida, Noche), subidas, "Pasar por…", Explorar, **Solo por mis
-  barrios** (puntos y destinos dentro de las comunas elegidas en Ajustes) y vuelta en Bike Itaú.
+  metro). Término también: circular, una plaza y volver, un trámite y volver (súper, farmacia, feria…) o "la
+  estación de metro que calce". Duración en pasos, minutos, km o kcal. En "Más opciones" (plegado): estilo
+  (Tranquilo, Con vida, Noche), subidas, "Pasar por…", Explorar, **Solo por mis barrios** y vuelta en Bike Itaú.
 - **Mapa nunca tapado:** en Armar, Resultados y Resumen el panel se pliega a una franja (y se esconde la barra).
 - **Resultados:** tarjeta con pasos, minutos, km, % tranquila y subida; avisos de luz y del metro a la vista; plegados
   el por qué, la calidad de las calles, la comparación con el camino más corto y los robos por comuna (CEAD).
@@ -29,27 +26,25 @@ construida el 2026-11-01. Falta probar v1.1 a v1.6 en terreno.
   por defecto). "Seguirme" aparece si mueves el mapa. Capturas de la Dex en vivo. La pantalla no se apaga.
 - **Aprender a ubicarme** (Ajustes, prendido): rosa de los vientos bajo el zoom (en el paseo, bajo la franja) con la
   cordillera al oriente, y el punto cardinal bajo cada giro ("Hacia el oriente (la cordillera al frente)").
-- **Al terminar:** se guarda solo en el historial; resumen con la semana y lo capturado; postal para compartir.
-- **Historial:** paseos con gráfico de 8 semanas; también paseos agregados a mano.
+- **Al terminar:** va solo al **historial** (gráfico de 8 semanas y paseos a mano); resumen, lo capturado y postal.
 - **Dex (Santiagodex):** álbum de 3.236 cartas numeradas desde Plaza Baquedano, un color por tipo, con buscador.
   "Visto" si pasas a <150 m; "falta la foto" si llegas (≤40 m, o un tercio del tamaño de un parque, máx. 200 m);
   **capturado solo con tu foto** (cámara o galería, también sin paseo). Lo no visto es silueta con "?" (nombres en
-  Ajustes). Ficha a pantalla completa con foto (la tuya o la de Wikipedia con su crédito), **Contexto** (placa,
-  artista, año de la obra, a quién homenajea, metro cercano, lugares a 300 m), historia de Wikipedia y **Tu nota**.
+  Ajustes). Ficha con foto (la tuya, o la de Wikipedia o Commons con su crédito) y cuatro grupos: **Qué hay**
+  (juegos, canchas, máquinas, árboles, especies de iNaturalist, horario), **Su historia** (monumento o zona típica,
+  obra, placa, Wikipedia, "su nombre coincide con…"), **Dónde estás** (calles con su punto cardinal, barrio, altura,
+  Gran Torre y San Cristóbal, metro) y **Tú y este lugar** (fechas y tu nota).
   Comunas como regiones con insignias al 25, 50 y 100 %. **Tu mapa:** lo caminado y el % de calles de cada comuna.
 - **Ajustes:** meta, paso, velocidad, peso, paso enérgico, metrónomo, ubicarme, mis barrios y evento semanal (.ics).
 
 ## Definiciones
-- **"Tranquila" para Bastián:** caminar sin miedo a que le roben; a veces eso es con gente e iluminado. Por eso hay
-  tres **estilos**, cada uno con su perfil: **Tranquilo** (`paseo-tranquilo.brf`, poco ruido y verde), **Con vida**
-  (`paseo-vida.brf`, veredas de avenidas, paseos peatonales, comercio) y **Noche** (`paseo-noche.brf`, iluminado y
-  transitado; evita callejones, senderos, parques oscuros y escaleras; solo ~30 % de las calles de OSM dice si
-  tiene luz). Ninguno usa datos de delitos por calle: no existen.
-- **Bike-friendly:** ciclovías y calles de poco tráfico; evita avenidas sin ciclovía y calles peatonales. **No** es
-  reducir virajes.
-- **Conversiones:** pasos = metros ÷ largo del paso (0,75 m); minutos = metros ÷ velocidad (4,5 km/h);
-  kcal = MET(velocidad) × peso × horas (Compendio de Actividades Físicas) + subida × peso × 0,009 (ecuación de
-  caminata del ACSM). Estimación gruesa (±20-30 %).
+- **"Tranquila" para Bastián:** sin miedo a que le roben; a veces eso es con gente e iluminado. Por eso hay tres
+  **estilos** con su perfil: **Tranquilo** (`paseo-tranquilo.brf`, poco ruido y verde), **Con vida** (`paseo-vida.brf`,
+  avenidas, paseos peatonales, comercio) y **Noche** (`paseo-noche.brf`, iluminado y transitado; evita callejones,
+  senderos, parques oscuros y escaleras; solo ~30 % de las calles dice si tiene luz). Sin delitos por calle: no existen.
+- **Bike-friendly:** ciclovías y calles de poco tráfico; evita avenidas sin ciclovía y peatonales (no es "menos giros").
+- **Conversiones:** pasos = metros ÷ paso (0,75 m); minutos = metros ÷ velocidad (4,5 km/h); kcal = MET(velocidad) ×
+  peso × horas (Compendio de Actividades Físicas) + subida × peso × 0,009 (ACSM). Estimación gruesa (±20-30 %).
 - **Minutos de la meta:** minutos en movimiento del GPS (ventanas de 15 s a más de 1,8 km/h) más los agregados a
   mano. **Paso enérgico:** ≥ 5 km/h (ajustable). Semanas de lunes a domingo.
 
@@ -60,15 +55,16 @@ construida el 2026-11-01. Falta probar v1.1 a v1.6 en terreno.
   que cuelga de ahí) ocupan toda la pantalla y tapan el mapa; Armar, Resultados, Paseo y Resumen son el mapa con el
   panel abajo. Resultados, Paseo y Resumen esconden la barra (`SIN_PESTANAS`). Desde una página, `verEnMapa(título)`
   deja el mapa entero con "Volver" arriba (el mapa siempre está cargado detrás: Leaflet falla si nace escondido).
-- **Mapa:** Leaflet con teselas de OSM y la atribución visible.
-- **Rutas:** servidor público de BRouter (`brouter.de`) con perfiles propios (`perfiles/*.brf`). La app agrega
-  puntos intermedios para calzar la duración, evalúa y ordena. Giros con `timode=2`. `profile:evitar_subidas=1`.
-  Cada ruta guarda con qué se pidió (`peticion`): las favoritas se piden otra vez con eso (no se guarda la ruta).
-- **Destino de una opción:** `destino` = plaza, trámite, lugar de la Dex o estación; `idaYVuelta` si se vuelve.
+- **Mapa:** Leaflet con teselas de OSM y la atribución visible. **Rutas:** servidor público de BRouter (`brouter.de`)
+  con perfiles propios (`perfiles/*.brf`); la app agrega puntos intermedios para calzar la duración, evalúa y ordena.
+  Giros con `timode=2`. `profile:evitar_subidas=1`. Cada ruta guarda con qué se pidió (`peticion`): las favoritas
+  se piden otra vez con eso. Cada opción guarda su `destino` (plaza, trámite, Dex o estación) e `idaYVuelta`.
 - **Datos (`datos/`), generados con scripts y guardados en el repo** (la app nunca consulta Overpass en vivo):
   `node scripts/plazas.mjs` (plazas), `node scripts/lugares.mjs [interes|comercio|servicios|tramites|metro]`,
-  `node scripts/comunas.mjs` (contornos y cuadros de calles por comuna; tarda varios minutos) y, después de plazas y
-  lugares, `node scripts/contexto.mjs` (OSM, Wikidata y Wikipedia; descarta redirecciones y personas mal enlazadas).
+  `node scripts/comunas.mjs` (contornos y cuadros de calles por comuna; varios minutos). Después, para la Dex:
+  `contexto.mjs` (OSM, Wikidata, Wikipedia y Commons), `entorno.mjs` (OSM, altura de Open-Meteo, monumentos del CMN),
+  `especies.mjs` (iNaturalist, ~1 hora) y `menciones.mjs` (ver Decisiones). Comparten `scripts/comun.mjs`; los largos
+  guardan su avance en `scripts/.cache/` (no va al repo). Los textos de la ficha salen de `js/entorno.js`.
   `delitos.json` se copió a mano del CEAD (robos violentos 2025 por comuna). Lo grande se carga al usarse.
 - **Clima:** Open-Meteo (pronóstico por hora, puesta de sol y MP2,5 con categorías del Ministerio del Medio Ambiente).
 - **Otros servicios:** GBFS de Bike Itaú, Nominatim (una búsqueda por toque en "Buscar") y resumen de Wikipedia.
@@ -81,19 +77,21 @@ construida el 2026-11-01. Falta probar v1.1 a v1.6 en terreno.
 - BRouter público: CORS abierto, perfiles propios por `POST /brouter/profile`. No publica reglas de uso: pedir poco.
 - GBFS Bike Itaú: `https://santiago.publicbikesystem.net/customer/gbfs/v3.0/gbfs.json` (y Open-Meteo): CORS abierto.
 - 2026-10-30, desde OSM: 4.437 plazas, 1.479 lugares interesantes (101 cerros), 21.658 locales, 402 bebederos y
-  baños, 4.022 trámites y 126 estaciones de metro en 7 líneas (1-6 y 4A; la 7 y las extensiones proyectadas se
-  descartan). En Providencia-Ñuñoa solo el 31 % de las calles tiene dato de luz.
+  baños, 4.022 trámites, 126 estaciones (líneas 1-6 y 4A). En Providencia-Ñuñoa solo el 31 % de calles dice su luz.
+- CMN: capas públicas de contornos y de puntos (88 monumentos solo como punto); decretos escaneados, sin texto.
+  iNaturalist: `preferred_place_id=7182` da nombres de Chile; una consulta por segundo. Open-Meteo cuenta cada punto
+  de altura como una consulta (límite por hora). Commons: miniaturas solo en anchos fijos (330 sí, 320 no).
 - CEAD 2025: 922,9 robos violentos por 100 mil hab. en la RM. Metro: 6:00-23:00 según prensa (sin fuente oficial).
-- Alternativas si BRouter falla: OpenRouteService (pide clave) o GraphHopper (500 créditos al día).
+  Si BRouter falla: OpenRouteService (pide clave) o GraphHopper (500 créditos al día).
 
 ## Secretos
 No usa claves. Si algún día se agrega un servicio con clave, va en el navegador o en `.env`, nunca en el repo.
 
 ## Cómo probar y publicar
-- **Pruebas automáticas** (sin internet): `npm test`. Necesita Node.
-- **En el computador:** `python -m http.server 8765` y abrir `http://localhost:8765` (sin GPS: "Marcar en el mapa").
+- **Pruebas:** `npm test` (Node, sin internet). **En el computador:** `python -m http.server 8765` y abrir
+  `http://localhost:8765` (sin GPS: "Marcar en el mapa"; si un dato no se actualiza, recargar sin caché).
 - **En el celular:** `https://bastipanda.github.io/paseos/` ("Agregar a la pantalla de inicio" para abrirla como app).
-- **Publicar:** cada push a `main` lo publica GitHub Pages en uno o dos minutos.
+- **Publicar:** cada push a `main` lo publica GitHub Pages en uno o dos minutos (el celular guarda 10 min de caché).
 
 ## Convenciones
 - Costo cero (avisar antes de algo que cobre). Textos, comentarios y commits en español; commits chicos con el porqué.
@@ -114,7 +112,9 @@ No usa claves. Si algún día se agrega un servicio con clave, va en el navegado
 - **Santiagodex en vez de puntos o niveles:** conocer Santiago motiva más. Desde la v1.4, **capturar = tu foto**
   ("muy a lo Pokémon Go"); la app no revisa que la foto sea del lugar (queda a conciencia de Bastián).
 - **Contexto verificable, no "historia para todos"** (v1.6): la mayoría de las plazas no tiene historia escrita;
-  inventarla (o pedírsela a una IA) rompería "la app explica sin inventar". Tu nota llena lo que falta.
+  inventarla (o pedírsela a una IA) rompería "la app explica sin inventar". Tu nota llena lo que falta. En la v1.7
+  la IA solo **subraya**: Claude Code elige entre frases de Wikipedia y `menciones.mjs --verificar` revisa que estén
+  letra por letra (la app no usa IA).
 - **Recordatorios con el calendario del celular** (.ics), no notificaciones propias (necesitarían un servidor).
 - **v1.4 (2026-10-31): interfaz limpia.** Bastián se orienta mirando el mapa, no con la voz: voz apagada por defecto,
   sin modo bolsillo, el mapa nunca queda tapado sin forma de verlo entero y lo secundario va plegado.
