@@ -30,8 +30,18 @@ export const cargarTramites = () => cargar('tramites', leerTramites);
 export const cargarMetro = () => cargar('metro', leerMetro);
 export const cargarComunas = () => cargar('comunas', leerComunas);
 export const cargarDelitos = () => cargar('delitos', leerDelitos);
-// Contexto de cada lugar de la Santiagodex (scripts/contexto.mjs): { id_osm: { w, e, h, i, a, y, d, t } }.
+// Lo que se sabe de cada lugar de la Santiagodex, por id de OSM (cada archivo dice sus campos al principio):
+// contexto (scripts/contexto.mjs), entorno (entorno.mjs), especies (especies.mjs) y menciones (menciones.mjs).
+// Se cargan al abrir una ficha.
 export const cargarContexto = () => cargar('contexto', (json) => json.lugares);
+export const cargarEntorno = () =>
+  cargar('entorno', (json) => {
+    // Los monumentos vienen una sola vez en su lista; cada lugar trae sus posiciones.
+    for (const e of Object.values(json.lugares)) if (e.m) e.m = e.m.map((i) => json.monumentos[i]);
+    return json.lugares;
+  });
+export const cargarEspecies = () => cargar('especies', (json) => json.lugares);
+export const cargarMenciones = () => cargar('menciones', (json) => json.lugares);
 
 // La Santiagodex se arma una vez con las plazas, los lugares interesantes y (si cargan) las comunas y el contexto,
 // que suma artículos de Wikipedia que el mapa no enlazaba.

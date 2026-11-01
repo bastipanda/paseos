@@ -6,7 +6,21 @@
 import * as almacen from './almacen.js';
 import { escapar } from './mapa.js';
 import { $, mostrarEstado, formatearFecha } from './ui.js';
-import { cargarDex, cargarComunas, cargarContexto, cargarMetro } from './datos.js';
+import { cargarDex, cargarComunas, cargarContexto, cargarEntorno, cargarEspecies, cargarMenciones, cargarMetro } from './datos.js';
+import {
+  textoQueHay,
+  textoArboles,
+  textoEspecies,
+  enlaceINaturalist,
+  textoHorario,
+  textoObra,
+  textosMonumentos,
+  textoPersona,
+  textoCalles,
+  textoAltura,
+  textoReferencias,
+  PLAZA_DE_ARMAS,
+} from './entorno.js';
 import { TIPOS_DEX, numeroDex, estadoDe, avanceDex, insigniasDe, INSIGNIAS } from './dex.js';
 import { avancePorComuna } from './territorio.js';
 import { celdasDeRuta, limitesCelda } from './explorar.js';
@@ -140,7 +154,8 @@ export function iniciarDex({ mapa, margenes, verEnMapa, cerrarMapa, irACapturar 
   const iconoDe = (l, e) =>
     `<span class="icono-tipo${e === 'nuevo' || e === 'visto' ? ' silueta' : ''}">${ICONO_TIPO[l.tipo] || '⭐'}</span>${e === 'nuevo' ? '<span class="carta-incognita">?</span>' : ''}`;
 
-  // Pone tu foto (capturado) o la de Wikipedia (falta la foto) en `caja`. Devuelve qué foto quedó.
+  // Pone tu foto (capturado) o, mientras falta la tuya, la de Wikipedia o una de Commons que nombra el lugar
+  // (scripts/contexto.mjs) en `caja`. Devuelve qué foto quedó.
   async function ponerFoto(caja, l, e, tamano) {
     if (e === 'capturado') {
       const blob = await leerFoto(l.id).catch(() => null);
@@ -150,14 +165,20 @@ export function iniciarDex({ mapa, margenes, verEnMapa, cerrarMapa, irACapturar 
       caja.prepend(imagen(url));
       return { propia: true };
     }
-    if (e === 'falta' && l.wikipedia) {
+    if (e !== 'falta') return null;
+    if (l.wikipedia) {
       const w = await resumenWikipedia(l.wikipedia);
       const src = tamano === 'miniatura' ? w?.miniatura : w?.foto;
-      if (!src) return null;
-      caja.prepend(imagen(src));
-      return { wikipedia: src };
+      if (src) {
+        caja.prepend(imagen(src));
+        return { wikipedia: src };
+      }
     }
-    return null;
+    const commons = (await cargarContexto().catch(() => ({})))[l.id]?.f;
+    if (!commons) return null;
+    // La miniatura de la carta, más chica: Commons entrega algunos anchos fijos (330 sí, 320 no) cambiando el número.
+    caja.prepend(imagen(tamano === 'miniatura' ? commons.replace(/\/\d+px-/, '/330px-') : commons));
+    return { commons };
   }
 
   function imagen(src) {
@@ -221,14 +242,16 @@ export function iniciarDex({ mapa, margenes, verEnMapa, cerrarMapa, irACapturar 
         <p class="estado" id="estado-ficha" role="status"></p>
         ${e === 'capturado' || e === 'falta' ? '<button type="button" class="boton-texto peligro" data-accion="quitar">Quitar la captura</button>' : ''}
       </div>
-      <div class="ficha-contexto" hidden><h2>Contexto</h2><ul></ul></div>
-      <div class="ficha-historia" hidden><h2>Historia</h2><p></p></div>
-      <div class="ficha-nota"${visible ? '' : ' hidden'}>
-        <h2>Tu nota</h2>
+      <section class="ficha-grupo" data-grupo="hay" hidden><h2>Qué hay</h2><ul></ul></section>
+      <section class="ficha-grupo" data-grupo="historia" hidden><h2>Su historia</h2>
+        <div class="ficha-historia" hidden><p></p></div><ul></ul></section>
+      <section class="ficha-grupo" data-grupo="donde" hidden><h2>Dónde estás</h2><ul></ul></section>
+      <section class="ficha-grupo ficha-nota" data-grupo="tu"${visible ? '' : ' hidden'}>
+        <h2>Tú y este lugar</h2><ul></ul>
         <textarea rows="3" maxlength="2000" aria-label="Tu nota sobre este lugar"
-          placeholder="Lo que aprendiste o recuerdas de este lugar…">${escapar(estado.notas[l.id] || '')}</textarea>
-        <p class="ayuda">Se guarda sola en este celular y va en el respaldo.</p>
-      </div>`;
+          placeholder="Tu nota: lo que aprendiste o recuerdas de este lugar…">${escapar(estado.notas[l.id] || '')}</textarea>
+        <p class="ayuda">La nota se guarda sola en este celular y va en el respaldo.</p>
+      </section>`;
     const aviso = caja.querySelector('#estado-ficha');
     caja.querySelector('[data-accion="volver"]').addEventListener('click', () => cerrarFicha());
     caja.querySelector('[data-accion="ir"]')?.addEventListener('click', () => irACapturar(l, aviso));
@@ -273,48 +296,129 @@ export function iniciarDex({ mapa, margenes, verEnMapa, cerrarMapa, irACapturar 
     });
     const id = ++fichaActual;
     pintarFotoYHistoria(caja, l, e, visible, id);
-    pintarContexto(caja, l, visible, id);
+    pintarGrupos(caja, l, visible, id, estado);
   }
 
-  // Contexto: solo datos verificables (OpenStreetMap, Wikidata y la misma Santiagodex), nunca inventados. Sin el nombre
-  // a la vista no se muestra: delataría el lugar. Los lugares cercanos se cuentan sin nombrarlos, por lo mismo.
-  async function pintarContexto(caja, l, visible, id) {
+  const enlace = (url, texto) => (url ? ` <a href="${escapar(url)}" target="_blank" rel="noopener">${texto}</a>` : '');
+
+  function llenarGrupo(caja, grupo, items) {
+    if (!items.length) return;
+    const seccion = caja.querySelector(`[data-grupo="${grupo}"]`);
+    seccion.querySelector('ul').innerHTML = items.map((t) => `<li>${t}</li>`).join('');
+    seccion.hidden = false;
+  }
+
+  // Los grupos de la ficha ("Una razón para ir"): solo datos verificables (OpenStreetMap, Wikidata, Wikipedia,
+  // iNaturalist, el Consejo de Monumentos, Open-Meteo y la misma Santiagodex), nunca inventados; si un dato no está, la
+  // línea no aparece. Sin el nombre a la vista no se muestran: delatarían el lugar. Los lugares cercanos se cuentan sin
+  // nombrarlos, por lo mismo.
+  async function pintarGrupos(caja, l, visible, id, estado) {
     if (!visible) return;
-    const [contexto, metro] = await Promise.all([cargarContexto().catch(() => ({})), cargarMetro().catch(() => null)]);
+    const vacio = () => ({});
+    const [contexto, entorno, especies, menciones, metro] = await Promise.all([
+      cargarContexto().catch(vacio),
+      cargarEntorno().catch(vacio),
+      cargarEspecies().catch(vacio),
+      cargarMenciones().catch(vacio),
+      cargarMetro().catch(() => null),
+    ]);
     if (id !== fichaActual) return;
     const c = contexto[l.id] || {};
-    const items = [];
-    for (const [nombre, descripcion, articulo] of c.e || []) {
-      const enlace = enlaceWikipedia(articulo);
-      items.push(
-        `Lleva el nombre de <strong>${escapar(nombre)}</strong>${descripcion ? `: ${escapar(descripcion)}` : ''}.` +
-          (enlace ? ` <a href="${escapar(enlace)}" target="_blank" rel="noopener">Leer en Wikipedia</a>` : ''),
+    const en = entorno[l.id] || {};
+
+    // Qué hay: lo que se puede hacer o ver ahí.
+    const hay = [textoQueHay(en.h), textoArboles(en.r)].filter(Boolean).map(escapar);
+    const esp = textoEspecies(especies[l.id]);
+    if (esp) {
+      hay.push(
+        escapar(esp.titulo) +
+          esp.grupos.map((g) => `<span class="ficha-sub">${escapar(g)}.</span>`).join('') +
+          enlace(enlaceINaturalist(l), esp.hayMas ? 'Ver todas en iNaturalist' : 'Ver en iNaturalist'),
       );
     }
-    if (c.h) items.push(escapar(textoPatrimonio(c.h)));
-    if (c.t && !['historia', 'arte'].includes(l.tipo)) items.push(escapar(`${c.t}.`));
-    if (c.a) items.push(`Obra de ${escapar(c.a)}${c.y ? `, del año ${escapar(c.y)}` : ''}.`);
-    else if (c.y) items.push(`Del año ${escapar(c.y)}.`);
-    if (c.q) items.push(`Arquitectura de ${escapar(c.q)}.`);
-    if (c.i) items.push(`En su placa dice: «${escapar(c.i)}»`);
-    if (c.d) items.push(escapar(c.d));
-    if (l.tamano >= 60) items.push(`Mide unos ${formatearDistancia(Math.round(l.tamano / 10) * 10)} de punta a punta.`);
+    if (c.o) hay.push(escapar(textoHorario(c.o)));
+    llenarGrupo(caja, 'hay', hay);
+
+    // Su historia: monumento, obra, placa, nombres y lo que dice Wikipedia (el resumen llega aparte).
+    const historia = textosMonumentos(en.m, l.nombre).map((m) => escapar(m.texto) + enlace(m.enlace, 'Ver el decreto'));
+    if (c.h) historia.push(escapar(textoPatrimonio(c.h)));
+    if (c.t && !['historia', 'arte'].includes(l.tipo)) historia.push(escapar(`${c.t}.`));
+    const obra = textoObra(c);
+    if (obra) historia.push(escapar(obra));
+    if (c.q) historia.push(`Arquitectura de ${escapar(c.q)}.`);
+    if (c.i) historia.push(`En su placa dice: «${escapar(c.i)}»`);
+    if (c.d) historia.push(escapar(c.d));
+    if (c.v) historia.push(`Antes se llamaba ${escapar(c.v)}.`);
+    if (c.x) historia.push(`También se le conoce como ${escapar(c.x)}.`);
+    for (const [nombre, descripcion, articulo] of c.e || []) {
+      historia.push(`Lleva el nombre de <strong>${escapar(nombre)}</strong>${descripcion ? `: ${escapar(descripcion)}` : ''}.` + enlace(enlaceWikipedia(articulo), 'Leer en Wikipedia'));
+    }
+    if (!c.e && c.p) historia.push(escapar(textoPersona(c.p)) + enlace(enlaceWikipedia(`es:${c.p[0]}`), 'Leer en Wikipedia'));
+    if (menciones[l.id]) {
+      const [articulo, frase] = menciones[l.id];
+      historia.push(
+        `«${escapar(frase)}»<span class="ficha-sub">Lo nombra el artículo de Wikipedia «${escapar(articulo)}».` +
+          `${enlace(enlaceWikipedia(`es:${articulo}`), 'Leer')}</span>`,
+      );
+    }
+    llenarGrupo(caja, 'historia', historia);
+
+    // Dónde estás: para ubicarse (calles, barrio, altura, puntos de referencia) y lo que hay cerca.
+    const donde = [textoCalles(en.c)].filter(Boolean).map(escapar);
+    const [barrio, articuloBarrio] = en.b || [];
+    if (barrio) {
+      donde.push(
+        `Barrio cercano: ${escapar(barrio)}.` +
+          (articuloBarrio && articuloBarrio !== l.wikipedia
+            ? `<details class="ficha-plegable" data-articulo="${escapar(articuloBarrio)}"><summary>Sobre ${escapar(barrio)}</summary><p class="ficha-sub">Cargando…</p></details>`
+            : ''),
+      );
+    }
+    const esCumbre = l.tipo === 'cerro' && Number.isFinite(c.z);
+    const altura = textoAltura(esCumbre ? c.z : en.z, entorno[PLAZA_DE_ARMAS]?.z, esCumbre);
+    if (altura && l.id !== PLAZA_DE_ARMAS) donde.push(escapar(altura));
+    const referencias = textoReferencias(l.punto);
+    if (referencias) donde.push(escapar(referencias));
+    if (l.tamano >= 60) donde.push(`Mide unos ${formatearDistancia(Math.round(l.tamano / 10) * 10)} de punta a punta.`);
     const estacion = metro?.estaciones
       .map((m) => ({ m, d: distancia(m.punto, l.punto) }))
       .sort((a, b) => a.d - b.d)[0];
     if (estacion && estacion.d <= 1500) {
-      items.push(`Metro más cercano: ${escapar(nombreLugar(estacion.m))} (línea ${escapar(estacion.m.lineas.join(' y '))}), a ${formatearDistancia(estacion.d)}.`);
+      donde.push(`Metro más cercano: ${escapar(nombreLugar(estacion.m))} (línea ${escapar(estacion.m.lineas.join(' y '))}), a ${formatearDistancia(estacion.d)}.`);
     }
-    const estado = almacen.dex();
     const cerca = dex.filter((o) => o !== l && distancia(o.punto, l.punto) <= 300);
     if (cerca.length) {
       const faltan = cerca.filter((o) => estadoDe(o, estado) !== 'capturado').length;
-      items.push(`A menos de 300 m hay ${cerca.length === 1 ? 'otro lugar' : `${cerca.length} lugares más`} de la Dex` + (faltan ? ` (${faltan} sin capturar).` : '.'));
+      donde.push(`A menos de 300 m hay ${cerca.length === 1 ? 'otro lugar' : `${cerca.length} lugares más`} de la Dex` + (faltan ? ` (${faltan} sin capturar).` : '.'));
     }
-    if (!items.length) return;
-    const caja2 = caja.querySelector('.ficha-contexto');
-    caja2.querySelector('ul').innerHTML = items.map((t) => `<li>${t}</li>`).join('');
-    caja2.hidden = false;
+    llenarGrupo(caja, 'donde', donde);
+    // La historia del barrio se pide a Wikipedia solo si la abres (para no gastar datos).
+    caja.querySelector('.ficha-plegable')?.addEventListener('toggle', async function cargarBarrio(ev) {
+      const detalle = ev.currentTarget;
+      if (!detalle.open) return;
+      detalle.removeEventListener('toggle', cargarBarrio);
+      const w = await resumenWikipedia(detalle.dataset.articulo);
+      const p = detalle.querySelector('p');
+      // El mapa a veces enlaza el barrio a un artículo con otro nombre (Barrio Plaza Italia → Plaza Baquedano).
+      const otro = w?.titulo && normalizar(w.titulo).replace(/_/g, ' ') !== normalizar(barrio) ? `Del artículo de Wikipedia «${w.titulo.replace(/_/g, ' ')}»: ` : '';
+      p.textContent = w?.texto ? otro + w.texto : 'No se pudo cargar el resumen. Revisa la conexión.';
+      if (w?.enlace) p.insertAdjacentHTML('beforeend', enlace(w.enlace, 'Leer en Wikipedia'));
+    });
+
+    // Tú y este lugar: lo que viviste ahí, con las fechas que guarda la app.
+    llenarGrupo(caja, 'tu', lineasTuyas(l, estado).map(escapar));
+  }
+
+  function lineasTuyas(l, estado) {
+    const fecha = (iso) => formatearFecha(new Date(iso));
+    const c = estado.capturados[l.id];
+    const lineas = [];
+    if (estado.vistos[l.id]) lineas.push(`Lo viste por primera vez el ${fecha(estado.vistos[l.id])}.`);
+    if (c?.como === 'gps') lineas.push(`Llegaste caminando el ${fecha(c.fecha)}.`);
+    else if (c?.como === 'mano') lineas.push(`Lo marcaste como conocido el ${fecha(c.fecha)}.`);
+    if (c?.foto) lineas.push(`Tu foto es del ${fecha(c.foto)}.`);
+    if (!lineas.length) lineas.push('Todavía no pasas por aquí.');
+    return lineas;
   }
 
   // Foto grande (la tuya, o la de Wikipedia con su crédito mientras falta la tuya) y el resumen del artículo.
@@ -328,12 +432,13 @@ export function iniciarDex({ mapa, margenes, verEnMapa, cerrarMapa, irACapturar 
     if (foto?.propia) {
       credito.textContent = 'Tu foto.';
       credito.hidden = false;
-    } else if (foto?.wikipedia) {
-      credito.textContent = 'Foto de Wikipedia, mientras falta la tuya.';
+    } else if (foto?.wikipedia || foto?.commons) {
+      const de = foto.wikipedia ? 'Wikipedia' : 'Wikimedia Commons';
+      credito.textContent = `Foto de ${de}, mientras falta la tuya.`;
       credito.hidden = false;
-      const c = await creditoFoto(foto.wikipedia);
+      const c = await creditoFoto(foto.wikipedia || foto.commons);
       if (c && id === fichaActual) {
-        credito.innerHTML = `Foto de Wikipedia, mientras falta la tuya: ${escapar(c.autor)}${c.licencia ? `, ${escapar(c.licencia)}` : ''}. ` +
+        credito.innerHTML = `Foto de ${de}, mientras falta la tuya: ${escapar(c.autor)}${c.licencia ? `, ${escapar(c.licencia)}` : ''}. ` +
           `<a href="${escapar(c.enlace)}" target="_blank" rel="noopener">Ver la foto</a>`;
       }
     }
@@ -347,7 +452,7 @@ export function iniciarDex({ mapa, margenes, verEnMapa, cerrarMapa, irACapturar 
       const sobre = document.createElement('p');
       sobre.className = 'ayuda';
       sobre.textContent = `Del artículo de Wikipedia «${w.titulo.replace(/_/g, ' ')}».`;
-      historia.querySelector('h2').after(sobre);
+      historia.prepend(sobre);
     }
     if (w.enlace) {
       const a = document.createElement('a');
@@ -358,6 +463,7 @@ export function iniciarDex({ mapa, margenes, verEnMapa, cerrarMapa, irACapturar 
       historia.append(a);
     }
     historia.hidden = false;
+    historia.closest('.ficha-grupo').hidden = false;
   }
 
   // ---------- Regiones (comunas) con insignias ----------

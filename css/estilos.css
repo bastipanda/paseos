@@ -592,14 +592,20 @@ body.ubicarme .rosa { display: block; }
 .ficha-estado { font-weight: 700; margin: 4px 0 0; }
 .ficha-estado.capturado { color: var(--buena); }
 .ficha-estado.falta { color: var(--alerta-texto); background: var(--alerta-fondo); border-radius: 10px; padding: 8px 12px; }
-.ficha-historia { margin-top: 18px; }
+.ficha-historia { margin: 0 0 10px; }
 .ficha-historia p { font-size: 15px; line-height: 1.5; margin: 0 0 6px; }
+.ficha-historia p.ayuda { font-size: 13px; }
 .ficha-historia a { color: var(--acento); font-weight: 700; }
-.ficha-contexto { margin-top: 18px; }
-.ficha-contexto ul { margin: 0; padding-left: 20px; }
-.ficha-contexto li { font-size: 15px; line-height: 1.5; margin: 0 0 6px; }
-.ficha-contexto a { color: var(--acento); font-weight: 700; }
-.ficha-nota { margin-top: 18px; }
+/* Grupos de la ficha ("Una razón para ir"): Qué hay, Su historia, Dónde estás, Tú y este lugar. */
+.ficha-grupo { margin-top: 20px; }
+.ficha-grupo h2 { margin: 0 0 8px; }
+.ficha-grupo ul { margin: 0 0 8px; padding-left: 20px; }
+.ficha-grupo li { font-size: 15px; line-height: 1.5; margin: 0 0 6px; }
+.ficha-grupo a { color: var(--acento); font-weight: 700; }
+.ficha-sub { display: block; font-size: 14px; color: var(--texto-suave); }
+.ficha-plegable { margin-top: 4px; }
+.ficha-plegable summary { color: var(--acento); font-weight: 700; cursor: pointer; }
+.ficha-plegable p { margin: 6px 0 0; line-height: 1.5; }
 .ficha-nota textarea {
   width: 100%; box-sizing: border-box; font: inherit; font-size: 16px; padding: 10px 12px; resize: vertical;
   border: 1px solid var(--borde); border-radius: 12px; background: var(--fondo-suave); color: var(--texto);
