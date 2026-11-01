@@ -7,7 +7,8 @@ Meta de fondo (2026-10-30): caminar más para bajar de peso y dejar el sedentari
 ## Estado
 v1 y v1.1 publicadas el 2026-10-27; v1.2 el 2026-10-30. v1.3 ("salir más y conocer Santiago") construida el
 2026-10-30. v1.4 ("interfaz limpia": pestañas, pantallas con mapa y Dex como álbum con foto propia) publicada el
-2026-10-31; v1.5 (Buscar más y Mis barrios) construida el mismo día. Falta probar v1.1 a v1.5 en terreno.
+2026-10-31, igual que la v1.5 (Buscar más y Mis barrios). v1.6 (contexto de la Dex y aprender a ubicarse)
+construida el 2026-11-01. Falta probar v1.1 a v1.6 en terreno.
 
 ## Qué hace
 - **Barra de pestañas abajo:** Hoy, Armar, Dex y Más (Historial, Lugares, Respaldo, Ajustes y créditos).
@@ -26,14 +27,17 @@ v1 y v1.1 publicadas el 2026-10-27; v1.2 el 2026-10-30. v1.3 ("salir más y cono
 - **Seguimiento:** franja arriba con flecha y próxima indicación; abajo una barra delgada con lo que falta que abre
   un menú: ritmo, **Llévame al metro**, intervalos 3+3 (avisan con el color de la barra), metrónomo y voz (apagada
   por defecto). "Seguirme" aparece si mueves el mapa. Capturas de la Dex en vivo. La pantalla no se apaga.
+- **Aprender a ubicarme** (Ajustes, prendido): rosa de los vientos bajo el zoom (en el paseo, bajo la franja) con la
+  cordillera al oriente, y el punto cardinal bajo cada giro ("Hacia el oriente (la cordillera al frente)").
 - **Al terminar:** se guarda solo en el historial; resumen con la semana y lo capturado; postal para compartir.
 - **Historial:** paseos con gráfico de 8 semanas; también paseos agregados a mano.
 - **Dex (Santiagodex):** álbum de 3.236 cartas numeradas desde Plaza Baquedano, un color por tipo, con buscador.
   "Visto" si pasas a <150 m; "falta la foto" si llegas (≤40 m, o un tercio del tamaño de un parque, máx. 200 m);
   **capturado solo con tu foto** (cámara o galería, también sin paseo). Lo no visto es silueta con "?" (nombres en
-  Ajustes). Ficha a pantalla completa con foto (la tuya o la de Wikipedia con su crédito) e historia. Comunas como
-  regiones con insignias al 25, 50 y 100 %. **Tu mapa:** lo caminado y el % de calles de cada comuna.
-- **Ajustes:** meta semanal, paso, velocidad, peso, paso enérgico, metrónomo, mis barrios y evento semanal (.ics).
+  Ajustes). Ficha a pantalla completa con foto (la tuya o la de Wikipedia con su crédito), **Contexto** (placa,
+  artista, año de la obra, a quién homenajea, metro cercano, lugares a 300 m), historia de Wikipedia y **Tu nota**.
+  Comunas como regiones con insignias al 25, 50 y 100 %. **Tu mapa:** lo caminado y el % de calles de cada comuna.
+- **Ajustes:** meta, paso, velocidad, peso, paso enérgico, metrónomo, ubicarme, mis barrios y evento semanal (.ics).
 
 ## Definiciones
 - **"Tranquila" para Bastián:** caminar sin miedo a que le roben; a veces eso es con gente e iluminado. Por eso hay
@@ -63,25 +67,23 @@ v1 y v1.1 publicadas el 2026-10-27; v1.2 el 2026-10-30. v1.3 ("salir más y cono
 - **Destino de una opción:** `destino` = plaza, trámite, lugar de la Dex o estación; `idaYVuelta` si se vuelve.
 - **Datos (`datos/`), generados con scripts y guardados en el repo** (la app nunca consulta Overpass en vivo):
   `node scripts/plazas.mjs` (plazas), `node scripts/lugares.mjs [interes|comercio|servicios|tramites|metro]`,
-  `node scripts/comunas.mjs` (contornos y cuadros de calles por comuna; tarda varios minutos). `delitos.json` se
-  copió a mano del portal del CEAD (robos violentos 2025 por comuna; no hay descarga abierta).
-  Los archivos grandes se cargan solo cuando se usan (`js/datos.js`).
+  `node scripts/comunas.mjs` (contornos y cuadros de calles por comuna; tarda varios minutos) y, después de plazas y
+  lugares, `node scripts/contexto.mjs` (OSM, Wikidata y Wikipedia; descarta redirecciones y personas mal enlazadas).
+  `delitos.json` se copió a mano del CEAD (robos violentos 2025 por comuna). Lo grande se carga al usarse.
 - **Clima:** Open-Meteo (pronóstico por hora, puesta de sol y MP2,5 con categorías del Ministerio del Medio Ambiente).
 - **Otros servicios:** GBFS de Bike Itaú, Nominatim (una búsqueda por toque en "Buscar") y resumen de Wikipedia.
 - **Datos del usuario** (`localStorage`, nunca al repo): lugares, ajustes, formulario, conocidas, historial, metas,
-  favoritas, Dex y paseo en curso (para no perderlo si se cierra el navegador). Las fotos de la Dex van en
+  favoritas, Dex con tus notas y paseo en curso (para no perderlo si se cierra el navegador). Las fotos de la Dex en
   IndexedDB (`js/fotos.js`, achicadas a ~40 KB). Respaldo JSON versión 4, con las fotos como texto.
 - **Publicación:** GitHub Pages desde el repo público (el GPS exige HTTPS).
 
 ## Hechos verificados
 - BRouter público: CORS abierto, perfiles propios por `POST /brouter/profile`. No publica reglas de uso: pedir poco.
-- GBFS Bike Itaú: `https://santiago.publicbikesystem.net/customer/gbfs/v3.0/gbfs.json` (CORS abierto).
-- GitHub Pages gratis solo publica repos públicos. Open-Meteo responde con CORS abierto.
+- GBFS Bike Itaú: `https://santiago.publicbikesystem.net/customer/gbfs/v3.0/gbfs.json` (y Open-Meteo): CORS abierto.
 - 2026-10-30, desde OSM: 4.437 plazas, 1.479 lugares interesantes (101 cerros), 21.658 locales, 402 bebederos y
   baños, 4.022 trámites y 126 estaciones de metro en 7 líneas (1-6 y 4A; la 7 y las extensiones proyectadas se
   descartan). En Providencia-Ñuñoa solo el 31 % de las calles tiene dato de luz.
-- CEAD 2025: robos violentos 922,9 por 100 mil habitantes en la Región Metropolitana.
-- Horario del metro: la prensa dice 6:00-23:00 en días hábiles, pero no se encontró la fuente oficial.
+- CEAD 2025: 922,9 robos violentos por 100 mil hab. en la RM. Metro: 6:00-23:00 según prensa (sin fuente oficial).
 - Alternativas si BRouter falla: OpenRouteService (pide clave) o GraphHopper (500 créditos al día).
 
 ## Secretos
@@ -89,24 +91,20 @@ No usa claves. Si algún día se agrega un servicio con clave, va en el navegado
 
 ## Cómo probar y publicar
 - **Pruebas automáticas** (sin internet): `npm test`. Necesita Node.
-- **En el computador:** `python -m http.server 8765` en la carpeta y abrir `http://localhost:8765`. Sin GPS, usar
-  "Marcar en el mapa".
+- **En el computador:** `python -m http.server 8765` y abrir `http://localhost:8765` (sin GPS: "Marcar en el mapa").
 - **En el celular:** `https://bastipanda.github.io/paseos/` ("Agregar a la pantalla de inicio" para abrirla como app).
 - **Publicar:** cada push a `main` lo publica GitHub Pages en uno o dos minutos.
 
 ## Convenciones
-- Costo cero. Avisar antes de cualquier cosa que pueda cobrar.
-- Textos, comentarios y commits en español. Commits chicos que expliquen el porqué.
+- Costo cero (avisar antes de algo que cobre). Textos, comentarios y commits en español; commits chicos con el porqué.
 - Antes de cada push: resumen en simple y esperar el OK de Bastián.
 
 ## Decisiones tomadas
-- **Uso propio, no comercial.** Lo propio son los ajustes a medida.
+- **Uso propio, no comercial** (lo propio son los ajustes a medida). **Repo público** (lo exige Pages): nada privado.
 - **Celular mientras camina** → web app con GPS en vivo. **BRouter** en vez de OpenRouteService (sin cuenta ni clave).
 - **Nada fijo:** partida, término, duración y modo se eligen en cada paseo; los lugares guardados son atajos.
-- **Repo público** (lo exige Pages gratis). Nada privado va al repo.
 - **La app explica, no solo puntúa**, sin inventar lo que los datos no dicen.
 - **Navegación propia + GPX, sin Google Maps** (recalcula su propio camino; Bastián prefiere apps abiertas).
-- **Datos guardados, no Overpass en vivo** (se cae seguido).
 - **Estilos en vez de una sola "tranquila"**, y **explorar se marca a mano** (las búsquedas no cuentan).
 - **v1.3 (2026-10-30):** la meta es semanal y en minutos (las rachas diarias se cortan y desaniman); Hoy es la
   pantalla de inicio para salir en un toque; el historial es un dato que no se regenera (va en el respaldo).
@@ -115,6 +113,8 @@ No usa claves. Si algún día se agrega un servicio con clave, va en el navegado
   Bastián elige sus comunas, sin datos de ingreso que etiqueten barrios.
 - **Santiagodex en vez de puntos o niveles:** conocer Santiago motiva más. Desde la v1.4, **capturar = tu foto**
   ("muy a lo Pokémon Go"); la app no revisa que la foto sea del lugar (queda a conciencia de Bastián).
+- **Contexto verificable, no "historia para todos"** (v1.6): la mayoría de las plazas no tiene historia escrita;
+  inventarla (o pedírsela a una IA) rompería "la app explica sin inventar". Tu nota llena lo que falta.
 - **Recordatorios con el calendario del celular** (.ics), no notificaciones propias (necesitarían un servidor).
 - **v1.4 (2026-10-31): interfaz limpia.** Bastián se orienta mirando el mapa, no con la voz: voz apagada por defecto,
   sin modo bolsillo, el mapa nunca queda tapado sin forma de verlo entero y lo secundario va plegado.

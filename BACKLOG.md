@@ -1,6 +1,25 @@
 # Backlog — Paseos
 
 ## Pendiente acordado
+- **Probar en terreno la v1.6 "Conocer y ubicarse"** (pedida, decidida y construida el 2026-11-01): la rosa y el
+  punto cardinal al caminar, el Contexto y Tu nota en fichas de distintos tipos. Lo que dio la medición
+  (`node scripts/contexto.mjs`): historia de Wikipedia de 264 a 413 lugares (77 por Wikidata, 35 por mismo nombre,
+  37 por nombre parecido; 22 enlaces de Wikidata descartados por apuntar a personas); placa en 102, obra y año en
+  202, descripción en 91; "Lleva el nombre de…" en solo 1 (OSM casi no lo anota) y patrimonio en 0 (la etiqueta no
+  se usa acá). Todas las fichas visibles muestran metro cercano y lugares de la Dex a 300 m.
+  - **Contexto para todos los lugares de la Dex.** Bastián quería historia para todos, pero solo 265 de 3.236
+    (8 %) tienen artículo de Wikipedia y la mayoría son plazas de barrio sin historia escrita: prometerla para todos
+    obligaría a inventar. En su lugar, una sección "Contexto" en capas, solo con datos verificables: (1) para todos,
+    tipo, comuna, tamaño y qué hay cerca; si OSM lo trae, monumento nacional, placa, artista o año; (2) "Lleva el
+    nombre de…" solo si OSM dice a quién homenajea (no adivinar: hay homónimos); (3) más artículos de Wikipedia
+    buscados por ubicación y nombre con un script; (4) **Tu nota** propia en cada ficha (va en el respaldo).
+    Primero se mide cuánto se gana con 2 y 3. Descartado: que Claude o una IA escriba las historias (inventaría en
+    lugares poco conocidos; la IA en la app además cuesta).
+  - **Aprender a ubicarse** (interruptor en Ajustes): rosa de los vientos chica en el mapa con "⛰ Cordillera" al
+    oriente (la regla de Santiago: la cordillera siempre al oriente) y el punto cardinal bajo cada indicación del
+    paseo ("hacia el oriente"). Descartado: girar el mapa con la brújula del celular (permiso especial en iPhone y
+    cambia todo el mapa). Para después, si hace falta: "Sales hacia el norte…" en Resultados y la dirección de la
+    Gran Torre o el San Cristóbal.
 - **Probar en terreno la v1.5 "Más opciones y Mis barrios"** (pedida, decidida y construida el 2026-10-31).
   Bastián se queda corto de opciones y quiere pasear hacia los sectores donde se siente cómodo ("cuicos"), no hacia
   el otro lado. Probar: elegir comunas en Ajustes, "Solo por mis barrios" con Salir ahora y con una plaza, el % por
@@ -62,6 +81,9 @@
   (43 comunas, ~230 mil cuadros con calles; Overpass falló en varios pedazos y el script reintentó solo).
 
 ## Por verificar
+- **v1.6:** si "Hacia el oriente (la cordillera al frente)" se lee de un vistazo al caminar o conviene más corto; si la
+  rosa estorba en la esquina del mapa; si las historias por "nombre parecido" calzan (la ficha dice de qué artículo
+  vienen); si vale la pena completar a mano en OSM a quién homenajean las plazas (name:etymology:wikidata).
 - **v1.5:** si "Más ›" entrega opciones que se sienten distintas (y no la misma vuelta movida unas cuadras); si con
   "Solo por mis barrios" quedan suficientes opciones al partir cerca del borde de una comuna; si las comunas son un
   límite útil o hace falta dibujar zonas propias en el mapa.
