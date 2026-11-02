@@ -2,15 +2,17 @@
 
 import { categoria } from './tranquilidad.js';
 import { describirTramo } from './explicar.js';
-import { nombreLugar, tipoLugar, ICONO_TIPO } from './plazas.js';
+import { nombreLugar, tipoLugar } from './plazas.js';
+import { icono as iconoSvg, iconoLugar } from './iconos.js';
+import { TINTAS } from './timbres.js';
 
 export const COLORES = { buena: '#1a9850', media: '#e0a100', mala: '#d73027' };
 const CENTRO_SANTIAGO = [-33.4372, -70.6106];
 
-const icono = (clase, texto = '', tamano = 30) =>
+const icono = (clase, texto = '', tamano = 30, tipo = '') =>
   L.divIcon({
     className: '',
-    html: `<div class="marcador ${clase}">${texto}</div>`,
+    html: `<div class="marcador ${clase}"${tipo ? ` data-tipo="${escapar(tipo)}"` : ''}>${texto}</div>`,
     iconSize: [tamano, tamano],
     iconAnchor: [tamano / 2, tamano / 2],
   });
@@ -97,17 +99,17 @@ export class Mapa {
         .addTo(this.capaRuta);
     }
     for (const s of extras.servicios || []) {
-      L.marker(s.punto, { icon: icono('servicio', s.tipo === 'agua' ? '💧' : '🚻', 22) })
+      L.marker(s.punto, { icon: icono('servicio', s.tipo === 'agua' ? '<svg class="ico" viewBox="0 0 24 24"><path d="M12 3.5c3 4 5.5 7.2 5.5 10.2a5.5 5.5 0 0 1-11 0C6.5 10.7 9 7.5 12 3.5z" fill="currentColor"/></svg>' : 'WC', 22) })
         .bindTooltip(escapar(s.nombre || nombreLugar(s)))
         .addTo(this.capaRuta);
     }
     if (destino && !opcion.misterio) {
-      L.marker(destino.punto, { icon: icono('plaza', ICONO_TIPO[destino.tipo] || '📍'), zIndexOffset: 500 })
+      L.marker(destino.punto, { icon: icono('plaza', iconoLugar(destino.tipo), 30, destino.tipo), zIndexOffset: 500 })
         .bindPopup(`<strong>${escapar(nombreLugar(destino))}</strong><br>Destino del paseo (${tipoLugar(destino)})`)
         .addTo(this.capaRuta);
     }
     for (const e of [opcion.estacionSalida, opcion.estacionLlegada].filter(Boolean)) {
-      L.marker(e.punto, { icon: icono('estacion', '🚲') })
+      L.marker(e.punto, { icon: icono('estacion', iconoSvg('bici')) })
         .bindPopup(`<strong>${escapar(e.nombre)}</strong><br>${e.bicis} bicis · ${e.anclajes} anclajes libres`)
         .addTo(this.capaRuta);
     }
@@ -156,16 +158,17 @@ export class Mapa {
     this.capaRecorridos = null;
   }
 
-  // Lugares de la Santiagodex como puntos: verde capturado, azul falta la foto, amarillo visto, gris por encontrar.
+  // Lugares del Pasaporte como puntos: timbrado con la tinta de su tipo, naranjo si falta tu foto, gris si lo viste y
+  // gris claro si falta encontrarlo (el color lo ponen tus timbres).
   // `lugares` es [{ lugar, estado }]; `alTocar(lugar)` se llama al tocar uno. Con `margenes`, encuadra los puntos.
   mostrarDex(lugares, alTocar, margenes = null) {
     this.ocultarDex();
     const renderer = this.rendererCanvas || (this.rendererCanvas = L.canvas({ padding: 0.3 }));
-    const colores = { capturado: '#1a9850', falta: '#1e88e5', visto: '#e0a100', nuevo: '#78909c' };
+    const colores = { falta: '#d9822b', visto: '#8a867c', nuevo: '#bdb8ad' };
     this.capaDex = L.layerGroup().addTo(this.mapa);
     const limites = L.latLngBounds([]);
     for (const { lugar, estado, nombre } of lugares) {
-      L.circleMarker(lugar.punto, { renderer, radius: estado === 'capturado' ? 7 : 5, color: '#fff', weight: 1.5, fillColor: colores[estado], fillOpacity: 0.95 })
+      L.circleMarker(lugar.punto, { renderer, radius: estado === 'capturado' ? 7 : 5, color: '#fff', weight: 1.5, fillColor: estado === 'capturado' ? TINTAS[lugar.tipo] || '#151515' : colores[estado], fillOpacity: 0.95 })
         .bindTooltip(escapar(nombre ?? lugar.nombre))
         .on('click', () => alTocar(lugar))
         .addTo(this.capaDex);
@@ -179,9 +182,9 @@ export class Mapa {
     this.capaDex = null;
   }
 
-  // Un destino suelto (para revelar el destino de un paseo sorpresa).
+  // Un destino suelto (para revelar el destino sellado de un paseo).
   mostrarDestino(lugar) {
-    L.marker(lugar.punto, { icon: icono('plaza', ICONO_TIPO[lugar.tipo] || '📍'), zIndexOffset: 500 })
+    L.marker(lugar.punto, { icon: icono('plaza', iconoLugar(lugar.tipo), 30, lugar.tipo), zIndexOffset: 500 })
       .bindPopup(`<strong>${escapar(nombreLugar(lugar))}</strong>`)
       .addTo(this.capaRuta);
   }

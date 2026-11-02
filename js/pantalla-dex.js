@@ -1,7 +1,9 @@
-// Pantalla "Santiagodex": un álbum de cartas (un color por tipo), la ficha de cada lugar a pantalla completa, las
-// regiones (comunas) con sus insignias y "Tu mapa de Santiago".
-// Cartas: capturado = tu foto; falta la foto = la de Wikipedia mientras tanto (si el artículo tiene); visto = silueta
-// con el nombre; por encontrar = silueta con "?" y sin nombre (salvo que lo pidas en Ajustes o lo busques).
+// Pantalla "Pasaporte" (antes Santiagodex): las páginas con tus timbres, la ficha de cada lugar a pantalla completa,
+// los visados de cada comuna y "Tu mapa de Santiago".
+// Cada lugar: timbrado = tu foto como polaroid con el timbre (la forma de su tipo) encima de la esquina; falta tu foto
+// = la polaroid vacía y el timbre punteado esperando; visto y por encontrar = la silueta punteada del timbre con su
+// número (lo no visto, sin nombre, salvo que lo pidas en Ajustes o lo busques). En el código sigue llamándose "dex":
+// así no cambian los datos guardados ni el respaldo.
 
 import * as almacen from './almacen.js';
 import { escapar } from './mapa.js';
@@ -21,23 +23,27 @@ import {
   textoReferencias,
   PLAZA_DE_ARMAS,
 } from './entorno.js';
-import { TIPOS_DEX, numeroDex, estadoDe, avanceDex, insigniasDe, INSIGNIAS } from './dex.js';
+import { TIPOS_DEX, numeroDex, estadoDe, avanceDex, insigniasDe, INSIGNIAS, siguienteVisado, esConmemorativo } from './dex.js';
 import { avancePorComuna } from './territorio.js';
 import { celdasDeRuta, limitesCelda } from './explorar.js';
-import { ICONO_TIPO, tipoLugar, nombreLugar } from './plazas.js';
+import { tipoLugar, nombreLugar } from './plazas.js';
 import { distancia } from './geo.js';
 import { formatearDistancia } from './duracion.js';
 import { ubicacionActual } from './seguimiento.js';
 import { leerFoto, borrarFoto } from './fotos.js';
 import { resumenWikipedia, creditoFoto, enlaceWikipedia } from './wikipedia.js';
 import { pedirFoto } from './captura.js';
+import { timbreSVG, iconoTipo } from './timbres.js';
+import { icono } from './iconos.js';
+import { mostrarTimbrado } from './timbrado.js';
 
 const POR_PAGINA = 30;
 const REGIONES_A_LA_VISTA = 8;
-const MEDALLA = { 25: '🥉', 50: '🥈', 100: '🥇' };
 const mayuscula = (t) => t.charAt(0).toUpperCase() + t.slice(1);
 // Para buscar sin importar tildes ni mayúsculas.
 const normalizar = (t) => (t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+const fechaPie = new Intl.DateTimeFormat('es-CL', { day: 'numeric', month: 'short', year: 'numeric' });
+const fechaMini = new Intl.DateTimeFormat('es-CL', { day: 'numeric', month: 'short' });
 
 // Patrimonio según las etiquetas de OSM (`heritage` y su operador). Se dice de dónde viene: el mapa puede estar
 // desactualizado.
@@ -47,8 +53,23 @@ function textoPatrimonio([nivel, operador]) {
   return 'Marcado como patrimonio protegido en OpenStreetMap.';
 }
 
+// Polaroid: con tu foto (se pone después), vacía esperando la foto ("falta tu foto") o punteada (todavía no llegas).
+const polaroid = (pie) => `<span class="pol"><span class="pol-foto"></span><span class="pol-pie">${escapar(pie)}</span></span>`;
+const polaroidVacia = (texto, pie, esperando = false) =>
+  `<span class="pol vacia${esperando ? ' esperando' : ''}"><span class="pol-foto">${icono('camara')}${escapar(texto)}</span><span class="pol-pie">${escapar(pie)}</span></span>`;
+
+// Al pie de la polaroid: tu nota (la primera línea) o la fecha de la foto.
+function pieDe(l, estado) {
+  const nota = (estado.notas[l.id] || '').split('\n')[0].trim();
+  if (nota) return nota;
+  const c = estado.capturados[l.id];
+  return c?.foto ? fechaPie.format(new Date(c.foto)) : '';
+}
+
 export function iniciarDex({ mapa, margenes, verEnMapa, cerrarMapa, irACapturar }) {
   let dex = [];
+  let entorno = null;
+  let comunas = [];
   let pagina = 1;
   let origen = null;
   let todasLasRegiones = false;
@@ -69,8 +90,13 @@ export function iniciarDex({ mapa, margenes, verEnMapa, cerrarMapa, irACapturar 
     try {
       dex = await cargarDex();
     } catch (err) {
-      mostrarEstado($('#dex-resumen'), 'No se pudo cargar la Santiagodex. Revisa la conexión.', true);
+      mostrarEstado($('#dex-resumen'), 'No se pudo cargar el Pasaporte. Revisa la conexión.', true);
       return;
+    }
+    // Para los timbres conmemorativos. Si tarda, las páginas se muestran igual y lo usan cuando llegue.
+    if (!entorno) {
+      entorno = await Promise.race([cargarEntorno().catch(() => null), new Promise((r) => setTimeout(() => r(null), 1500))]);
+      if (!entorno) cargarEntorno().then((e) => (entorno = e)).catch(() => {});
     }
     llenarFiltros();
     pagina = 1;
@@ -82,11 +108,11 @@ export function iniciarDex({ mapa, margenes, verEnMapa, cerrarMapa, irACapturar 
   function llenarFiltros() {
     const tipo = $('#dex-tipo');
     if (!tipo.options.length) {
-      tipo.innerHTML = '<option value="">Todos los tipos</option>' + TIPOS_DEX.map((t) => `<option value="${t}">${ICONO_TIPO[t]} ${mayuscula(tipoLugar({ tipo: t }))}</option>`).join('');
+      tipo.innerHTML = '<option value="">Todos los tipos</option>' + TIPOS_DEX.map((t) => `<option value="${t}">${mayuscula(tipoLugar({ tipo: t }))}</option>`).join('');
     }
     const comuna = $('#dex-comuna');
     if (!comuna.options.length) {
-      const comunas = [...new Set(dex.map((l) => l.comuna).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+      comunas = [...new Set(dex.map((l) => l.comuna).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
       comuna.innerHTML = '<option value="">Todas las comunas</option>' + comunas.map((c) => `<option>${escapar(c)}</option>`).join('');
       comuna.hidden = !comunas.length;
     }
@@ -116,81 +142,110 @@ export function iniciarDex({ mapa, margenes, verEnMapa, cerrarMapa, irACapturar 
   // Los nombres de lo que no has visto se esconden, salvo que lo pidas en Ajustes o estés buscando por nombre.
   const nombreVisible = (e) => e !== 'nuevo' || almacen.ajustes().verNombresDex || Boolean(buscando());
 
+  // La cabecera: el pasaporte entero o la página de una comuna, con sus visados y cuánto falta para el siguiente.
+  function pintarCabecera(estado) {
+    const comuna = $('#dex-comuna').value;
+    const base = comuna ? dex.filter((l) => l.comuna === comuna) : dex;
+    const a = avanceDex(base, estado);
+    $('#dex-titulo').textContent = comuna || 'Santiago';
+    $('#dex-rotulo').textContent = comuna ? `Pasaporte · pág. ${comunas.indexOf(comuna) + 1} de ${comunas.length}` : 'Pasaporte';
+    $('#dex-marcapaginas').hidden = !comuna;
+    $('#dex-resumen').textContent =
+      `${a.capturados.toLocaleString('es-CL')} de ${a.total.toLocaleString('es-CL')} timbrados` +
+      (a.faltaFoto ? ` · ${a.faltaFoto} sin foto` : '') +
+      (a.vistos ? ` · ${a.vistos} vistos` : '');
+    const fraccion = a.total ? a.capturados / a.total : 0;
+    const barra = $('#dex-visados');
+    barra.querySelectorAll('i').forEach((i) => i.remove());
+    $('#dex-barra').style.width = `${a.capturados ? Math.max(0.6, fraccion * 100) : 0}%`;
+    if (comuna) {
+      const ganados = insigniasDe(fraccion);
+      for (const p of INSIGNIAS.slice(0, -1)) barra.insertAdjacentHTML('beforeend', `<i class="${ganados.includes(p) ? 'ganado' : ''}" style="left:${p}%"></i>`);
+      const s = siguienteVisado(a.capturados, a.total);
+      const listos = ganados.length ? `Visado del ${ganados[ganados.length - 1]} % listo. ` : '';
+      $('#dex-siguiente').textContent = s
+        ? `${listos}Te ${s.faltan === 1 ? 'falta 1 timbre' : `faltan ${s.faltan} timbres`} para el del ${s.porcentaje} %.`
+        : '¡Página completa: tienes los tres visados!';
+    } else {
+      $('#dex-siguiente').textContent = 'Elige una comuna para abrir su página y ver sus visados.';
+    }
+  }
+
   function pintar() {
     const estado = almacen.dex();
-    const avance = avanceDex(dex, estado);
-    $('#dex-resumen').textContent =
-      `Capturados: ${avance.capturados} de ${avance.total.toLocaleString('es-CL')}` +
-      (avance.faltaFoto ? ` · sin foto: ${avance.faltaFoto}` : '') +
-      ` · vistos: ${avance.vistos}.`;
-    $('#dex-barra').style.width = `${avance.total ? Math.max(0.5, (avance.capturados / avance.total) * 100) : 0}%`;
+    pintarCabecera(estado);
     for (const u of urls) URL.revokeObjectURL(u);
     urls = [];
     const { lista } = filtrados();
     const caja = $('#dex-cartas');
     caja.innerHTML = '';
-    for (const l of lista.slice(0, pagina * POR_PAGINA)) caja.append(carta(l, estadoDe(l, estado)));
+    for (const l of lista.slice(0, pagina * POR_PAGINA)) caja.append(carta(l, estadoDe(l, estado), estado));
     if (!lista.length) caja.innerHTML = '<p class="ayuda">No hay lugares con ese filtro.</p>';
     $('#dex-mas').hidden = lista.length <= pagina * POR_PAGINA;
   }
 
-  function carta(l, e) {
+  // Una casilla de la página.
+  function carta(l, e, estado) {
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = `carta ${e}`;
+    b.className = `celda ${e}`;
     b.dataset.tipo = l.tipo;
-    const lejos = origen ? ` · ${formatearDistancia(distancia(origen, l.punto))}` : '';
-    const marca = e === 'falta' ? '<span class="carta-marca">📷 sin foto</span>' : e === 'visto' ? '<span class="carta-marca">👁 visto</span>' : '';
-    b.innerHTML = `<span class="carta-foto">${iconoDe(l, e)}${marca}</span>
-      <span class="carta-num">${numeroDex(l.numero)}</span>
-      <span class="carta-nombre">${nombreVisible(e) ? escapar(l.nombre) : '???'}</span>
-      <span class="carta-pie">${escapar(mayuscula(tipoLugar(l)))}${lejos}</span>`;
+    const visible = nombreVisible(e);
+    const conmemorativo = visible && esConmemorativo(l, entorno);
+    const c = estado.capturados[l.id];
+    let marco;
+    let estadoCorto;
+    if (e === 'capturado') {
+      marco = polaroid(pieDe(l, estado)) + timbreSVG(l.tipo, { numero: l.numero, conmemorativo, clase: 'esquina' });
+      estadoCorto = fechaMini.format(new Date(c.foto)).replace('.', '');
+    } else if (e === 'falta') {
+      marco = polaroidVacia('Falta tu foto', c.como === 'mano' ? 'Ya lo conocías' : `Llegaste el ${fechaMini.format(new Date(c.fecha)).replace('.', '')}`) +
+        timbreSVG(l.tipo, { modo: 'pendiente', clase: 'esquina' });
+      estadoCorto = 'sin foto';
+    } else {
+      marco = timbreSVG(l.tipo, { numero: l.numero, modo: 'punteado', conmemorativo });
+      estadoCorto = e === 'visto' ? 'visto' : tipoLugar(l);
+    }
+    const lejos = origen ? formatearDistancia(distancia(origen, l.punto)) : '';
+    b.innerHTML = `<span class="celda-marco">${marco}</span>
+      <span class="celda-nombre">${visible ? escapar(l.nombre) : '?'}</span>
+      <span class="celda-pie">${[numeroDex(l.numero), estadoCorto, lejos].filter(Boolean).map(escapar).join(' · ')}</span>`;
+    b.setAttribute('aria-label', `${numeroDex(l.numero)} ${visible ? l.nombre : 'por encontrar'}: ${e === 'capturado' ? 'timbrado' : estadoCorto}`);
     b.addEventListener('click', () => abrirFicha(l));
-    ponerFoto(b.querySelector('.carta-foto'), l, e, 'miniatura');
+    if (e === 'capturado') ponerFotoPropia(b.querySelector('.pol-foto'), l);
     return b;
   }
 
-  // Ícono del tipo: a color si ya llegaste; si no, silueta (y "?" si no lo has visto).
-  const iconoDe = (l, e) =>
-    `<span class="icono-tipo${e === 'nuevo' || e === 'visto' ? ' silueta' : ''}">${ICONO_TIPO[l.tipo] || '⭐'}</span>${e === 'nuevo' ? '<span class="carta-incognita">?</span>' : ''}`;
-
-  // Pone tu foto (capturado) o, mientras falta la tuya, la de Wikipedia o una de Commons que nombra el lugar
-  // (scripts/contexto.mjs) en `caja`. Devuelve qué foto quedó.
-  async function ponerFoto(caja, l, e, tamano) {
-    if (e === 'capturado') {
-      const blob = await leerFoto(l.id).catch(() => null);
-      if (!blob) return null;
-      const url = URL.createObjectURL(blob);
-      urls.push(url);
-      caja.prepend(imagen(url));
-      return { propia: true };
-    }
-    if (e !== 'falta') return null;
-    if (l.wikipedia) {
-      const w = await resumenWikipedia(l.wikipedia);
-      const src = tamano === 'miniatura' ? w?.miniatura : w?.foto;
-      if (src) {
-        caja.prepend(imagen(src));
-        return { wikipedia: src };
-      }
-    }
-    const commons = (await cargarContexto().catch(() => ({})))[l.id]?.f;
-    if (!commons) return null;
-    // La miniatura de la carta, más chica: Commons entrega algunos anchos fijos (330 sí, 320 no) cambiando el número.
-    caja.prepend(imagen(tamano === 'miniatura' ? commons.replace(/\/\d+px-/, '/330px-') : commons));
-    return { commons };
+  // Pone tu foto en `caja`. Devuelve si había foto.
+  async function ponerFotoPropia(caja, l) {
+    const blob = await leerFoto(l.id).catch(() => null);
+    if (!blob) return false;
+    const url = URL.createObjectURL(blob);
+    urls.push(url);
+    caja.prepend(imagen(url, `Tu foto de ${l.nombre}`));
+    return true;
   }
 
-  function imagen(src) {
+  // Mientras falta la tuya: la foto de Wikipedia o una de Commons que nombra el lugar (scripts/contexto.mjs).
+  async function fotoDeReferencia(l) {
+    if (l.wikipedia) {
+      const w = await resumenWikipedia(l.wikipedia);
+      if (w?.foto) return { src: w.foto, de: 'Wikipedia' };
+    }
+    const commons = (await cargarContexto().catch(() => ({})))[l.id]?.f;
+    return commons ? { src: commons, de: 'Wikimedia Commons' } : null;
+  }
+
+  function imagen(src, alt = '') {
     const img = document.createElement('img');
-    img.alt = '';
+    img.alt = alt;
     img.loading = 'lazy';
     img.src = src;
     img.onerror = () => img.remove();
     return img;
   }
 
-  // ---------- Ficha a pantalla completa ----------
+  // ---------- Ficha a pantalla completa: una página del pasaporte ----------
 
   function abrirFicha(l) {
     if ($('#dex-ficha').hidden) scrollAlbum = panel.scrollTop;
@@ -206,74 +261,108 @@ export function iniciarDex({ mapa, margenes, verEnMapa, cerrarMapa, irACapturar 
     if (volverAlPunto) panel.scrollTop = scrollAlbum;
   }
 
-  function textoEstado(l, e, estado) {
+  const ESTADO_NOMBRE = { capturado: 'Timbrado', falta: 'Falta tu foto', visto: 'Visto', nuevo: 'Por encontrar' };
+
+  // La columna junto a la polaroid: estado, fecha y distancia.
+  function ladoEstado(l, e, estado) {
     const c = estado.capturados[l.id];
     const fecha = (iso) => formatearFecha(new Date(iso));
-    if (e === 'capturado') return `Capturado el ${fecha(c.foto)}${c.como === 'gps' ? ` (llegaste caminando el ${fecha(c.fecha)})` : ''}.`;
-    if (e === 'falta') {
-      return c.como === 'mano'
-        ? `Lo marcaste como conocido el ${fecha(c.fecha)}. Falta tu foto para capturarlo.`
-        : `Llegaste el ${fecha(c.fecha)}, pero falta tu foto para capturarlo.`;
-    }
-    if (e === 'visto') return `Lo viste el ${fecha(estado.vistos[l.id])}: pasaste cerca, pero no llegaste.`;
-    return 'Por encontrar.';
+    const campo = (rotulo, valor, clase = '') => `<span class="rotulo">${rotulo}</span><p class="valor ${clase}">${escapar(valor)}</p>`;
+    const filas = [campo('Estado', ESTADO_NOMBRE[e], e)];
+    if (e === 'capturado') filas.push(campo('Tu foto', fecha(c.foto)));
+    else if (e === 'falta') filas.push(campo(c.como === 'mano' ? 'Conocido' : 'Llegaste', fecha(c.fecha)));
+    else if (e === 'visto') filas.push(campo('Lo viste', fecha(estado.vistos[l.id])));
+    if (origen) filas.push(campo('Distancia', formatearDistancia(distancia(origen, l.punto))));
+    return filas.join('');
   }
 
   function pintarFicha(l) {
     const estado = almacen.dex();
     const e = estadoDe(l, estado);
     const visible = nombreVisible(e);
+    const c = estado.capturados[l.id];
+    const conmemorativo = visible && esConmemorativo(l, entorno);
     const caja = $('#dex-ficha');
-    const botonesFoto = `<div class="fila">
-        <button type="button" class="${e === 'falta' ? 'boton-principal' : 'boton-secundario'}" data-accion="camara">📷 ${e === 'capturado' ? 'Otra foto' : 'Sacar foto'}</button>
-        <button type="button" class="boton-secundario" data-accion="galeria">🖼️ De la galería</button>
+    const nombreTimbre = visible ? l.nombre : '';
+    let marco;
+    if (e === 'capturado') {
+      marco = polaroid(pieDe(l, estado)) + timbreSVG(l.tipo, { numero: l.numero, nombre: nombreTimbre, fecha: c.foto, tamano: 'grande', conmemorativo });
+    } else if (e === 'falta') {
+      marco = polaroidVacia('Tu foto va aquí', c.como === 'mano' ? 'Ya lo conocías' : `Llegaste el ${fechaMini.format(new Date(c.fecha)).replace('.', '')}`) +
+        timbreSVG(l.tipo, { numero: l.numero, nombre: nombreTimbre, modo: 'pendiente', tamano: 'grande' });
+    } else {
+      marco = polaroidVacia('Tu foto', '', true) + '<span class="espacio-timbre">TIMBRE</span>';
+    }
+    const fotos = `<div class="fila">
+        <button type="button" class="${e === 'falta' ? 'boton-principal' : 'boton-secundario'}" data-accion="camara">${icono('camara')} ${e === 'capturado' ? 'Otra foto' : 'Sacar foto'}</button>
+        <button type="button" class="boton-secundario" data-accion="galeria">${icono('galeria')} Galería</button>
       </div>`;
-    const ir = e !== 'capturado' ? `<button type="button" class="${e === 'falta' ? 'boton-secundario' : 'boton-principal'}" data-accion="ir">Ir a capturarlo</button>` : '';
-    caja.innerHTML = `<button type="button" class="volver" data-accion="volver">‹ Dex</button>
-      <div class="ficha-foto carta-foto" data-tipo="${escapar(l.tipo)}">${iconoDe(l, e)}</div>
-      <p class="ficha-credito" hidden></p>
-      <p class="ficha-num" data-tipo="${escapar(l.tipo)}">${numeroDex(l.numero)} <span class="chip-tipo">${ICONO_TIPO[l.tipo] || ''} ${escapar(mayuscula(tipoLugar(l)))}</span></p>
-      <h1>${visible ? escapar(l.nombre) : '???'}</h1>
-      <p class="secundario">${[l.comuna, origen && `a ${formatearDistancia(distancia(origen, l.punto))} de ti`].filter(Boolean).map(escapar).join(' · ')}</p>
-      <p class="ficha-estado ${e}">${escapar(textoEstado(l, e, estado))}</p>
+    const ir = e !== 'capturado' ? `<button type="button" class="${e === 'falta' ? 'boton-secundario' : 'boton-principal'}" data-accion="ir">Ir a timbrarlo</button>` : '';
+    caja.innerHTML = `<button type="button" class="volver" data-accion="volver">‹ ${escapar($('#dex-comuna').value || 'Pasaporte')}</button>
+      <div class="ficha-tipo" data-tipo="${escapar(l.tipo)}">${iconoTipo(l.tipo)}<span class="rotulo">${escapar(tipoLugar(l))} · Nº ${String(l.numero).padStart(4, '0')}</span></div>
+      <h1>${visible ? escapar(l.nombre) : '?'}</h1>
+      <p class="ficha-lema" hidden></p>
+      <div class="ficha-recuerdo" data-tipo="${escapar(l.tipo)}">
+        <div class="ficha-marco">${marco}</div>
+        <div class="ficha-estado-lado">${ladoEstado(l, e, estado)}</div>
+      </div>
+      <div class="campos">
+        <div><span class="rotulo">Tipo</span><p class="valor">${escapar(mayuscula(tipoLugar(l)))}</p></div>
+        ${l.comuna ? `<div><span class="rotulo">Comuna</span><p class="valor">${escapar(l.comuna)}</p></div>` : ''}
+      </div>
       <div class="acciones">
-        ${e === 'falta' ? botonesFoto + ir : ir + botonesFoto}
+        ${e === 'falta' ? fotos + ir : ir + fotos}
         <button type="button" class="boton-secundario" data-accion="mapa">Ver en el mapa</button>
         <p class="estado" id="estado-ficha" role="status"></p>
-        ${e === 'capturado' || e === 'falta' ? '<button type="button" class="boton-texto peligro" data-accion="quitar">Quitar la captura</button>' : ''}
       </div>
-      <section class="ficha-grupo" data-grupo="hay" hidden><h2>Qué hay</h2><ul></ul></section>
-      <section class="ficha-grupo" data-grupo="historia" hidden><h2>Su historia</h2>
-        <div class="ficha-historia" hidden><p></p></div><ul></ul></section>
-      <section class="ficha-grupo" data-grupo="donde" hidden><h2>Dónde estás</h2><ul></ul></section>
-      <section class="ficha-grupo ficha-nota" data-grupo="tu"${visible ? '' : ' hidden'}>
-        <h2>Tú y este lugar</h2><ul></ul>
-        <textarea rows="3" maxlength="2000" aria-label="Tu nota sobre este lugar"
-          placeholder="Tu nota: lo que aprendiste o recuerdas de este lugar…">${escapar(estado.notas[l.id] || '')}</textarea>
-        <p class="ayuda">La nota se guarda sola en este celular y va en el respaldo.</p>
-      </section>`;
+      <div class="ficha-grupos">
+        <details class="ficha-grupo" data-grupo="historia" hidden><summary>Su historia<span class="pista"></span></summary>
+          <div class="ficha-foto-wiki" hidden></div><p class="ficha-credito" hidden></p>
+          <div class="ficha-historia" hidden><p></p></div><ul></ul></details>
+        <details class="ficha-grupo" data-grupo="hay" hidden><summary>Qué hay<span class="pista"></span></summary><ul></ul></details>
+        <details class="ficha-grupo" data-grupo="donde" hidden><summary>Dónde estás<span class="pista"></span></summary><ul></ul></details>
+        <details class="ficha-grupo ficha-nota" data-grupo="tu"${visible ? '' : ' hidden'}${estado.notas[l.id] ? ' open' : ''}>
+          <summary>Tú y este lugar<span class="pista"></span></summary><ul></ul>
+          <textarea rows="3" maxlength="2000" aria-label="Tu nota sobre este lugar"
+            placeholder="Tu nota: lo que aprendiste o recuerdas de este lugar…">${escapar(estado.notas[l.id] || '')}</textarea>
+          <p class="ayuda">La nota se guarda sola en este celular, va en el respaldo y su primera línea queda al pie de tu
+            polaroid.</p>
+        </details>
+      </div>
+      <details class="ayuda-plegable"><summary>¿Cómo se timbra?</summary>
+        <p class="ayuda">Llegas al lugar y le sacas tu foto: sin foto no hay timbre. También puedes subirla desde la
+          galería si ya lo conocías. La app no revisa que la foto sea del lugar.</p></details>
+      ${e === 'capturado' || e === 'falta' ? '<div class="acciones"><button type="button" class="boton-texto peligro" data-accion="quitar">Quitar el timbre</button></div>' : ''}`;
     const aviso = caja.querySelector('#estado-ficha');
     caja.querySelector('[data-accion="volver"]').addEventListener('click', () => cerrarFicha());
     caja.querySelector('[data-accion="ir"]')?.addEventListener('click', () => irACapturar(l, aviso));
     caja.querySelector('[data-accion="mapa"]').addEventListener('click', () => {
-      const nombre = visible ? l.nombre : `${numeroDex(l.numero)} ???`;
+      const nombre = visible ? l.nombre : `${numeroDex(l.numero)} ?`;
       verEnMapa(nombre);
       mapa.mostrarDex([{ lugar: l, estado: e, nombre }], abrirDesdeMapa);
       mapa.centrarEn(l.punto, 17);
     });
     for (const [accion, camara] of [['camara', true], ['galeria', false]]) {
       caja.querySelector(`[data-accion="${accion}"]`).addEventListener('click', () => {
+        const eraNuevo = e !== 'capturado';
         pedirFoto(l, camara, (err) => {
           if (err) return mostrarEstado(aviso, 'No se pudo guardar la foto. Prueba de nuevo o con otra foto.', true);
           pintar();
           pintarRegiones();
           pintarFicha(l);
-          mostrarEstado($('#estado-ficha'), `📸 ¡${l.nombre} capturado!`);
+          mostrarTimbrado(l, {
+            eraNuevo,
+            alEscribirNota: () => {
+              const grupo = $('#dex-ficha [data-grupo="tu"]');
+              grupo.open = true;
+              grupo.querySelector('textarea').focus();
+            },
+          });
         });
       });
     }
     caja.querySelector('[data-accion="quitar"]')?.addEventListener('click', async () => {
-      if (!confirm(`¿Quitar la captura de ${l.nombre}? Se borra tu foto y vuelve a quedar por encontrar.`)) return;
+      if (!confirm(`¿Quitar el timbre de ${l.nombre}? Se borra tu foto y vuelve a quedar por encontrar.`)) return;
       const d = almacen.dex();
       delete d.capturados[l.id];
       almacen.guardarDex(d);
@@ -282,7 +371,8 @@ export function iniciarDex({ mapa, margenes, verEnMapa, cerrarMapa, irACapturar 
       pintarRegiones();
       pintarFicha(l);
     });
-    // La nota se guarda mientras escribes (medio segundo después de la última tecla).
+    // La nota se guarda mientras escribes (medio segundo después de la última tecla) y su primera línea va al pie de
+    // la polaroid.
     const nota = caja.querySelector('.ficha-nota textarea');
     let espera = null;
     nota.addEventListener('input', () => {
@@ -292,30 +382,40 @@ export function iniciarDex({ mapa, margenes, verEnMapa, cerrarMapa, irACapturar 
         if (nota.value.trim()) d.notas[l.id] = nota.value;
         else delete d.notas[l.id];
         almacen.guardarDex(d);
+        const pie = caja.querySelector('.ficha-marco .pol:not(.vacia) .pol-pie');
+        if (pie) pie.textContent = pieDe(l, d);
       }, 500);
     });
     const id = ++fichaActual;
-    pintarFotoYHistoria(caja, l, e, visible, id);
+    if (e === 'capturado') ponerFotoPropia(caja.querySelector('.ficha-marco .pol-foto'), l);
+    pintarHistoriaWikipedia(caja, l, e, visible, id);
     pintarGrupos(caja, l, visible, id, estado);
   }
 
   const enlace = (url, texto) => (url ? ` <a href="${escapar(url)}" target="_blank" rel="noopener">${texto}</a>` : '');
 
-  function llenarGrupo(caja, grupo, items) {
+  function llenarGrupo(caja, grupo, items, pista = '') {
     if (!items.length) return;
     const seccion = caja.querySelector(`[data-grupo="${grupo}"]`);
     seccion.querySelector('ul').innerHTML = items.map((t) => `<li>${t}</li>`).join('');
+    if (pista) seccion.querySelector('.pista').textContent = pista;
     seccion.hidden = false;
   }
 
+  // Un campo rotulado más (año, obra, altura, metro…), solo si el dato existe.
+  function agregarCampo(caja, rotulo, valor) {
+    if (!valor) return;
+    caja.querySelector('.campos').insertAdjacentHTML('beforeend', `<div><span class="rotulo">${escapar(rotulo)}</span><p class="valor">${escapar(valor)}</p></div>`);
+  }
+
   // Los grupos de la ficha ("Una razón para ir"): solo datos verificables (OpenStreetMap, Wikidata, Wikipedia,
-  // iNaturalist, el Consejo de Monumentos, Open-Meteo y la misma Santiagodex), nunca inventados; si un dato no está, la
+  // iNaturalist, el Consejo de Monumentos, Open-Meteo y el mismo Pasaporte), nunca inventados; si un dato no está, la
   // línea no aparece. Sin el nombre a la vista no se muestran: delatarían el lugar. Los lugares cercanos se cuentan sin
-  // nombrarlos, por lo mismo.
+  // nombrarlos, por lo mismo. Lo más importante también va arriba, en los campos rotulados y la frase destacada.
   async function pintarGrupos(caja, l, visible, id, estado) {
     if (!visible) return;
     const vacio = () => ({});
-    const [contexto, entorno, especies, menciones, metro] = await Promise.all([
+    const [contexto, entornoTodo, especies, menciones, metro] = await Promise.all([
       cargarContexto().catch(vacio),
       cargarEntorno().catch(vacio),
       cargarEspecies().catch(vacio),
@@ -323,8 +423,15 @@ export function iniciarDex({ mapa, margenes, verEnMapa, cerrarMapa, irACapturar 
       cargarMetro().catch(() => null),
     ]);
     if (id !== fichaActual) return;
+    if (!entorno && Object.keys(entornoTodo).length) entorno = entornoTodo;
     const c = contexto[l.id] || {};
-    const en = entorno[l.id] || {};
+    const en = entornoTodo[l.id] || {};
+
+    // La frase destacada bajo el nombre: lo que dice su placa o la frase de Wikipedia que lo nombra, si son cortas.
+    const lema = caja.querySelector('.ficha-lema');
+    if (c.i && c.i.length <= 120) lema.innerHTML = `«${escapar(c.i)}» <span class="rotulo">placa</span>`;
+    else if (menciones[l.id] && menciones[l.id][1].length <= 150) lema.innerHTML = `«${escapar(menciones[l.id][1])}» <span class="rotulo">Wikipedia</span>`;
+    lema.hidden = !lema.innerHTML;
 
     // Qué hay: lo que se puede hacer o ver ahí.
     const hay = [textoQueHay(en.h), textoArboles(en.r)].filter(Boolean).map(escapar);
@@ -337,10 +444,12 @@ export function iniciarDex({ mapa, margenes, verEnMapa, cerrarMapa, irACapturar 
       );
     }
     if (c.o) hay.push(escapar(textoHorario(c.o)));
-    llenarGrupo(caja, 'hay', hay);
+    const totalEspecies = especies[l.id]?.[0];
+    llenarGrupo(caja, 'hay', hay, totalEspecies ? `${totalEspecies} especies` : '');
 
     // Su historia: monumento, obra, placa, nombres y lo que dice Wikipedia (el resumen llega aparte).
-    const historia = textosMonumentos(en.m, l.nombre).map((m) => escapar(m.texto) + enlace(m.enlace, 'Ver el decreto'));
+    const monumentos = textosMonumentos(en.m, l.nombre);
+    const historia = monumentos.map((m) => escapar(m.texto) + enlace(m.enlace, 'Ver el decreto'));
     if (c.h) historia.push(escapar(textoPatrimonio(c.h)));
     if (c.t && !['historia', 'arte'].includes(l.tipo)) historia.push(escapar(`${c.t}.`));
     const obra = textoObra(c);
@@ -361,7 +470,8 @@ export function iniciarDex({ mapa, margenes, verEnMapa, cerrarMapa, irACapturar 
           `${enlace(enlaceWikipedia(`es:${articulo}`), 'Leer')}</span>`,
       );
     }
-    llenarGrupo(caja, 'historia', historia);
+    const pistaHistoria = en.m?.length ? 'Monumento nacional' : c.y ? `Del año ${c.y}` : '';
+    llenarGrupo(caja, 'historia', historia, pistaHistoria);
 
     // Dónde estás: para ubicarse (calles, barrio, altura, puntos de referencia) y lo que hay cerca.
     const donde = [textoCalles(en.c)].filter(Boolean).map(escapar);
@@ -375,7 +485,8 @@ export function iniciarDex({ mapa, margenes, verEnMapa, cerrarMapa, irACapturar 
       );
     }
     const esCumbre = l.tipo === 'cerro' && Number.isFinite(c.z);
-    const altura = textoAltura(esCumbre ? c.z : en.z, entorno[PLAZA_DE_ARMAS]?.z, esCumbre);
+    const z = esCumbre ? c.z : en.z;
+    const altura = textoAltura(z, entornoTodo[PLAZA_DE_ARMAS]?.z, esCumbre);
     if (altura && l.id !== PLAZA_DE_ARMAS) donde.push(escapar(altura));
     const referencias = textoReferencias(l.punto);
     if (referencias) donde.push(escapar(referencias));
@@ -383,15 +494,16 @@ export function iniciarDex({ mapa, margenes, verEnMapa, cerrarMapa, irACapturar 
     const estacion = metro?.estaciones
       .map((m) => ({ m, d: distancia(m.punto, l.punto) }))
       .sort((a, b) => a.d - b.d)[0];
-    if (estacion && estacion.d <= 1500) {
+    const hayMetro = estacion && estacion.d <= 1500;
+    if (hayMetro) {
       donde.push(`Metro más cercano: ${escapar(nombreLugar(estacion.m))} (línea ${escapar(estacion.m.lineas.join(' y '))}), a ${formatearDistancia(estacion.d)}.`);
     }
     const cerca = dex.filter((o) => o !== l && distancia(o.punto, l.punto) <= 300);
     if (cerca.length) {
       const faltan = cerca.filter((o) => estadoDe(o, estado) !== 'capturado').length;
-      donde.push(`A menos de 300 m hay ${cerca.length === 1 ? 'otro lugar' : `${cerca.length} lugares más`} de la Dex` + (faltan ? ` (${faltan} sin capturar).` : '.'));
+      donde.push(`A menos de 300 m hay ${cerca.length === 1 ? 'otro lugar' : `${cerca.length} lugares más`} del Pasaporte` + (faltan ? ` (${faltan} sin timbrar).` : '.'));
     }
-    llenarGrupo(caja, 'donde', donde);
+    llenarGrupo(caja, 'donde', donde, hayMetro ? `Metro a ${formatearDistancia(estacion.d)}` : '');
     // La historia del barrio se pide a Wikipedia solo si la abres (para no gastar datos).
     caja.querySelector('.ficha-plegable')?.addEventListener('toggle', async function cargarBarrio(ev) {
       const detalle = ev.currentTarget;
@@ -405,6 +517,14 @@ export function iniciarDex({ mapa, margenes, verEnMapa, cerrarMapa, irACapturar 
       if (w?.enlace) p.insertAdjacentHTML('beforeend', enlace(w.enlace, 'Leer en Wikipedia'));
     });
 
+    // Campos rotulados: lo importante de un vistazo (lo mismo está explicado en los grupos de abajo).
+    agregarCampo(caja, 'Año', c.y);
+    agregarCampo(caja, 'Obra de', c.a);
+    if (en.m?.length) agregarCampo(caja, 'Protección', mayuscula(String(en.m[0][0] || 'Monumento nacional')));
+    agregarCampo(caja, 'Altura', Number.isFinite(z) ? `${Math.round(z).toLocaleString('es-CL')} m` : '');
+    if (hayMetro) agregarCampo(caja, 'Metro', `${nombreLugar(estacion.m).replace(/^Estación\s+/i, '')} · ${formatearDistancia(estacion.d)}`);
+    agregarCampo(caja, 'Especies', totalEspecies ? String(totalEspecies) : '');
+
     // Tú y este lugar: lo que viviste ahí, con las fechas que guarda la app.
     llenarGrupo(caja, 'tu', lineasTuyas(l, estado).map(escapar));
   }
@@ -416,36 +536,39 @@ export function iniciarDex({ mapa, margenes, verEnMapa, cerrarMapa, irACapturar 
     if (estado.vistos[l.id]) lineas.push(`Lo viste por primera vez el ${fecha(estado.vistos[l.id])}.`);
     if (c?.como === 'gps') lineas.push(`Llegaste caminando el ${fecha(c.fecha)}.`);
     else if (c?.como === 'mano') lineas.push(`Lo marcaste como conocido el ${fecha(c.fecha)}.`);
-    if (c?.foto) lineas.push(`Tu foto es del ${fecha(c.foto)}.`);
+    if (c?.foto) lineas.push(`Tu foto (y el timbre) es del ${fecha(c.foto)}.`);
     if (!lineas.length) lineas.push('Todavía no pasas por aquí.');
     return lineas;
   }
 
-  // Foto grande (la tuya, o la de Wikipedia con su crédito mientras falta la tuya) y el resumen del artículo.
-  // `id` evita que una ficha anterior, que todavía estaba cargando, escriba en la que está abierta ahora.
-  async function pintarFotoYHistoria(caja, l, e, visible, id) {
-    // Sin el nombre a la vista no se muestra la de Wikipedia: delataría el lugar.
-    const tipoFoto = e === 'capturado' ? 'capturado' : visible ? 'falta' : null;
-    const credito = caja.querySelector('.ficha-credito');
-    const foto = tipoFoto && (await ponerFoto(caja.querySelector('.ficha-foto'), l, tipoFoto, 'grande'));
-    if (id !== fichaActual) return;
-    if (foto?.propia) {
-      credito.textContent = 'Tu foto.';
-      credito.hidden = false;
-    } else if (foto?.wikipedia || foto?.commons) {
-      const de = foto.wikipedia ? 'Wikipedia' : 'Wikimedia Commons';
-      credito.textContent = `Foto de ${de}, mientras falta la tuya.`;
-      credito.hidden = false;
-      const c = await creditoFoto(foto.wikipedia || foto.commons);
-      if (c && id === fichaActual) {
-        credito.innerHTML = `Foto de ${de}, mientras falta la tuya: ${escapar(c.autor)}${c.licencia ? `, ${escapar(c.licencia)}` : ''}. ` +
-          `<a href="${escapar(c.enlace)}" target="_blank" rel="noopener">Ver la foto</a>`;
+  // En "Su historia": el resumen de Wikipedia y, mientras falta la tuya, la foto de Wikipedia o Commons con su crédito
+  // (tu foto es la protagonista arriba, en la polaroid). `id` evita que una ficha anterior, que todavía estaba
+  // cargando, escriba en la que está abierta ahora. Sin el nombre a la vista no se muestra nada: delataría el lugar.
+  async function pintarHistoriaWikipedia(caja, l, e, visible, id) {
+    if (!visible) return;
+    const grupo = caja.querySelector('[data-grupo="historia"]');
+    if (e !== 'capturado') {
+      const foto = await fotoDeReferencia(l);
+      if (id !== fichaActual) return;
+      if (foto) {
+        const marco = grupo.querySelector('.ficha-foto-wiki');
+        marco.append(imagen(foto.src, `Foto de ${l.nombre} (${foto.de})`));
+        marco.hidden = false;
+        const credito = grupo.querySelector('.ficha-credito');
+        credito.textContent = `Foto de ${foto.de}, mientras falta la tuya.`;
+        credito.hidden = false;
+        grupo.hidden = false;
+        const c = await creditoFoto(foto.src);
+        if (c && id === fichaActual) {
+          credito.innerHTML = `Foto de ${foto.de}, mientras falta la tuya: ${escapar(c.autor)}${c.licencia ? `, ${escapar(c.licencia)}` : ''}. ` +
+            `<a href="${escapar(c.enlace)}" target="_blank" rel="noopener">Ver la foto</a>`;
+        }
       }
     }
-    if (!visible || !l.wikipedia) return;
+    if (!l.wikipedia) return;
     const w = await resumenWikipedia(l.wikipedia);
     if (!w?.texto || id !== fichaActual) return;
-    const historia = caja.querySelector('.ficha-historia');
+    const historia = grupo.querySelector('.ficha-historia');
     historia.querySelector('p').textContent = w.texto;
     // Si el artículo es de otra cosa (la persona de una estatua, la plaza donde está un monumento), se dice cuál es.
     if (normalizar(w.titulo).replace(/_/g, ' ') !== normalizar(l.nombre)) {
@@ -463,12 +586,14 @@ export function iniciarDex({ mapa, margenes, verEnMapa, cerrarMapa, irACapturar 
       historia.append(a);
     }
     historia.hidden = false;
-    historia.closest('.ficha-grupo').hidden = false;
+    const pista = grupo.querySelector('.pista');
+    if (!pista.textContent) pista.textContent = 'Wikipedia';
+    grupo.hidden = false;
   }
 
-  // ---------- Regiones (comunas) con insignias ----------
+  // ---------- Visados por comuna (antes "Regiones" con medallas) ----------
 
-  // Primero las comunas donde ya capturaste, después donde llegaste sin foto; el resto, por nombre.
+  // Primero las comunas donde ya timbraste, después donde llegaste sin foto; el resto, por nombre.
   function pintarRegiones() {
     const estado = almacen.dex();
     const { porComuna } = avanceDex(dex, estado);
@@ -484,14 +609,14 @@ export function iniciarDex({ mapa, margenes, verEnMapa, cerrarMapa, irACapturar 
       const li = document.createElement('li');
       li.innerHTML = `<button type="button" class="region">
           <span class="nombre">${escapar(r.nombre)}</span>
-          <span class="secundario">${r.capturados} de ${r.total}${r.sinFoto ? ` · ${r.sinFoto} sin foto` : ''}</span>
-          <span class="insignias">${INSIGNIAS.map((p) => `<span class="insignia${ganadas.includes(p) ? ' ganada' : ''}" title="${p} %">${MEDALLA[p]}</span>`).join('')}</span>
+          <span class="secundario">${r.capturados}/${r.total}${r.sinFoto ? ` · ${r.sinFoto} sin foto` : ''}</span>
+          <span class="insignias">${INSIGNIAS.map((p) => `<span class="insignia${ganadas.includes(p) ? ' ganada' : ''}" title="Visado del ${p} %">${p}%</span>`).join('')}</span>
         </button>`;
       li.querySelector('button').addEventListener('click', () => {
         $('#dex-comuna').value = r.nombre;
         pagina = 1;
         pintar();
-        $('#dex-buscar').scrollIntoView({ block: 'start' });
+        panel.scrollTop = 0;
       });
       ul.append(li);
     }
@@ -514,14 +639,14 @@ export function iniciarDex({ mapa, margenes, verEnMapa, cerrarMapa, irACapturar 
   async function pintarAvanceComunas() {
     const ul = $('#avance-comunas');
     ul.innerHTML = '';
-    let comunas;
+    let contornos;
     try {
-      comunas = await cargarComunas();
+      contornos = await cargarComunas();
     } catch {
       ul.innerHTML = '<li class="vacia">Falta el archivo de comunas para calcular el avance.</li>';
       return;
     }
-    const avance = avancePorComuna(celdasConocidas(), comunas).filter((c) => c.conocidas > 0);
+    const avance = avancePorComuna(celdasConocidas(), contornos).filter((c) => c.conocidas > 0);
     if (!avance.length) {
       ul.innerHTML = '<li class="vacia">Todavía no caminas con la app ni marcas zonas conocidas.</li>';
       return;
@@ -545,7 +670,7 @@ export function iniciarDex({ mapa, margenes, verEnMapa, cerrarMapa, irACapturar 
     mapa.mostrarDex(
       lista.slice(0, 400).map((l) => {
         const e = estadoDe(l, estado);
-        return { lugar: l, estado: e, nombre: nombreVisible(e) ? l.nombre : `${numeroDex(l.numero)} ???` };
+        return { lugar: l, estado: e, nombre: nombreVisible(e) ? l.nombre : `${numeroDex(l.numero)} ?` };
       }),
       abrirDesdeMapa,
       margenes(),

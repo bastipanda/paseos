@@ -20,7 +20,10 @@ import { $, mostrarEstado, mensajeDeError, compartirODescargar, descargar, forma
 import { crearRegistro, estadoSemanas, conMeta } from './historial.js';
 import { iniciarHoy } from './pantalla-hoy.js';
 import { iniciarHistorial } from './pantalla-historial.js';
-import { nombreLugar, tipoLugar, nombreEstacion, ICONO_TIPO } from './plazas.js';
+import { nombreLugar, tipoLugar, nombreEstacion } from './plazas.js';
+import { icono, iconoLugar } from './iconos.js';
+import { timbreSVG } from './timbres.js';
+import { mostrarTimbrado } from './timbrado.js';
 import { cargarDatos, cargarTramites, cargarMetro, cargarComunas, cargarDelitos, cargarDex } from './datos.js';
 import { radioCaptura, revisarRecorrido, anotarRecorrido, numeroDex, estadoDe } from './dex.js';
 import { iniciarDex } from './pantalla-dex.js';
@@ -333,7 +336,7 @@ function pintarExtra(cual, enfocar = true) {
     caja.querySelector('button').addEventListener('click', () => esperarClic(cual, `Toca el mapa para marcar ${NOMBRES[cual]}`));
   } else if (tipo === 'buscar') {
     if (p) {
-      caja.innerHTML = `<div class="punto-elegido"><span>📍 ${escapar(p.etiqueta)}</span>
+      caja.innerHTML = `<div class="punto-elegido"><span>${icono('pin')} ${escapar(p.etiqueta)}</span>
         <button type="button" class="boton-texto">Cambiar</button></div>`;
       caja.querySelector('button').addEventListener('click', () => {
         estado.puntos[cual] = null;
@@ -815,7 +818,7 @@ async function salirSorpresa(punto, rango, aviso) {
   if (estado.buscando) return;
   estado.buscando = true;
   try {
-    mostrarEstado(aviso, 'Eligiendo un lugar sorpresa…');
+    mostrarEstado(aviso, 'Sellando el destino…');
     const [datos, dexLista, zona] = await Promise.all([cargarDatos(), cargarDex(), zonaElegida()]);
     const d = almacen.dex();
     // Sin capturar y no tan cerca como para "llegar" apenas se parte.
@@ -826,8 +829,8 @@ async function salirSorpresa(punto, rango, aviso) {
       rango,
       lugares,
       prefs: prefsDelFormulario(datos, zona),
-      avance: () => mostrarEstado(aviso, `Armando el paseo sorpresa… (${++consultas} consultas)`),
-      sinLugares: 'No encontré lugares nuevos de la Santiagodex a esa distancia. Prueba con otra duración.',
+      avance: () => mostrarEstado(aviso, `Armando el paseo al destino sellado… (${++consultas} consultas)`),
+      sinLugares: 'No encontré lugares sin timbrar a esa distancia. Prueba con otra duración.',
     });
     const buenas = opciones.filter((o) => o.enRango).slice(0, 3);
     const opcion = (buenas.length ? buenas : opciones)[Math.floor(Math.random() * Math.min(3, (buenas.length ? buenas : opciones).length))];
@@ -852,7 +855,7 @@ async function irACapturar(lugar, aviso = $('#estado-dex')) {
     mostrarEstado(aviso, 'Buscando tu ubicación…');
     const punto = await ubicacionActual();
     const d = distancia(punto, lugar.punto);
-    if (d < 60) return mostrarEstado(aviso, 'Ya estás ahí: sácale una foto para capturarlo.');
+    if (d < 60) return mostrarEstado(aviso, 'Ya estás ahí: sácale una foto para timbrarlo.');
     if (d > 8000) {
       return mostrarEstado(aviso, `Está a ${formatearDistancia(d)} en línea recta. Mejor ve en metro y arma el paseo desde la estación más cercana (Armar → Partida: una estación de metro).`, true);
     }
@@ -946,7 +949,7 @@ function mostrarOpcion() {
     const d = o.destino;
     const otras = estado.opciones.length > 1 ? ' Con las flechas de arriba ves otros destinos.' : '';
     const detalle = d.tipo === 'estacion' ? `Línea ${d.lineas.join(' y ')} del metro.` : `${mayuscula(tipoLugar(d))}${d.idaYVuelta ? ', ida y vuelta' : ''}.`;
-    html += `<div class="bloque"><h3>${ICONO_TIPO[d.tipo] || '📍'} Destino: ${escapar(mayuscula(nombreLugar(d)))}</h3>
+    html += `<div class="bloque" data-tipo="${escapar(d.tipo || '')}"><h3>${iconoLugar(d.tipo)} Destino: ${escapar(mayuscula(nombreLugar(d)))}</h3>
       <p>${escapar(detalle)}${otras}</p></div>`;
   }
   if (o.estacionSalida) {
@@ -1250,7 +1253,7 @@ function empezarPaseo(opcion) {
   estado.anunciadas = new Set();
   pintarBotonVoz();
   // Hablar dentro del toque en "Empezar" deja la voz habilitada en el celular para el resto del paseo.
-  if (vozActiva()) voz.decir(opcion.misterio ? 'Comienza el paseo sorpresa. Te voy diciendo dónde doblar.' : 'Comienza el paseo');
+  if (vozActiva()) voz.decir(opcion.misterio ? 'Comienza el paseo al destino sellado. Te voy diciendo dónde doblar.' : 'Comienza el paseo');
   if (opcion.misterio) mapa.limpiarRuta();
   estado.opcionSeguida = opcion;
   estado.ultimoGuardado = Date.now();
@@ -1304,18 +1307,21 @@ function revisarCapturas(punto) {
   const l = sorpresa || nuevosCapturados[0];
   avisoCaptura(
     sorpresa
-      ? `🎉 El lugar sorpresa era ${l.nombre} (${numeroDex(l.numero)}). Sácale una foto para capturarlo.`
-      : `📍 Llegaste a ${l.nombre} (${numeroDex(l.numero)}). Sácale una foto para capturarlo.`,
+      ? `El destino sellado era ${l.nombre} (${numeroDex(l.numero)}). Sácale una foto para timbrarlo.`
+      : `Llegaste a ${l.nombre} (${numeroDex(l.numero)}). Sácale una foto para timbrarlo.`,
     l,
   );
-  if (vozActiva()) voz.decir(`Llegaste a ${l.nombre}. Sácale una foto para tu Santiagodex.`, { interrumpir: false });
+  if (vozActiva()) voz.decir(`Llegaste a ${l.nombre}. Sácale una foto para tu pasaporte.`, { interrumpir: false });
 }
 
-// Aviso sobre la barra del paseo (llegadas y el lugar sorpresa). Con `lugar`, ofrece sacarle la foto ahora; si no
-// es buen momento, "Después" lo deja como "falta la foto".
+// Aviso sobre la barra del paseo (llegadas y el destino sellado). Con `lugar`, muestra su timbre punteado y ofrece
+// sacarle la foto ahora; si no es buen momento, "Después" lo deja como "falta tu foto".
 function avisoCaptura(texto, lugar = null) {
   $('#captura-texto').textContent = texto;
   $('#captura-botones').hidden = !lugar;
+  const timbre = $('#captura-timbre');
+  timbre.innerHTML = lugar ? timbreSVG(lugar.tipo, { modo: 'pendiente' }) : '';
+  timbre.hidden = !lugar;
   $('#captura-aviso').hidden = false;
   estado.lugarPorFotografiar = lugar;
 }
@@ -1324,8 +1330,10 @@ $('#captura-foto').addEventListener('click', () => {
   const l = estado.lugarPorFotografiar;
   if (!l) return;
   pedirFoto(l, true, (err) => {
-    if (err) return avisoCaptura('No se pudo guardar la foto. Puedes subirla después desde la Dex.');
-    avisoCaptura(`📸 ¡${l.nombre} capturado! (${numeroDex(l.numero)} de tu Santiagodex)`);
+    if (err) return avisoCaptura('No se pudo guardar la foto. Puedes subirla después desde el Pasaporte.');
+    $('#captura-aviso').hidden = true;
+    estado.lugarPorFotografiar = null;
+    mostrarTimbrado(l);
   });
 });
 
@@ -1337,8 +1345,8 @@ $('#captura-despues').addEventListener('click', () => {
 function revelarSorpresa(o) {
   o.misterio = false;
   o.revelado = true;
-  avisoCaptura(`🎉 El lugar sorpresa era: ${mayuscula(nombreLugar(o.destino))}`);
-  if (vozActiva()) voz.decir(`Llegaste al lugar sorpresa: ${nombreLugar(o.destino)}.`);
+  avisoCaptura(`Se abre el destino sellado: ${mayuscula(nombreLugar(o.destino))}`);
+  if (vozActiva()) voz.decir(`Llegaste al destino sellado: ${nombreLugar(o.destino)}.`);
   mapa.dibujarOpcion(o, margenesPanel());
 }
 
@@ -1377,7 +1385,7 @@ function actualizarSeguimiento(d) {
   mapa.mostrarYo(d.punto, d.precision);
   if (estado.seguirme) mapa.centrarEn(d.punto);
   revisarCapturas(d.punto);
-  $('#modo-actual').textContent = estado.opcionSeguida?.misterio ? 'Paseo sorpresa 🎲' : f.modoActual === 'bici' ? 'Tramo en bici' : 'Tramo a pie';
+  $('#modo-actual').textContent = estado.opcionSeguida?.misterio ? 'Destino sellado' : f.modoActual === 'bici' ? 'Tramo en bici' : 'Tramo a pie';
   if (f.total < 25 && d.recorrido > 0) {
     $('#faltan-principal').textContent = '¡Llegaste!';
     $('#faltan-detalle').textContent = `Caminaste unos ${formatearPasos(Math.round(desdeMetros(estado.opcionSeguida.metrosPie, 'pasos', aj)))}.`;
@@ -1392,7 +1400,7 @@ function actualizarSeguimiento(d) {
   }
   $('#barra-progreso').style.width = `${d.total ? Math.min(100, (d.recorrido / d.total) * 100) : 0}%`;
   // En un paseo sorpresa, la llegada al destino no dice su nombre.
-  const siguiente = estado.opcionSeguida?.misterio && d.siguiente?.tipo === 'destino' ? { ...d.siguiente, texto: 'Llegas al lugar sorpresa' } : d.siguiente;
+  const siguiente = estado.opcionSeguida?.misterio && d.siguiente?.tipo === 'destino' ? { ...d.siguiente, texto: 'Llegas al destino sellado' } : d.siguiente;
   mostrarProximo(siguiente);
   mostrarRitmo(aj);
   mostrarMetroCercano(d.punto);
@@ -1437,11 +1445,12 @@ function abrirMenuPaseo(si) {
 $('#barra-paseo').addEventListener('click', () => abrirMenuPaseo($('#menu-paseo').hidden));
 
 // Flecha de la franja: los giros apuntan según su ángulo; lo demás lleva un ícono.
-const ICONO_INDICACION = { estacion: '🚲', destino: '📍', fin: '🏁' };
+const ICONO_INDICACION = { estacion: 'bici', destino: 'pin', fin: 'bandera' };
 function pintarFlecha(siguiente) {
   const flecha = $('#franja-flecha');
   const giro = siguiente.tipo === 'giro' && typeof siguiente.angulo === 'number';
-  flecha.textContent = giro ? '↑' : ICONO_INDICACION[siguiente.tipo] || '↑';
+  if (giro || !ICONO_INDICACION[siguiente.tipo]) flecha.textContent = '↑';
+  else flecha.innerHTML = icono(ICONO_INDICACION[siguiente.tipo]);
   flecha.style.transform = giro ? `rotate(${Math.round(siguiente.angulo)}deg)` : '';
 }
 
@@ -1494,7 +1503,7 @@ function mostrarMetroCercano(punto) {
   caja.hidden = !cercana || cercana.d > 3000 || (yendo && estado.opcionSeguida.haciaMetro);
   if (caja.hidden) return;
   estado.metroCercano = { ...cercana, desde: punto };
-  $('#metro-cercano-texto').textContent = `🚇 Metro más cercano: ${nombreEstacion(cercana.e)}, a ${formatearDistancia(cercana.d)}`;
+  $('#metro-cercano-texto').innerHTML = `${icono('metro')} ${escapar(`Metro más cercano: ${nombreEstacion(cercana.e)}, a ${formatearDistancia(cercana.d)}`)}`;
 }
 
 $('#llevame-metro').addEventListener('click', async () => {
@@ -1652,7 +1661,7 @@ function mostrarResumen(registro, seguimiento, opcion) {
     .join(' · ');
   let semana;
   if (ahora.meta === null) semana = `Esta semana llevas ${Math.round(ahora.minutos)} min. Elige una meta semanal en la pantalla Hoy.`;
-  else if (antes.minutos < antes.meta && ahora.minutos >= ahora.meta) semana = `🎉 ¡Cumpliste la meta de la semana! (${Math.round(ahora.minutos)} de ${ahora.meta} min)`;
+  else if (antes.minutos < antes.meta && ahora.minutos >= ahora.meta) semana = `¡Cumpliste la meta de la semana! (${Math.round(ahora.minutos)} de ${ahora.meta} min)`;
   else if (ahora.minutos >= ahora.meta) semana = `Esta semana llevas ${Math.round(ahora.minutos)} min: ya pasaste tu meta de ${ahora.meta}.`;
   else semana = `Esta semana llevas ${Math.round(ahora.minutos)} de ${ahora.meta} min. Te faltan ${formatearMinutos(Math.ceil(ahora.meta - ahora.minutos))}.`;
   $('#resumen-semana').textContent = semana;
@@ -1665,7 +1674,7 @@ function mostrarResumen(registro, seguimiento, opcion) {
   };
   if (opcion.misterio) {
     opcion.misterio = false;
-    mostrarEstado($('#estado-resumen'), `🎲 El lugar sorpresa era: ${mayuscula(nombreLugar(opcion.destino))}.`);
+    mostrarEstado($('#estado-resumen'), `El destino sellado era: ${mayuscula(nombreLugar(opcion.destino))}.`);
   }
   mapa.dibujarOpcion(opcion, margenesPanel());
   mapa.mostrarRecorridos([registro.rastro], margenesPanel(), { encuadrar: false });
@@ -1692,13 +1701,13 @@ async function pintarDexResumen(registro) {
     const sinFoto = capturas.filter((l) => estadoDe(l, d) === 'falta').length;
     caja.innerHTML =
       (capturas.length
-        ? `<h3>¡Llegaste a lugares de tu Santiagodex!</h3><ul class="explicacion">${capturas
-            .map((l) => `<li>${numeroDex(l.numero)} ${ICONO_TIPO[l.tipo] || ''} ${escapar(l.nombre)}${estadoDe(l, d) === 'capturado' ? ' 📸 capturado' : ' (falta la foto)'}</li>`)
+        ? `<h3>¡Llegaste a lugares de tu Pasaporte!</h3><ul class="explicacion">${capturas
+            .map((l) => `<li data-tipo="${escapar(l.tipo)}">${numeroDex(l.numero)} ${escapar(l.nombre)}${estadoDe(l, d) === 'capturado' ? ' · timbrado' : ' · falta tu foto'}</li>`)
             .join('')}</ul>` +
-          (sinFoto ? '<p>Para capturarlos, sube tu foto desde la Dex (filtro "Sin foto"), también desde la galería.</p>' : '')
+          (sinFoto ? '<p>Para timbrarlos, sube tu foto desde el Pasaporte (filtro "Sin foto"), también desde la galería.</p>' : '')
         : '') +
       (nuevosVistos.length ? `<p>Pasaste cerca de ${nuevosVistos.length === 1 ? '1 lugar' : `${nuevosVistos.length} lugares`} sin llegar: quedan como vistos.</p>` : '') +
-      `<p class="ayuda">Llevas ${total} de ${dexLista.length.toLocaleString('es-CL')} capturados.</p>`;
+      `<p class="ayuda">Llevas ${total} de ${dexLista.length.toLocaleString('es-CL')} timbrados.</p>`;
     caja.hidden = false;
   } catch (err) {
     console.error(err);
@@ -1890,7 +1899,7 @@ $('#importar').addEventListener('change', async (e) => {
       aviso,
       `${agregados.lugares === 1 ? 'Se agregó 1 lugar' : `Se agregaron ${agregados.lugares} lugares`}, ` +
         `${agregados.paseos === 1 ? '1 paseo' : `${agregados.paseos} paseos`} y ` +
-        `${fotos === 1 ? '1 foto' : `${fotos} fotos`} de la Santiagodex. ` +
+        `${fotos === 1 ? '1 foto' : `${fotos} fotos`} del Pasaporte. ` +
         `Tienes ${almacen.conocidas().size} cuadras marcadas como conocidas.`,
     );
   } catch (err) {
@@ -2062,7 +2071,7 @@ async function mostrarClima(punto) {
     caja.className = `clima ${nivel}`;
     caja.innerHTML =
       `<p><strong>Ahora:</strong> ${escapar(linea)}</p>${avisos.map((a) => `<p>${escapar(a)}</p>`).join('')}` +
-      (mejor ? `<p class="mejor-hora">🕖 ${escapar(mejor)}</p>` : '');
+      (mejor ? `<p class="mejor-hora">${icono('reloj')} ${escapar(mejor)}</p>` : '');
     caja.hidden = false;
   } catch (err) {
     console.error(err);

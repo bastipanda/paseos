@@ -7,9 +7,16 @@ import { estadoSemanas, propuestaMeta, conMeta } from './historial.js';
 import { formatearDistancia, formatearMinutos } from './duracion.js';
 import { ESTILOS } from './tranquilidad.js';
 
-const CIRCUNFERENCIA = 2 * Math.PI * 50;
 const DIAS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 const DIAS_SIN_RESPALDO = 30;
+const GIROS = [-9, 7, -4, 10, -7, 5, -11];
+const diaCorto = (d) => d.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' }).replace('.', '');
+
+// El día que caminaste queda timbrado: un timbre redondo con la letra y el número del día.
+const selloDia = (letra, numero, i) =>
+  `<svg class="sello-dia" viewBox="0 0 40 40" style="transform:rotate(${GIROS[i]}deg)" aria-hidden="true">` +
+  '<g fill="none" stroke="currentColor" filter="url(#tinta)"><circle cx="20" cy="20" r="16" stroke-width="2.2"/><circle cx="20" cy="20" r="12.5" stroke-width="0.8"/></g>' +
+  `<g fill="currentColor" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-weight="600"><text x="20" y="18.5" font-size="8">${letra}</text><text x="20" y="27.5" font-size="8">${numero}</text></g></svg>`;
 
 export function iniciarHoy({ salirAhora, abrirFavorita, exportarRespaldo, guardarPendiente, siguiendo }) {
   function mostrar() {
@@ -26,11 +33,11 @@ export function iniciarHoy({ salirAhora, abrirFavorita, exportarRespaldo, guarda
     const e = estadoSemanas(almacen.historial(), lista);
     const minutos = Math.round(e.minutos);
     $('#anillo-cifra').textContent = minutos;
+    $('#semana-meta').textContent = e.meta === null ? 'min' : `de ${e.meta} min`;
     const fraccion = e.meta ? Math.min(1, e.minutos / e.meta) : 0;
-    const anillo = $('#anillo-avance');
-    anillo.style.strokeDasharray = `${(fraccion * CIRCUNFERENCIA).toFixed(1)} ${CIRCUNFERENCIA.toFixed(1)}`;
-    anillo.classList.toggle('cumplida', fraccion >= 1);
-    anillo.style.opacity = fraccion > 0 ? 1 : 0;
+    const barra = $('#anillo-avance');
+    barra.style.width = `${(fraccion * 100).toFixed(1)}%`;
+    barra.classList.toggle('cumplida', fraccion >= 1);
     $('#pregunta-meta').hidden = e.meta !== null;
     let detalle;
     if (e.meta === null) detalle = 'Elige una meta semanal para ver tu avance.';
@@ -38,14 +45,23 @@ export function iniciarHoy({ salirAhora, abrirFavorita, exportarRespaldo, guarda
     else {
       const falta = Math.ceil(e.meta - e.minutos);
       const paseos = Math.max(1, Math.round(falta / 30));
-      detalle = `${minutos} de ${e.meta} min. Te faltan ${formatearMinutos(falta)} (${paseos === 1 ? 'un paseo' : `unos ${paseos} paseos`} de 30 min).`;
+      detalle = `Te faltan ${formatearMinutos(falta)} (${paseos === 1 ? 'un paseo' : `unos ${paseos} paseos`} de 30 min).`;
     }
-    $('#semana-titulo').textContent = 'Esta semana';
+    const ahora = new Date();
+    const hoy = (ahora.getDay() + 6) % 7;
+    const lunes = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() - hoy);
+    const fechaDe = (i) => new Date(lunes.getFullYear(), lunes.getMonth(), lunes.getDate() + i);
+    $('#semana-titulo').textContent = `Esta semana · ${diaCorto(lunes)} – ${diaCorto(fechaDe(6))}`;
     const racha = e.seguidas ? ` ${e.seguidas === 1 ? '1 semana cumplida' : `${e.seguidas} semanas cumplidas seguidas`}.` : '';
     $('#semana-detalle').textContent = detalle + racha;
-    const hoy = (new Date().getDay() + 6) % 7;
     $('#semana-dias').innerHTML = e.dias
-      .map((hubo, i) => `<span class="dia${hubo ? ' hubo' : ''}${i === hoy ? ' hoy' : ''}" title="${hubo ? 'Hubo paseo' : ''}">${DIAS[i]}</span>`)
+      .map((hubo, i) => {
+        const numero = fechaDe(i).getDate();
+        const clase = `dia${hubo ? ' hubo' : ''}${i === hoy ? ' hoy' : ''}`;
+        return hubo
+          ? `<span class="${clase}" title="Caminaste">${selloDia(DIAS[i], numero, i)}</span>`
+          : `<span class="${clase}">${DIAS[i]}<small>${numero}</small></span>`;
+      })
       .join('');
   }
 

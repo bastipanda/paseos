@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Paseos</title>
   <meta name="description" content="Rutas a pie y en Bike Itaú por calles tranquilas, a la medida de tus pasos.">
-  <meta name="theme-color" content="#1d6b4f">
+  <meta name="theme-color" content="#fcfbf8" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#161513" media="(prefers-color-scheme: dark)">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icono.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icono.svg">
@@ -13,6 +14,23 @@
   <link rel="stylesheet" href="css/estilos.css">
 </head>
 <body>
+  <!-- Textura de tinta de los timbres (js/timbres.js): los bordes quedan apenas irregulares, como un timbre de goma. -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <filter id="tinta"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="1" result="ruido"/><feDisplacementMap in="SourceGraphic" in2="ruido" scale="1.3"/></filter>
+    <!-- La cordillera, el San Cristóbal y la Gran Torre en línea, al pie de las páginas. Es un dibujo, no un perfil
+         medido. -->
+    <symbol id="dibujo-cordillera" viewBox="0 0 360 76" preserveAspectRatio="none">
+      <g fill="none" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke">
+        <path vector-effect="non-scaling-stroke" d="M0 52L14 44L24 48L38 30L48 38L62 20L72 30L84 24L98 36L112 22L124 30L138 12L150 26L162 20L176 34L190 18L204 28L218 16L232 30L246 24L260 38L274 26L288 34L302 22L316 32L330 26L344 36L360 30"/>
+        <path vector-effect="non-scaling-stroke" d="M56 26l6-6l5 6M132 18l6-6l6 7M212 22l6-6l5 6M296 28l6-6l5 6" stroke-width="0.8"/>
+        <path vector-effect="non-scaling-stroke" d="M0 76V64Q30 50 58 60Q66 56 74 62V76M34 55v-5M32 51.5h4"/>
+        <path vector-effect="non-scaling-stroke" d="M250 76V38l3-4 3 4V76M246 76V50h14V76"/>
+        <path vector-effect="non-scaling-stroke" d="M110 76V66h10v-6h7v6h12V76M180 76V62h16V76M200 76V68h22V76M290 76V64h12v-4h6v4h10V76"/>
+        <path vector-effect="non-scaling-stroke" d="M0 75.5H360"/>
+      </g>
+    </symbol>
+  </svg>
+
   <div id="mapa" aria-label="Mapa"></div>
 
   <!-- Barra de pestañas: se esconde en Resultados, Paseo y Resumen, que tienen su propia salida. -->
@@ -25,9 +43,9 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h8.5a3.5 3.5 0 0 0 0-7h-9a3.5 3.5 0 0 1 0-7H16"/></svg>
       <span>Armar</span>
     </button>
-    <button type="button" class="pestana" data-ir="dex" aria-label="Santiagodex">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="6" width="12" height="15" rx="2"/><path d="M8 3h10a2 2 0 0 1 2 2v13"/><circle cx="10" cy="13.5" r="2.5"/></svg>
-      <span>Dex</span>
+    <button type="button" class="pestana" data-ir="dex" aria-label="Pasaporte">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="12" cy="10.5" r="3.2"/><path d="M9 16.5h6"/></svg>
+      <span>Pasaporte</span>
     </button>
     <button type="button" class="pestana" data-ir="mas">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6" class="relleno"/><circle cx="12" cy="12" r="1.6" class="relleno"/><circle cx="19" cy="12" r="1.6" class="relleno"/></svg>
@@ -52,25 +70,19 @@
           <button type="button" class="boton-secundario" id="pendiente-descartar">Descartar</button>
         </div>
       </div>
-      <!-- Tocar la semana abre el historial. -->
+      <!-- La semana como página de pasaporte: los minutos grandes y cada día caminado, timbrado. Tocarla abre el
+           historial. -->
       <button type="button" class="semana" id="semana" data-ir="historial">
-        <svg class="anillo" viewBox="0 0 120 120" aria-hidden="true">
-          <circle class="anillo-fondo" cx="60" cy="60" r="50"></circle>
-          <circle class="anillo-avance" id="anillo-avance" cx="60" cy="60" r="50"></circle>
-          <text x="60" y="58" class="anillo-cifra" id="anillo-cifra">0</text>
-          <text x="60" y="78" class="anillo-unidad">min</text>
-        </svg>
-        <span class="semana-texto">
-          <span class="semana-titulo" id="semana-titulo">Esta semana</span>
-          <span class="secundario" id="semana-detalle"></span>
-          <span class="dias" id="semana-dias"></span>
-        </span>
-        <span class="flecha" aria-hidden="true">›</span>
+        <span class="rotulo" id="semana-titulo">Esta semana</span>
+        <span class="semana-cifra"><strong id="anillo-cifra">0</strong><span id="semana-meta">min</span><span class="flecha" aria-hidden="true">›</span></span>
+        <span class="barra-semana" aria-hidden="true"><span id="anillo-avance"></span></span>
+        <span class="secundario" id="semana-detalle"></span>
+        <span class="dias" id="semana-dias"></span>
       </button>
       <div id="pregunta-meta" class="bloque" hidden>
         <h3>¿Cuántos minutos quieres caminar a la semana?</h3>
-        <p>La OMS recomienda entre 150 y 300 minutos a la semana de actividad moderada, y caminar a buen paso
-          cuenta. Si hoy caminas poco, parte más abajo: cuando cumplas, la app te propondrá subir de a poco.</p>
+        <p class="ayuda">La OMS recomienda entre 150 y 300 minutos a la semana de actividad moderada, y caminar a buen
+          paso cuenta. Si hoy caminas poco, parte más abajo: cuando cumplas, la app te propondrá subir de a poco.</p>
         <div class="chips" id="opciones-meta">
           <button type="button" class="chip-boton" data-meta="60">60 min</button>
           <button type="button" class="chip-boton" data-meta="90">90 min</button>
@@ -87,24 +99,30 @@
         </div>
       </div>
       <div id="clima" class="clima" hidden></div>
-      <h2>Salir ahora</h2>
+      <h2 class="titulo-seccion">Salir ahora</h2>
       <div class="salir-ahora">
-        <button type="button" class="boton-salir" data-minutos="15">15<small>min</small></button>
-        <button type="button" class="boton-salir" data-minutos="30">30<small>min</small></button>
-        <button type="button" class="boton-salir" data-minutos="45">45<small>min</small></button>
-        <button type="button" class="boton-salir" data-minutos="60">60<small>min</small></button>
+        <button type="button" class="boton-salir" data-minutos="15">15<small>MIN</small></button>
+        <button type="button" class="boton-salir" data-minutos="30">30<small>MIN</small></button>
+        <button type="button" class="boton-salir" data-minutos="45">45<small>MIN</small></button>
+        <button type="button" class="boton-salir" data-minutos="60">60<small>MIN</small></button>
       </div>
-      <label class="interruptor">
+      <!-- Destino sellado (antes "Sorpresa"): con el lacre puesto, los botones de arriba llevan a un lugar sin timbrar. -->
+      <label class="sellado">
         <input type="checkbox" id="sorpresa">
-        <span>🎲 Sorpresa: llévame a un lugar que no tengo en la Santiagodex, sin decirme adónde</span>
+        <span class="lacre" aria-hidden="true"></span>
+        <span class="sellado-texto">
+          <strong>Destino sellado</strong>
+          <small>Te llevo a un lugar que no tienes timbrado, sin decirte adónde. Se abre al llegar.</small>
+        </span>
       </label>
       <p class="ayuda" id="ayuda-salir">Ida y vuelta desde donde estás.</p>
       <p id="estado-salir" class="estado" role="status"></p>
       <div id="bloque-favoritas" hidden>
-        <h2>Tus rutas favoritas</h2>
+        <h2 class="titulo-seccion">Tus rutas favoritas</h2>
         <ul id="lista-favoritas" class="lista"></ul>
       </div>
       <div id="aviso-respaldo" class="alerta" hidden></div>
+      <svg class="cordillera" viewBox="0 0 360 76" preserveAspectRatio="none" aria-hidden="true"><use href="#dibujo-cordillera"/></svg>
     </div>
 
     <!-- Nuevo paseo a medida -->
@@ -239,11 +257,15 @@
     <!-- Paseo: abajo solo una barra delgada con lo que falta; lo demás se abre tocándola. Arriba, fuera del panel, va
          la franja con la próxima indicación. -->
     <div class="vista" data-vista="seguimiento" hidden>
+      <!-- Al llegar a un lugar: el timbre punteado espera tu foto. -->
       <div id="captura-aviso" class="captura-aviso" hidden>
-        <p id="captura-texto"></p>
-        <div class="fila" id="captura-botones" hidden>
-          <button type="button" class="boton-principal" id="captura-foto">📷 Sacar foto</button>
-          <button type="button" class="boton-secundario" id="captura-despues">Después</button>
+        <span id="captura-timbre" hidden></span>
+        <div class="captura-cuerpo">
+          <p id="captura-texto"></p>
+          <div class="fila" id="captura-botones" hidden>
+            <button type="button" class="boton-principal" id="captura-foto"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z M12 10.5a3 3 0 1 1 0 6a3 3 0 1 1 0-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg> Sacar foto</button>
+            <button type="button" class="boton-secundario" id="captura-despues">Después</button>
+          </div>
         </div>
       </div>
       <button type="button" class="barra-paseo" id="barra-paseo" aria-expanded="false" aria-controls="menu-paseo">
@@ -267,7 +289,8 @@
           <button type="button" class="boton-secundario" id="boton-metronomo" aria-pressed="false">Metrónomo</button>
           <button type="button" class="boton-secundario" id="voz" aria-pressed="false">Voz: no</button>
         </div>
-        <p class="ayuda">Intervalos: 3 minutos rápido y 3 suave; la barra se pone naranja cuando toca rápido.</p>
+        <details class="ayuda-plegable"><summary>¿Cómo funcionan los intervalos?</summary>
+          <p class="ayuda">Intervalos: 3 minutos rápido y 3 suave; la barra se pone naranja cuando toca rápido.</p></details>
         <button type="button" class="boton-peligro" id="terminar">Terminar</button>
       </div>
     </div>
@@ -316,46 +339,59 @@
       <p id="estado-historial" class="estado" role="status"></p>
     </div>
 
-    <!-- Santiagodex y tu mapa de Santiago -->
+    <!-- Pasaporte (antes Santiagodex) y tu mapa de Santiago -->
     <div class="vista" data-vista="dex" hidden>
-      <!-- El álbum. La ficha de un lugar reemplaza al álbum (pantalla completa) y "‹ Dex" vuelve al mismo punto. -->
+      <!-- Las páginas. La ficha de un lugar reemplaza a las páginas (pantalla completa) y "‹ Pasaporte" vuelve al
+           mismo punto. Elegir una comuna la deja como página, con su marcapáginas y sus visados. -->
       <div id="dex-album">
-        <h1>Santiagodex</h1>
-        <p class="secundario" id="dex-resumen">Cargando…</p>
-        <div class="progreso"><div id="dex-barra"></div></div>
-        <details class="agregar">
-          <summary>¿Cómo se captura?</summary>
-          <p class="ayuda">Llegas al lugar y le sacas <strong>tu foto</strong>: sin foto no hay captura. Si llegas en un
-            paseo con seguimiento, la app te avisa; si no es buen momento, queda como "falta la foto" y la subes
-            después desde la galería. Los lugares que ya conocías también se capturan subiendo una foto. Si pasas a
-            menos de 150 m sin llegar, quedan como vistos.</p>
+        <div class="cabecera-pasaporte">
+          <span class="marcapaginas" id="dex-marcapaginas" hidden></span>
+          <span class="rotulo terracota" id="dex-rotulo">Pasaporte</span>
+          <h1 id="dex-titulo">Santiago</h1>
+          <p id="dex-resumen">Cargando…</p>
+          <div class="barra-visados" id="dex-visados" aria-hidden="true"><span id="dex-barra"></span></div>
+          <p class="siguiente-visado" id="dex-siguiente"></p>
+        </div>
+        <details class="ayuda-plegable">
+          <summary>¿Cómo se timbra?</summary>
+          <p class="ayuda">Llegas al lugar y le sacas <strong>tu foto</strong>: sin foto no hay timbre. Si llegas en un
+            paseo con seguimiento, la app te avisa; si no es buen momento, queda como "falta tu foto" y la subes
+            después desde la galería. Los lugares que ya conocías también se timbran subiendo una foto. Si pasas a
+            menos de 150 m sin llegar, quedan como vistos. Tu foto queda pegada como polaroid y el timbre, con la
+            forma del tipo de lugar, encima de su esquina. Los monumentos nacionales y las zonas típicas tienen un
+            timbre conmemorativo, con doble borde y una estrella.</p>
         </details>
-        <input type="search" id="dex-buscar" placeholder="Buscar por nombre" aria-label="Buscar un lugar por nombre" enterkeyhint="search">
+        <input type="search" id="dex-buscar" placeholder="Buscar por nombre o número" aria-label="Buscar un lugar por nombre" enterkeyhint="search">
         <div class="segmentado dex-filtros" role="radiogroup" aria-label="Mostrar">
           <label><input type="radio" name="dex-filtro" value="todos" checked><span>Todos</span></label>
           <label><input type="radio" name="dex-filtro" value="faltan"><span>Faltan</span></label>
           <label><input type="radio" name="dex-filtro" value="falta"><span>Sin foto</span></label>
-          <label><input type="radio" name="dex-filtro" value="capturados"><span>Tengo</span></label>
+          <label><input type="radio" name="dex-filtro" value="capturados"><span>Timbrados</span></label>
         </div>
-        <div class="fila">
+        <div class="filtros-dex">
+          <select id="dex-comuna" aria-label="Página: comuna"></select>
           <select id="dex-tipo" aria-label="Tipo de lugar"></select>
-          <select id="dex-comuna" aria-label="Comuna"></select>
         </div>
-        <label class="interruptor"><input type="checkbox" id="dex-cerca"><span>Los más cercanos a mí primero</span></label>
-        <button type="button" class="boton-secundario boton-ancho" id="dex-ver-mapa">Ver estos lugares en el mapa</button>
+        <div class="fila-dex">
+          <label class="interruptor"><input type="checkbox" id="dex-cerca"><span>Los más cercanos primero</span></label>
+          <button type="button" class="boton-texto" id="dex-ver-mapa">Ver en el mapa</button>
+        </div>
         <p id="estado-dex" class="estado" role="status"></p>
         <div id="dex-cartas" class="album"></div>
         <button type="button" class="boton-secundario boton-ancho" id="dex-mas" hidden>Ver más</button>
-        <h2 class="separado">Regiones</h2>
-        <p class="ayuda">Cada comuna es una región: ganas una insignia al capturar el 25 %, el 50 % y el 100 % de sus
-          lugares. Toca una para ver sus cartas.</p>
+        <h2 class="separado">Visados por comuna</h2>
+        <details class="ayuda-plegable"><summary>¿Qué es un visado?</summary>
+          <p class="ayuda">Cada comuna es una página de tu pasaporte: ganas su visado al timbrar el 25 %, el 50 % y el
+            100 % de sus lugares. Toca una para abrir su página.</p></details>
         <ul id="dex-regiones" class="lista regiones"></ul>
         <button type="button" class="boton-texto" id="dex-todas-regiones" hidden>Ver todas las comunas</button>
         <h2 class="separado">Tu mapa de Santiago</h2>
-        <p class="ayuda">Lo que caminaste con la app (azul) y lo que marcaste como conocido (morado), y qué parte de las
-          calles de cada comuna conoces.</p>
+        <details class="ayuda-plegable"><summary>¿Qué muestra?</summary>
+          <p class="ayuda">Lo que caminaste con la app (azul) y lo que marcaste como conocido (morado), y qué parte de las
+            calles de cada comuna conoces.</p></details>
         <button type="button" class="boton-secundario boton-ancho" id="ver-mi-mapa">Ver tu mapa</button>
         <ul id="avance-comunas" class="lista avance"></ul>
+        <svg class="cordillera" viewBox="0 0 360 76" preserveAspectRatio="none" aria-hidden="true"><use href="#dibujo-cordillera"/></svg>
       </div>
       <div id="dex-ficha" class="ficha" hidden></div>
     </div>
@@ -373,10 +409,13 @@
         Mapa y calles: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>.
         Búsqueda: Nominatim. Estaciones: feed público de Bike Itaú. Clima y aire:
         <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a>. Resúmenes: Wikipedia.
-        Delitos por comuna: CEAD. Santiagodex: Wikidata, fotos de Wikimedia Commons, especies de
+        Delitos por comuna: CEAD. Pasaporte: Wikidata, fotos de Wikimedia Commons, especies de
         <a href="https://www.inaturalist.org" target="_blank" rel="noopener">iNaturalist</a>, monumentos y zonas
         típicas del <a href="https://www.monumentos.gob.cl" target="_blank" rel="noopener">Consejo de Monumentos
-        Nacionales</a> y altura de Open-Meteo.</p>
+        Nacionales</a> y altura de Open-Meteo. Letras: Bricolage Grotesque e IBM Plex Mono (licencia SIL Open Font
+        License). La idea del pasaporte se inspira en el Pasaporte Patrimonial del Servicio Nacional del Patrimonio
+        Cultural; esta app no es oficial.</p>
+      <svg class="cordillera" viewBox="0 0 360 76" preserveAspectRatio="none" aria-hidden="true"><use href="#dibujo-cordillera"/></svg>
     </div>
 
     <!-- Lugares guardados -->
@@ -395,8 +434,9 @@
       </details>
       <h2>Lo que ya conozco</h2>
       <p class="ayuda" id="resumen-conocidas"></p>
-      <p class="ayuda">Para el modo explorar solo cuenta lo que tú marcas: al terminar un paseo, con "Ya conozco esta
-        ruta" o tocando zonas en el mapa. Las opciones que revisas al buscar no cuentan.</p>
+      <details class="ayuda-plegable"><summary>¿Qué cuenta como conocido?</summary>
+        <p class="ayuda">Para el modo explorar solo cuenta lo que tú marcas: al terminar un paseo, con "Ya conozco esta
+          ruta" o tocando zonas en el mapa. Las opciones que revisas al buscar no cuentan.</p></details>
       <div class="fila botones-fila">
         <button type="button" class="boton-secundario" id="pintar-conocidas">Marcar zonas en el mapa</button>
         <button type="button" class="boton-secundario" id="borrar-conocidas">Borrar todo</button>
@@ -408,7 +448,7 @@
     <div class="vista" data-vista="respaldo" hidden>
       <button type="button" class="volver" data-ir="mas">‹ Más</button>
       <h1>Respaldo</h1>
-      <p class="ayuda">Tus paseos, la meta, la Santiagodex (con tus fotos), los lugares, las favoritas y lo que ya
+      <p class="ayuda">Tus paseos, la meta, el Pasaporte (con tus fotos y notas), los lugares, las favoritas y lo que ya
         conoces se guardan solo en este navegador. Descarga un respaldo de vez en cuando para no perderlos si borras los
         datos del navegador o cambias de celular. Con fotos pesa más: unos 4 MB cada 100 fotos.</p>
       <div class="fila botones-fila">
@@ -426,27 +466,32 @@
         <label class="campo">Meta semanal (minutos caminando)
           <input id="meta-minutos" type="number" inputmode="numeric" min="10" max="1000" step="5" placeholder="Ej.: 150">
         </label>
-        <p class="ayuda">La OMS recomienda 150 a 300 minutos a la semana de actividad moderada. Cuentan los minutos en
-          movimiento de cada paseo con seguimiento y los que agregues a mano en el historial.</p>
+        <details class="ayuda-plegable"><summary>¿Qué cuenta para la meta?</summary>
+          <p class="ayuda">La OMS recomienda 150 a 300 minutos a la semana de actividad moderada. Cuentan los minutos en
+            movimiento de cada paseo con seguimiento y los que agregues a mano en el historial.</p></details>
         <label class="campo">Largo de tu paso (metros)
           <input id="largo-paso" type="number" inputmode="decimal" min="0.3" max="1.5" step="0.01">
         </label>
-        <p class="ayuda">Para medirlo: camina 10 pasos normales, mide la distancia en metros y divídela por 10.</p>
+        <details class="ayuda-plegable"><summary>¿Cómo lo mido?</summary>
+          <p class="ayuda">Para medirlo: camina 10 pasos normales, mide la distancia en metros y divídela por 10.</p></details>
         <label class="campo">Velocidad caminando (km/h)
           <input id="velocidad" type="number" inputmode="decimal" min="2" max="8" step="0.1">
         </label>
-        <p class="ayuda">Se usa para convertir minutos en distancia. Un paso tranquilo es unos 4,5 km/h.</p>
+        <details class="ayuda-plegable"><summary>¿Para qué sirve?</summary>
+          <p class="ayuda">Se usa para convertir minutos en distancia. Un paso tranquilo es unos 4,5 km/h.</p></details>
         <div class="fila">
           <label class="mini">Paso enérgico desde (km/h)<input id="energico" type="number" inputmode="decimal" min="3" max="8" step="0.1"></label>
           <label class="mini">Metrónomo (pasos/min)<input id="ppm" type="number" inputmode="numeric" min="80" max="150" step="1"></label>
         </div>
-        <p class="ayuda">Caminar a 5 km/h o más, o a unos 100-120 pasos por minuto, suele ser intensidad moderada: la
-          que más ayuda a la salud. Durante el paseo se muestra cuántos minutos llevas a ese ritmo.</p>
+        <details class="ayuda-plegable"><summary>¿Qué es el paso enérgico?</summary>
+          <p class="ayuda">Caminar a 5 km/h o más, o a unos 100-120 pasos por minuto, suele ser intensidad moderada: la
+            que más ayuda a la salud. Durante el paseo se muestra cuántos minutos llevas a ese ritmo.</p></details>
         <label class="campo">Tu peso (kg, opcional)
           <input id="peso" type="number" inputmode="decimal" min="30" max="250" step="0.5" placeholder="Solo para calorías">
         </label>
-        <p class="ayuda">Solo se usa para estimar calorías y queda guardado en este celular. Es una estimación gruesa
-          (puede errar 20 a 30 %) según el Compendio de Actividades Físicas; no considera las subidas.</p>
+        <details class="ayuda-plegable"><summary>¿Para qué se usa?</summary>
+          <p class="ayuda">Solo se usa para estimar calorías y queda guardado en este celular. Es una estimación gruesa
+            (puede errar 20 a 30 %) según el Compendio de Actividades Físicas; no considera las subidas.</p></details>
         <label class="interruptor">
           <input type="checkbox" id="ver-estaciones">
           <span>Mostrar estaciones Bike Itaú en el mapa</span>
@@ -455,14 +500,16 @@
           <input type="checkbox" id="ubicarme">
           <span>Aprender a ubicarme: rosa de los vientos y puntos cardinales</span>
         </label>
-        <p class="ayuda">Muestra una rosa en el mapa y, en el paseo, hacia dónde sigues después de cada giro ("hacia el
-          oriente"). La regla de Santiago: la cordillera siempre está al oriente.</p>
+        <details class="ayuda-plegable"><summary>¿Qué muestra?</summary>
+          <p class="ayuda">Muestra una rosa en el mapa y, en el paseo, hacia dónde sigues después de cada giro ("hacia el
+            oriente"). La regla de Santiago: la cordillera siempre está al oriente.</p></details>
         <label class="interruptor">
           <input type="checkbox" id="ver-nombres-dex">
-          <span>Santiagodex: ver los nombres de lo que no has encontrado</span>
+          <span>Pasaporte: ver los nombres de lo que no has encontrado</span>
         </label>
-        <p class="ayuda">Apagado, los lugares que no has visto aparecen como siluetas con "?" (solo el tipo y la
-          distancia), como en un álbum.</p>
+        <details class="ayuda-plegable"><summary>¿Qué cambia?</summary>
+          <p class="ayuda">Apagado, los lugares que no has visto aparecen como siluetas punteadas con su número (solo la
+            forma de su tipo y la distancia), como un timbre que todavía no tienes.</p></details>
         <details class="mas-opciones" id="detalle-barrios">
           <summary>Mis barrios <span class="opcional" id="resumen-barrios"></span></summary>
           <p class="ayuda">Las comunas donde te gusta caminar. Con "Solo por mis barrios" (Armar → Más opciones), los
@@ -489,13 +536,14 @@
         <label class="mini">Minutos<input id="agenda-minutos" type="number" inputmode="numeric" min="5" max="240" value="30" aria-label="Minutos"></label>
       </div>
       <button type="button" class="boton-secundario boton-ancho" id="crear-agenda">Crear evento en el calendario</button>
-      <p class="ayuda">En el iPhone debería abrirse el calendario con "Añadir todo". Si en cambio se descarga un archivo
-        <code>.ics</code>, ábrelo desde la app Archivos.</p>
+      <details class="ayuda-plegable"><summary>¿Qué pasa en el iPhone?</summary>
+        <p class="ayuda">En el iPhone debería abrirse el calendario con "Añadir todo". Si en cambio se descarga un archivo
+          <code>.ics</code>, ábrelo desde la app Archivos.</p></details>
       <p id="estado-agenda" class="estado" role="status"></p>
     </div>
   </section>
 
-  <!-- Foto propia de la Santiagodex: una abre la cámara directo; la otra deja elegir de la galería. Quedan fuera del
+  <!-- Foto propia del Pasaporte: una abre la cámara directo; la otra deja elegir de la galería. Quedan fuera del
        panel y sin display:none para que el iPhone deje abrirlas desde cualquier pantalla (también en el paseo). -->
   <input type="file" id="foto-camara" class="archivo-oculto" accept="image/*" capture="environment" tabindex="-1" aria-hidden="true">
   <input type="file" id="foto-galeria" class="archivo-oculto" accept="image/*" tabindex="-1" aria-hidden="true">
