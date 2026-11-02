@@ -1,6 +1,35 @@
 # Backlog — Paseos
 
 ## Pendiente acordado
+- **Rediseño "Pasaporte"** (diseño conversado y decidido el 2026-11-01 con maquetas; falta construirlo). Bastián encuentra
+  la interfaz ruidosa (mucho texto a la vista, todo pesa igual, ~30 emojis mezclados) y sin identidad. Decidido:
+  - **Estética de pasaporte en vez de Pokémon:** la de Pokémon amarra a un estilo ajeno y es marca registrada (cerraría
+    la puerta a mostrarla o postular a fondos). Inspiración: el Pasaporte Patrimonial 2026 del Servicio Nacional del
+    Patrimonio Cultural (libreta gratis con timbres, stickers o firmas, sirve todo el año y tiene espacio para notas).
+    Inspirado, no copiado: nada de escudo, logos ni diseño oficial, y con otro nombre.
+  - **Minimalista pero atractiva:** sin fondo de guilloché ni muchas letras. La interfaz en blanco y negro y **el color
+    lo ponen los timbres** (mientras más caminas, más color). Lúdica y gratificante sin verse de videojuego: el momento
+    del timbre, lo que falta a la vista y el "te faltan N para…".
+  - **Cada timbre con la forma de lo que es** (plaza = copa de árbol, cerro = montaña, edificio = arco…), como los
+    timbres de estación de Japón. Los monumentos nacionales y zonas típicas con timbre conmemorativo.
+  - **El timbre sale con tu foto** (como desde la v1.4): la foto es parte de la experiencia. Aparece como **polaroid**
+    pegada en la página y el timbre cae sobre su esquina (más color y vida, como un recuerdo pegado en un pasaporte).
+    Al llegar sin foto, la polaroid queda vacía y el timbre punteado esperando ("falta tu foto"). Al pie de la polaroid,
+    tu nota o la fecha.
+  - **Lo que se toma del Pasaporte Patrimonial** (fotos de prensa que trajo Bastián): dibujos de línea en un solo color
+    (terracota; acá, la cordillera al pie de cada página), la ficha como página con **campos rotulados** (año, obra de,
+    comuna, altura, metro…) antes de las secciones plegables, un **espacio punteado "TIMBRE"** junto a la polaroid vacía,
+    una frase destacada bajo el nombre solo si existe (placa de OSM o la mención subrayada de la v1.7) y un
+    **marcapáginas** en la comuna donde estás. Se toman las ideas, no sus dibujos ni su diagramación.
+  - **Nombre provisorio: "Pasaporte"** (la pestaña que reemplaza a la Dex) hasta que salga uno mejor.
+  - **Nada del texto se pierde:** se agrupa en secciones plegables y las ayudas quedan plegadas donde están. Los
+    párrafos largos en letra normal.
+  - **Uso propio por ahora, diseñada como app real** (ver Decisiones en `CLAUDE.md`).
+  - Por partes, una sesión cada una: base (colores, letras, íconos sin emojis, botones, plegables) y Hoy; Pasaporte
+    (la actual Dex); Armar y Resultados; Paseo y Resumen.
+  - **Falta decidir (al construir):** el nombre definitivo (ni "Santiagodex" ni "Pasaporte Patrimonial", que es el del
+    Estado); las letras (en las maquetas: Bricolage Grotesque y IBM Plex Mono; verificar su licencia); qué timbres
+    especiales o hitos hay (ojo con "Puntos, niveles y rankings" en Descartadas); cómo se ve el mapa.
 - **Probar en terreno la v1.7 "Una razón para ir"** (pedida y decidida el 2026-11-01, "sí a todo"; construida el
   mismo día): la ficha de la Dex en cuatro grupos (Qué hay, Su historia, Dónde estás, Tú y este lugar). Fichas con
   algo propio: de 570 a **2.705 de 3.236 (84 %)**; 531 quedan solo con lo general (altura, calles, referencias,
@@ -141,6 +170,12 @@
   sin descarga abierta documentada (CSV o Excel). Carabineros publica datos semanales en stop.carabineros.cl.
 
 ## Ideas sin decidir
+- **Hacerla pública y postular a fondos** (futuro lejano; Bastián cambió de opinión el 2026-11-01). También algo
+  social: amigos, ver sus estadísticas y timbres, ranking, concursos. Se nombraron el Fondart y el Fondo del Patrimonio
+  Cultural, sin verificar si financian apps ni sus requisitos. Mientras tanto, no cerrar la puerta: nada de marcas
+  ajenas y revisar las licencias de los datos (parte de iNaturalist es no comercial). Ojo: lo social necesita servidor
+  y cuentas (choca con costo cero y sin claves), y un ranking de minutos puede desanimar a quien parte sedentario;
+  preferir lo cooperativo. Reemplaza la descartada "Hacerla pública o venderla".
 - **Después de la v1.7** (surgidas al construirla, 2026-11-01): "Pasar por… máquinas de ejercicio" en Armar (833
   lugares ya saben qué hay); cuándo florece cada árbol (jacarandá, ciruelo…) desde una fuente botánica verificable;
   marcar como "rincón" las 531 fichas sin nada propio (como los Pokémon comunes) en vez de sacarlas de la Dex.
@@ -167,7 +202,6 @@
   pobres calzan) y una capa abierta del crecimiento de Santiago por década (no se encontró).
 - **Minimizar virajes en bici:** no era la necesidad. Lo que importa es evitar calles sin ciclovía o con mucha
   gente (ver "Bike-friendly" en `CLAUDE.md`).
-- **Hacerla pública o venderla:** es para uso propio. Lo que vale son los ajustes a medida.
 - **Estación casa fija:** la estación de llegada se elige según el término de cada paseo.
 - **OpenRouteService para la v1:** pide cuenta y clave; BRouter hace lo mismo sin ellas (queda como plan B).
 - **Exportar a Google Maps:** en el celular solo acepta 3 puntos intermedios y entre ellos calcula su propio camino,

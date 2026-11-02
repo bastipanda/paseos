@@ -1,7 +1,7 @@
 # Paseos
 
 App personal para salir a caminar (o pedalear) más y mejor en Santiago: arma rutas a medida, guía en vivo y
-registra el avance. Uso propio de Bastián, no comercial. Se usa en su **iPhone** mientras camina.
+registra el avance. Uso propio de Bastián por ahora, pensada como app real. Se usa en su **iPhone** mientras camina.
 Meta de fondo (2026-10-30): caminar más para bajar de peso y dejar el sedentarismo.
 
 ## Estado
@@ -98,7 +98,9 @@ No usa claves. Si algún día se agrega un servicio con clave, va en el navegado
 - Antes de cada push: resumen en simple y esperar el OK de Bastián.
 
 ## Decisiones tomadas
-- **Uso propio, no comercial** (lo propio son los ajustes a medida). **Repo público** (lo exige Pages): nada privado.
+- **Uso propio por ahora, pensada como app real** (2026-11-01): se diseña como si Bastián fuera un usuario más de una
+  app pública: propósito claro, objetivos y mecánicas evidentes, fácil sin explicación previa. Publicarla y postular a
+  fondos queda para un futuro lejano (`BACKLOG.md`). **Repo público** (lo exige Pages): nada privado.
 - **Celular mientras camina** → web app con GPS en vivo. **BRouter** en vez de OpenRouteService (sin cuenta ni clave).
 - **Nada fijo:** partida, término, duración y modo se eligen en cada paseo; los lugares guardados son atajos.
 - **La app explica, no solo puntúa**, sin inventar lo que los datos no dicen.
