@@ -114,9 +114,21 @@ export function capturarConFoto(estado, lugar, fecha = new Date().toISOString())
   estado.capturados[lugar.id] = { fecha: previa?.fecha || fecha, como: previa?.como || 'foto', foto: fecha };
 }
 
-// Insignias de una comuna ("región") según la fracción capturada: al 25, 50 y 100 %.
+// Visados (antes "insignias") de una comuna según la fracción timbrada: al 25, 50 y 100 %.
 export const INSIGNIAS = [25, 50, 100];
 export const insigniasDe = (fraccion) => INSIGNIAS.filter((p) => fraccion * 100 >= p);
+
+// El próximo visado de una comuna: { porcentaje, faltan } (cuántos timbres faltan), o null si ya tiene los tres.
+export function siguienteVisado(capturados, total) {
+  if (!total) return null;
+  const porcentaje = INSIGNIAS.find((p) => (capturados / total) * 100 < p);
+  if (!porcentaje) return null;
+  return { porcentaje, faltan: Math.ceil((porcentaje / 100) * total - 1e-9) - capturados };
+}
+
+// Timbre conmemorativo: el lugar está dentro de un monumento nacional o una zona típica del Consejo de Monumentos
+// (o a menos de 60 m si el monumento es solo un punto), según datos/entorno.json.
+export const esConmemorativo = (lugar, entorno) => Boolean(entorno?.[lugar.id]?.m?.length);
 
 // Avance por tipo y por comuna: { total, capturados } de cada uno. Solo cuenta lo capturado con foto.
 export function avanceDex(dex, estado) {
