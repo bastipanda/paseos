@@ -23,6 +23,7 @@ const NOMBRE_TIPO = {
   cajero: 'Cajero o banco',
   ferreteria: 'Ferretería',
   estacion: 'Estación de metro',
+  tramite: 'Trámite',
 };
 
 // Ícono de cada tipo de lugar, para el mapa y las listas.

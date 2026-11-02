@@ -28,6 +28,7 @@ import { evaluar, combinar, ESTILOS } from './tranquilidad.js';
 import { lugaresEnRuta } from './plazas.js';
 import { comercioEnRuta, puntosDeComercio } from './comercio.js';
 import { novedad } from './explorar.js';
+import { rangoPorNecesidad } from './mandados.js';
 
 export const PERFIL_BICI = 'bici-amigable';
 export const PERFIL_CORTO = 'paseo-corto';
@@ -340,11 +341,16 @@ export async function paseosHastaDestino({ inicio, rango, lugares, avance = () =
   return opciones.sort((a, b) => Number(b.enRango) - Number(a.enRango) || b.nota - a.nota);
 }
 
-// Opciones de ir a un lugar y volver al punto de partida (plazas, trámites, lugares de la Santiagodex), con la
+// Opciones de ir a un lugar y volver al punto de partida (plazas, trámites, lugares del Pasaporte), con la
 // duración pedida para la ida y la vuelta juntas. La vuelta se fuerza por otras calles con un punto intermedio a un
 // costado. Se elige un lugar por dirección, prefiriendo los que tienen nombre, son grandes, están a la distancia
 // justa y, en modo explorar, los que quedan en zonas nuevas.
-export async function paseosIdaYVuelta({ inicio, rango, lugares, avance = () => {}, prefs = PREFS_POR_DEFECTO, sinLugares = 'No encontré lugares a una distancia que calce con la duración pedida.', ronda = 0, excluir = null }) {
+// Con `porNecesidad` (trámites) el lugar no se elige por la distancia: se prueban los que vienen (los más cercanos o
+// el que elegiste), a cualquier distancia, y la duración pedida pasa a ser lo que dura como mínimo el paseo si el
+// lugar está cerca (ver `rangoPorNecesidad`).
+export async function paseosIdaYVuelta({ inicio, rango, lugares, avance = () => {}, prefs = PREFS_POR_DEFECTO, sinLugares = 'No encontré lugares a una distancia que calce con la duración pedida.', ronda = 0, excluir = null, porNecesidad = false }) {
+  const rangoDe = (d) => (porNecesidad ? rangoPorNecesidad(rango, d) : rango);
+  const metaDe = (d) => objetivo(rangoDe(d));
   const meta = objetivo(rango);
   const maxTotal = rango.max ?? meta * 1.5;
   const perfil = perfilPie(prefs);
@@ -355,6 +361,13 @@ export async function paseosIdaYVuelta({ inicio, rango, lugares, avance = () => 
   const maximo = maxTotal / (2 * 1.15);
 
   const elegir = (lista) => {
+    if (porNecesidad) {
+      return lista
+        .map((lugar) => ({ lugar, d: distancia(inicio, lugar.punto) }))
+        .filter((e) => e.d >= 40 && e.d <= 6000)
+        .sort((a, b) => a.d - b.d)
+        .slice(0, 3);
+    }
     const porSector = new Map();
     for (const lugar of lista) {
       const d = distancia(inicio, lugar.punto);
@@ -366,7 +379,8 @@ export async function paseosIdaYVuelta({ inicio, rango, lugares, avance = () => 
     }
     return [...porSector.values()].sort((a, b) => a.nota - b.nota).slice(0, 4);
   };
-  const enTuZona = lugares.filter((l) => enZona(prefs, l.punto));
+  // Un lugar elegido por necesidad vale aunque quede fuera de "Mis barrios": lo elegiste tú.
+  const enTuZona = porNecesidad ? lugares : lugares.filter((l) => enZona(prefs, l.punto));
   let elegidos = elegir(excluir ? enTuZona.filter((l) => !excluir.has(claveLugar(l))) : enTuZona);
   // "Buscar más" sin lugares nuevos (por ejemplo, ir a capturar uno solo): el mismo lugar, volviendo por otro lado.
   if (!elegidos.length && excluir) elegidos = elegir(enTuZona);
@@ -378,7 +392,7 @@ export async function paseosIdaYVuelta({ inicio, rango, lugares, avance = () => 
     const ruta = await intentar([inicio, lugar.punto, lado, inicio], perfil, avance, subidas);
     return ruta ? { ruta, lugar, angulo, sumaVuelta } : null;
   };
-  const sumaInicial = (d) => Math.max(d * 1.05, meta / DESVIO_CALLES - d);
+  const sumaInicial = (d) => Math.max(d * 1.05, metaDe(d) / DESVIO_CALLES - d);
   // Hacia qué lado se fuerza la vuelta: cada ronda de "Buscar más" empieza por otro par, y con "Solo por mis
   // barrios" se saltan los lados que caen fuera.
   const LADOS = [90, 270, 60, 300, 120, 240];
@@ -392,14 +406,15 @@ export async function paseosIdaYVuelta({ inicio, rango, lugares, avance = () => 
   const primera = (
     await Promise.all(elegidos.flatMap((e) => lados(e).map((a) => pedir(e.lugar, a, sumaInicial(e.d)))))
   ).filter(Boolean);
+  const rangoDeRuta = (r) => rangoDe(distancia(inicio, r.lugar.punto));
   const corregir = primera
-    .filter((r) => !cumple(r.ruta.metros, rango))
-    .sort((a, b) => desvio(a.ruta.metros, rango) - desvio(b.ruta.metros, rango))
+    .filter((r) => !cumple(r.ruta.metros, rangoDeRuta(r)))
+    .sort((a, b) => desvio(a.ruta.metros, rangoDeRuta(a)) - desvio(b.ruta.metros, rangoDeRuta(b)))
     .slice(0, 3);
   const segunda = await Promise.all(
     corregir.map((r) => {
       const d = distancia(inicio, r.lugar.punto);
-      return pedir(r.lugar, r.angulo, Math.max(d * 1.02, r.sumaVuelta + (meta - r.ruta.metros) / DESVIO_CALLES));
+      return pedir(r.lugar, r.angulo, Math.max(d * 1.02, r.sumaVuelta + (metaDe(d) - r.ruta.metros) / DESVIO_CALLES));
     }),
   );
 
@@ -407,7 +422,7 @@ export async function paseosIdaYVuelta({ inicio, rango, lugares, avance = () => 
     const evaluacion = evaluar(r.ruta.tramos, 'pie', prefs.estilo);
     const repetida = fraccionRepetida(r.ruta.coords);
     const extras = extrasDeRuta(r.ruta, prefs);
-    const candidata = { ruta: r.ruta, evaluacion, repetida, extras, enRango: cumple(r.ruta.metros, rango) };
+    const candidata = { ruta: r.ruta, evaluacion, repetida, extras, enRango: cumple(r.ruta.metros, rangoDeRuta(r)) };
     return opcionDePie({ ...candidata, nota: notaDe(evaluacion, repetida, extras, prefs, r.ruta) }, prefs, {
       destino: { ...r.lugar, idaYVuelta: true },
       lugar: r.lugar,
