@@ -1,6 +1,15 @@
 # Backlog — Paseos
 
 ## Pendiente acordado
+- **Probar en terreno la v1.9 "Hoy y Armar con cariño"** (decidida con maquetas y construida el 2026-11-01; Bastián dio
+  libertad total para esta ola). Lo decidido está en `CLAUDE.md`. Probar: el punto azul en Armar, Resultados y "Ver en
+  el mapa" (y que no gaste batería de más); las tres propuestas de Hoy (sobre todo "un timbre nuevo cerca" y "Otro");
+  armar un paseo tocando las cajas de la frase; "un timbre nuevo" como destino; un trámite por tipo (la farmacia más
+  cercana) y uno buscado por nombre ("Cruz Verde", "correo", "notaría"); "En el camino: N timbres" en Resultados.
+  - Detalles decididos al construir: "Opción N de M" pasó a "Camino N de M" y "Buscar rutas" a "Buscar caminos"; el
+    trámite busca primero en los datos de la app y, si hay menos de 4, en Nominatim (con un segundo intento en singular
+    o plural: "correo" no encuentra nada y "correos" sí); un lugar elegido por necesidad vale aunque quede fuera de "Mis
+    barrios"; la duración de un trámite es al menos la ida y vuelta (distancia × 2,2) y llega hasta lo pedido.
 - **Probar en terreno la v1.8 "Pasaporte"** (rediseño decidido con maquetas y construido el 2026-11-01; lo decidido
   está en `CLAUDE.md`). Probar: que todo se lea bien al sol y caminando (sobre todo la franja del paseo y los números
   en letra de máquina); Hoy con los días timbrados; "Destino sellado"; el Pasaporte por páginas de comuna con sus
@@ -102,6 +111,10 @@
   (43 comunas, ~230 mil cuadros con calles; Overpass falló en varios pedazos y el script reintentó solo).
 
 ## Por verificar
+- **v1.9:** si el iPhone vuelve a pedir el permiso del GPS en cada sesión al prender el punto azul (en la app de la
+  pantalla de inicio puede pasar); si "Un timbre nuevo cerca" aparece solo al abrir Hoy (necesita que el navegador diga
+  que el permiso ya está dado; si no, se busca al tocarla); si los resultados de Nominatim para trámites son buenos
+  fuera de Ñuñoa; si el marcador de "lugar interesante" tapa la silueta del timbre en el mapa (caen en el mismo punto).
 - **v1.8:** si el golpe del timbre suena en el iPhone (Safari puede no dejar sonar sin un toque previo, y con el
   interruptor de silencio no suena); si las letras propias cargan bien con 4G (≈110 KB, una sola vez); si la textura
   de tinta de los timbres (filtro SVG) pone lenta la página con muchas casillas; si los timbres chicos de la esquina

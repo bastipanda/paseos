@@ -8,23 +8,26 @@ Meta de fondo (2026-10-30): caminar más para bajar de peso y dejar el sedentari
 Publicadas: v1 y v1.1 el 2026-10-27; v1.2 y v1.3 el 2026-10-30; v1.4 y v1.5 el 2026-10-31; v1.6 el 2026-11-01.
 v1.7 ("una razón para ir": la ficha en cuatro grupos con datos del entorno) construida el 2026-11-01.
 v1.8 ("Pasaporte": rediseño completo de la interfaz, la Dex pasa a ser un pasaporte con timbres) publicada el
-2026-11-01. Falta probar v1.1 a v1.8 en terreno.
+2026-11-01. v1.9 ("Hoy y Armar con cariño": propuestas con motivo, Armar como frase, trámites replanteados, tu
+ubicación siempre en el mapa) publicada el 2026-11-01. Falta probar v1.1 a v1.9 en terreno.
 
 ## Qué hace
 - **Estilo "Pasaporte" (v1.8):** papel y tinta, minimalista; la interfaz en blanco y negro y el color lo ponen tus
   fotos y tus timbres. Las explicaciones largas van plegadas donde estaban ("i"): nada del texto se perdió.
 - **Barra de pestañas abajo:** Hoy, Armar, Pasaporte y Más (Historial, Lugares, Respaldo, Ajustes y créditos).
-- **Hoy** (inicio): los minutos de la semana en grande con su barra, cada día caminado timbrado, semanas cumplidas,
-  subir o bajar la meta 10 %, mejor hora para salir, **Salir ahora** (15-60 min, ida y vuelta), **Destino sellado**
-  (antes "Sorpresa": un lugar sin timbrar, sin decir adónde; se abre al llegar), favoritas y respaldo.
-- **Armar** (a medida): partida y término libres (GPS, lugar guardado, punto del mapa, dirección, estación de
-  metro). Término también: circular, una plaza y volver, un trámite y volver (súper, farmacia, feria…) o "la
-  estación de metro que calce". Duración en pasos, minutos, km o kcal. En "Más opciones" (plegado): estilo
-  (Tranquilo, Con vida, Noche), subidas, "Pasar por…", Explorar, **Solo por mis barrios** y vuelta en Bike Itaú.
+- **Hoy** (inicio): minutos de la semana, días timbrados, meta ±10 %, clima y **"Para hoy"**: completa tu semana, un
+  timbre nuevo cerca ("Otro") y **Destino sellado** (lugar sin timbrar que se revela al llegar); plan B: 15 min a 1 h.
+- **Armar** es **una frase**: "Quiero caminar [30 min] desde [donde estoy] y [volver al inicio] por calles
+  [tranquilas]"; cada caja abre una hoja (tiempo en 4 unidades, partida, destino: inicio, **un timbre nuevo**, plaza,
+  **trámite**, metro que calce u otro punto; estilo). Detalles como botones (subidas, pasar por, explorar, barrios, bici).
+- **Trámites:** la necesidad manda: el más cercano de un tipo o uno buscado ("Cruz Verde", "correo"; datos y
+  Nominatim, por cercanía); dura al menos la ida y vuelta y hasta lo pedido (`js/mandados.js`, `porNecesidad`).
+- **Tu ubicación siempre en el mapa** (punto azul y botón bajo el zoom), con el GPS solo mientras el mapa se ve.
 - **Mapa nunca tapado:** en Armar, Resultados y Resumen el panel se pliega a una franja (y se esconde la barra).
 - **Resultados:** tarjeta con pasos, minutos, km, % tranquila y subida; avisos de luz y del metro a la vista; plegados
   el por qué, la calidad de las calles, la comparación con el camino más corto y los robos por comuna (CEAD).
-  Favorita y GPX para OsmAnd u Organic Maps. En la última opción, **Más ›** busca otras con lo mismo pedido.
+  **"En el camino: N timbres por conseguir"** con sus siluetas en el mapa. Favorita y GPX para OsmAnd u Organic Maps.
+  En el último camino, **Más ›** busca otros con lo mismo pedido.
 - **Seguimiento:** franja arriba con flecha y próxima indicación; abajo una barra delgada con lo que falta que abre
   un menú: ritmo, **Llévame al metro**, intervalos 3+3 (avisan con el color de la barra), metrónomo y voz (apagada
   por defecto). "Seguirme" aparece si mueves el mapa. Al llegar a un lugar, su timbre punteado espera tu foto.
@@ -59,6 +62,8 @@ v1.8 ("Pasaporte": rediseño completo de la interfaz, la Dex pasa a ser un pasap
 - **Estilo:** `css/estilos.css` (variables, `--tipo` por tipo, modo oscuro); letras en `fuentes/` (OFL). Sin emojis:
   íconos en `js/iconos.js`, timbres SVG en `js/timbres.js` (filtro `#tinta` en `index.html`), momento del timbre en
   `js/timbrado.js`. En el código el Pasaporte sigue siendo "dex" (claves de `localStorage` y respaldo sin cambios).
+  La frase de Armar (`js/frase.js`) muestra en hojas las piezas del formulario de siempre y avisa con sus mismos
+  eventos: la búsqueda en `app.js` no cambió. La ubicación fuera del paseo, en `js/ubicacion.js`.
 - **Vistas:** todas viven en el `#panel` y se cambian con `irA()`. Las **páginas** (`PAGINAS`: Hoy, Dex, Más y lo
   que cuelga de ahí) ocupan toda la pantalla y tapan el mapa; Armar, Resultados, Paseo y Resumen son el mapa con el
   panel abajo. Resultados, Paseo y Resumen esconden la barra (`SIN_PESTANAS`). Desde una página, `verEnMapa(título)`
@@ -126,6 +131,10 @@ No usa claves. Si algún día se agrega un servicio con clave, va en el navegado
   Nacional del Patrimonio Cultural (ideas, no su diseño ni su nombre). Minimalista pero gratificante: lo lúdico sale de
   la mecánica (llenar páginas, el "te faltan N", el momento del timbre), no de verse como videojuego. Premiar por
   caminar, nunca castigar por no caminar. Las decisiones visuales se toman con maquetas lado a lado.
+- **v1.9 (2026-11-01): cada paseo es un viaje del pasaporte.** Hoy propone con un motivo y Armar habla como persona
+  (una frase), conectados al Pasaporte (timbre nuevo como destino, timbres en el camino). Descartados el paso a paso
+  (más toques cada vez) y fusionar Hoy y Armar (Hoy volvería a ser larga). **Trámites: la necesidad manda** (antes la
+  duración elegía el local y casi nunca era el que uno quería).
 - **Contexto verificable, no "historia para todos"** (v1.6): la mayoría de las plazas no tiene historia escrita;
   inventarla (o pedírsela a una IA) rompería "la app explica sin inventar". Tu nota llena lo que falta. En la v1.7
   la IA solo **subraya**: Claude Code elige entre frases de Wikipedia y `menciones.mjs --verificar` revisa que estén
