@@ -6,13 +6,17 @@ Meta de fondo (2026-10-30): caminar más para bajar de peso y dejar el sedentari
 
 ## Estado
 Publicadas: v1 y v1.1 el 2026-10-27; v1.2 y v1.3 el 2026-10-30; v1.4 y v1.5 el 2026-10-31; v1.6 el 2026-11-01.
-v1.7 ("una razón para ir": la ficha de la Dex en cuatro grupos con datos del entorno) construida el 2026-11-01.
-Falta probar v1.1 a v1.7 en terreno.
+v1.7 ("una razón para ir": la ficha en cuatro grupos con datos del entorno) construida el 2026-11-01.
+v1.8 ("Pasaporte": rediseño completo de la interfaz, la Dex pasa a ser un pasaporte con timbres) publicada el
+2026-11-01. Falta probar v1.1 a v1.8 en terreno.
 
 ## Qué hace
-- **Barra de pestañas abajo:** Hoy, Armar, Dex y Más (Historial, Lugares, Respaldo, Ajustes y créditos).
-- **Hoy** (inicio): anillo con los minutos de la semana y la meta, semanas cumplidas, subir o bajar la meta 10 %, mejor
-  hora para salir, **Salir ahora** (15-60 min, ida y vuelta), **Sorpresa** (lugar sin capturar), favoritas y respaldo.
+- **Estilo "Pasaporte" (v1.8):** papel y tinta, minimalista; la interfaz en blanco y negro y el color lo ponen tus
+  fotos y tus timbres. Las explicaciones largas van plegadas donde estaban ("i"): nada del texto se perdió.
+- **Barra de pestañas abajo:** Hoy, Armar, Pasaporte y Más (Historial, Lugares, Respaldo, Ajustes y créditos).
+- **Hoy** (inicio): los minutos de la semana en grande con su barra, cada día caminado timbrado, semanas cumplidas,
+  subir o bajar la meta 10 %, mejor hora para salir, **Salir ahora** (15-60 min, ida y vuelta), **Destino sellado**
+  (antes "Sorpresa": un lugar sin timbrar, sin decir adónde; se abre al llegar), favoritas y respaldo.
 - **Armar** (a medida): partida y término libres (GPS, lugar guardado, punto del mapa, dirección, estación de
   metro). Término también: circular, una plaza y volver, un trámite y volver (súper, farmacia, feria…) o "la
   estación de metro que calce". Duración en pasos, minutos, km o kcal. En "Más opciones" (plegado): estilo
@@ -23,18 +27,19 @@ Falta probar v1.1 a v1.7 en terreno.
   Favorita y GPX para OsmAnd u Organic Maps. En la última opción, **Más ›** busca otras con lo mismo pedido.
 - **Seguimiento:** franja arriba con flecha y próxima indicación; abajo una barra delgada con lo que falta que abre
   un menú: ritmo, **Llévame al metro**, intervalos 3+3 (avisan con el color de la barra), metrónomo y voz (apagada
-  por defecto). "Seguirme" aparece si mueves el mapa. Capturas de la Dex en vivo. La pantalla no se apaga.
+  por defecto). "Seguirme" aparece si mueves el mapa. Al llegar a un lugar, su timbre punteado espera tu foto.
+  La pantalla no se apaga.
 - **Aprender a ubicarme** (Ajustes, prendido): rosa de los vientos bajo el zoom (en el paseo, bajo la franja) con la
   cordillera al oriente, y el punto cardinal bajo cada giro ("Hacia el oriente (la cordillera al frente)").
-- **Al terminar:** va solo al **historial** (gráfico de 8 semanas y paseos a mano); resumen, lo capturado y postal.
-- **Dex (Santiagodex):** álbum de 3.236 cartas numeradas desde Plaza Baquedano, un color por tipo, con buscador.
-  "Visto" si pasas a <150 m; "falta la foto" si llegas (≤40 m, o un tercio del tamaño de un parque, máx. 200 m);
-  **capturado solo con tu foto** (cámara o galería, también sin paseo). Lo no visto es silueta con "?" (nombres en
-  Ajustes). Ficha con foto (la tuya, o la de Wikipedia o Commons con su crédito) y cuatro grupos: **Qué hay**
-  (juegos, canchas, máquinas, árboles, especies de iNaturalist, horario), **Su historia** (monumento o zona típica,
-  obra, placa, Wikipedia, "su nombre coincide con…"), **Dónde estás** (calles con su punto cardinal, barrio, altura,
-  Gran Torre y San Cristóbal, metro) y **Tú y este lugar** (fechas y tu nota).
-  Comunas como regiones con insignias al 25, 50 y 100 %. **Tu mapa:** lo caminado y el % de calles de cada comuna.
+- **Al terminar:** va solo al **historial** (gráfico de 8 semanas y paseos a mano); resumen, lo timbrado y postal
+  (papel, tinta y la cordillera al pie).
+- **Pasaporte (antes Santiagodex):** 3.236 lugares numerados desde Plaza Baquedano; cada comuna es una **página** con
+  **visados** al 25, 50 y 100 %. "Visto" a <150 m; "falta tu foto" si llegas (≤40 m, o un tercio de un parque, máx.
+  200 m); **timbrado solo con tu foto**: queda como **polaroid** (al pie, tu nota o la fecha) con el **timbre con la
+  forma de su tipo** (plaza = árbol, cerro = montaña, juegos = volantín…) en la esquina; **conmemorativo** si está en
+  un monumento o zona típica del CMN. Al pegar la foto, **"¡Timbrado!"** con lo que falta para el próximo visado. Lo
+  que falta, silueta punteada con su número. Ficha: frase destacada (placa o Wikipedia), polaroid y espacio "TIMBRE",
+  **campos rotulados** y cuatro grupos plegables (Su historia, Qué hay, Dónde estás, Tú y este lugar). **Tu mapa.**
 - **Ajustes:** meta, paso, velocidad, peso, paso enérgico, metrónomo, ubicarme, mis barrios y evento semanal (.ics).
 
 ## Definiciones
@@ -51,6 +56,9 @@ Falta probar v1.1 a v1.7 en terreno.
 ## Arquitectura
 - **Web app estática** (HTML, CSS y JS sin compilación ni servidor). `js/app.js` conecta todo; las pantallas nuevas
   van en `js/pantalla-*.js` y reciben lo que necesitan al iniciarse (`iniciarHoy`, `iniciarHistorial`, `iniciarDex`).
+- **Estilo:** `css/estilos.css` (variables, `--tipo` por tipo, modo oscuro); letras en `fuentes/` (OFL). Sin emojis:
+  íconos en `js/iconos.js`, timbres SVG en `js/timbres.js` (filtro `#tinta` en `index.html`), momento del timbre en
+  `js/timbrado.js`. En el código el Pasaporte sigue siendo "dex" (claves de `localStorage` y respaldo sin cambios).
 - **Vistas:** todas viven en el `#panel` y se cambian con `irA()`. Las **páginas** (`PAGINAS`: Hoy, Dex, Más y lo
   que cuelga de ahí) ocupan toda la pantalla y tapan el mapa; Armar, Resultados, Paseo y Resumen son el mapa con el
   panel abajo. Resultados, Paseo y Resumen esconden la barra (`SIN_PESTANAS`). Desde una página, `verEnMapa(título)`
@@ -111,8 +119,13 @@ No usa claves. Si algún día se agrega un servicio con clave, va en el navegado
 - **Seguridad con datos reales y sus límites:** CEAD por comuna solo como contexto, nunca para elegir rutas
   (comunas con gente de paso salen más altas por habitante). Por lo mismo, **"Mis barrios" en vez de "cuico"**:
   Bastián elige sus comunas, sin datos de ingreso que etiqueten barrios.
-- **Santiagodex en vez de puntos o niveles:** conocer Santiago motiva más. Desde la v1.4, **capturar = tu foto**
-  ("muy a lo Pokémon Go"); la app no revisa que la foto sea del lugar (queda a conciencia de Bastián).
+- **Coleccionar lugares en vez de puntos o niveles:** conocer Santiago motiva más. Desde la v1.4, **timbrar = tu
+  foto**: la foto es parte de la experiencia; la app no revisa que sea del lugar (queda a conciencia de Bastián).
+- **v1.8 (2026-11-01): Pasaporte en vez de Pokédex.** La estética Pokémon amarra a un estilo ajeno y es marca
+  registrada (cerraría la puerta a mostrarla o postular a fondos). Inspiración: el Pasaporte Patrimonial del Servicio
+  Nacional del Patrimonio Cultural (ideas, no su diseño ni su nombre). Minimalista pero gratificante: lo lúdico sale de
+  la mecánica (llenar páginas, el "te faltan N", el momento del timbre), no de verse como videojuego. Premiar por
+  caminar, nunca castigar por no caminar. Las decisiones visuales se toman con maquetas lado a lado.
 - **Contexto verificable, no "historia para todos"** (v1.6): la mayoría de las plazas no tiene historia escrita;
   inventarla (o pedírsela a una IA) rompería "la app explica sin inventar". Tu nota llena lo que falta. En la v1.7
   la IA solo **subraya**: Claude Code elige entre frases de Wikipedia y `menciones.mjs --verificar` revisa que estén

@@ -1,35 +1,16 @@
 # Backlog — Paseos
 
 ## Pendiente acordado
-- **Rediseño "Pasaporte"** (diseño conversado y decidido el 2026-11-01 con maquetas; falta construirlo). Bastián encuentra
-  la interfaz ruidosa (mucho texto a la vista, todo pesa igual, ~30 emojis mezclados) y sin identidad. Decidido:
-  - **Estética de pasaporte en vez de Pokémon:** la de Pokémon amarra a un estilo ajeno y es marca registrada (cerraría
-    la puerta a mostrarla o postular a fondos). Inspiración: el Pasaporte Patrimonial 2026 del Servicio Nacional del
-    Patrimonio Cultural (libreta gratis con timbres, stickers o firmas, sirve todo el año y tiene espacio para notas).
-    Inspirado, no copiado: nada de escudo, logos ni diseño oficial, y con otro nombre.
-  - **Minimalista pero atractiva:** sin fondo de guilloché ni muchas letras. La interfaz en blanco y negro y **el color
-    lo ponen los timbres** (mientras más caminas, más color). Lúdica y gratificante sin verse de videojuego: el momento
-    del timbre, lo que falta a la vista y el "te faltan N para…".
-  - **Cada timbre con la forma de lo que es** (plaza = copa de árbol, cerro = montaña, edificio = arco…), como los
-    timbres de estación de Japón. Los monumentos nacionales y zonas típicas con timbre conmemorativo.
-  - **El timbre sale con tu foto** (como desde la v1.4): la foto es parte de la experiencia. Aparece como **polaroid**
-    pegada en la página y el timbre cae sobre su esquina (más color y vida, como un recuerdo pegado en un pasaporte).
-    Al llegar sin foto, la polaroid queda vacía y el timbre punteado esperando ("falta tu foto"). Al pie de la polaroid,
-    tu nota o la fecha.
-  - **Lo que se toma del Pasaporte Patrimonial** (fotos de prensa que trajo Bastián): dibujos de línea en un solo color
-    (terracota; acá, la cordillera al pie de cada página), la ficha como página con **campos rotulados** (año, obra de,
-    comuna, altura, metro…) antes de las secciones plegables, un **espacio punteado "TIMBRE"** junto a la polaroid vacía,
-    una frase destacada bajo el nombre solo si existe (placa de OSM o la mención subrayada de la v1.7) y un
-    **marcapáginas** en la comuna donde estás. Se toman las ideas, no sus dibujos ni su diagramación.
-  - **Nombre provisorio: "Pasaporte"** (la pestaña que reemplaza a la Dex) hasta que salga uno mejor.
-  - **Nada del texto se pierde:** se agrupa en secciones plegables y las ayudas quedan plegadas donde están. Los
-    párrafos largos en letra normal.
-  - **Uso propio por ahora, diseñada como app real** (ver Decisiones en `CLAUDE.md`).
-  - Por partes, una sesión cada una: base (colores, letras, íconos sin emojis, botones, plegables) y Hoy; Pasaporte
-    (la actual Dex); Armar y Resultados; Paseo y Resumen.
-  - **Falta decidir (al construir):** el nombre definitivo (ni "Santiagodex" ni "Pasaporte Patrimonial", que es el del
-    Estado); las letras (en las maquetas: Bricolage Grotesque y IBM Plex Mono; verificar su licencia); qué timbres
-    especiales o hitos hay (ojo con "Puntos, niveles y rankings" en Descartadas); cómo se ve el mapa.
+- **Probar en terreno la v1.8 "Pasaporte"** (rediseño decidido con maquetas y construido el 2026-11-01; lo decidido
+  está en `CLAUDE.md`). Probar: que todo se lea bien al sol y caminando (sobre todo la franja del paseo y los números
+  en letra de máquina); Hoy con los días timbrados; "Destino sellado"; el Pasaporte por páginas de comuna con sus
+  visados; sacar una foto en el paseo y desde la ficha y ver el momento "¡Timbrado!"; la ficha (campos, frase de la
+  placa, grupos plegables); el modo oscuro si lo usas; la postal nueva; el ícono nuevo al agregarla a la pantalla de
+  inicio (el iPhone puede guardar el ícono viejo: borrar el acceso y volver a agregarlo).
+  - Del diseño quedó fuera, para después: "3 timbres nuevos a menos de 1 km" en Hoy (pide el GPS al abrir), una
+    bienvenida de tres pantallas la primera vez (propósito, meta y permiso del GPS), timbres especiales o hitos (ojo
+    con "Puntos, niveles y rankings" en Descartadas), el nombre definitivo (ni "Santiagodex" ni "Pasaporte
+    Patrimonial", que es el del Estado) y trazar la cordillera con alturas reales en vez de a mano.
 - **Probar en terreno la v1.7 "Una razón para ir"** (pedida y decidida el 2026-11-01, "sí a todo"; construida el
   mismo día): la ficha de la Dex en cuatro grupos (Qué hay, Su historia, Dónde estás, Tú y este lugar). Fichas con
   algo propio: de 570 a **2.705 de 3.236 (84 %)**; 531 quedan solo con lo general (altura, calles, referencias,
@@ -121,6 +102,11 @@
   (43 comunas, ~230 mil cuadros con calles; Overpass falló en varios pedazos y el script reintentó solo).
 
 ## Por verificar
+- **v1.8:** si el golpe del timbre suena en el iPhone (Safari puede no dejar sonar sin un toque previo, y con el
+  interruptor de silencio no suena); si las letras propias cargan bien con 4G (≈110 KB, una sola vez); si la textura
+  de tinta de los timbres (filtro SVG) pone lenta la página con muchas casillas; si los timbres chicos de la esquina
+  se distinguen o conviene agrandarlos; si el mapa desteñido se lee bien al sol; si "Destino sellado" se entiende sin
+  explicación.
 - **v1.7:** si la ficha con cuatro grupos se lee bien en el iPhone o es muy larga (¿plegar Dónde estás?); cuánto
   tarda en abrir la primera ficha con 4G (baja ~900 KB de datos sin comprimir: entorno, especies, contexto,
   menciones; GitHub Pages los comprime); si las menciones elegidas se sienten útiles o algunas son solo ubicación;
