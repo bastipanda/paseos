@@ -99,23 +99,18 @@
         </div>
       </div>
       <div id="clima" class="clima" hidden></div>
-      <h2 class="titulo-seccion">Salir ahora</h2>
+      <!-- Para hoy: propuestas con un motivo (completar la semana, un timbre nuevo cerca, el destino sellado). Las
+           arma js/pantalla-hoy.js con tu meta, tu Pasaporte y, si ya diste permiso, tu ubicación. -->
+      <h2 class="titulo-seccion">Para hoy</h2>
+      <div class="propuestas" id="propuestas"></div>
+      <h3 class="titulo-chico">¿O cuánto tiempo tienes?</h3>
       <div class="salir-ahora">
         <button type="button" class="boton-salir" data-minutos="15">15<small>MIN</small></button>
         <button type="button" class="boton-salir" data-minutos="30">30<small>MIN</small></button>
         <button type="button" class="boton-salir" data-minutos="45">45<small>MIN</small></button>
-        <button type="button" class="boton-salir" data-minutos="60">60<small>MIN</small></button>
+        <button type="button" class="boton-salir" data-minutos="60">1<small>HORA</small></button>
       </div>
-      <!-- Destino sellado (antes "Sorpresa"): con el lacre puesto, los botones de arriba llevan a un lugar sin timbrar. -->
-      <label class="sellado">
-        <input type="checkbox" id="sorpresa">
-        <span class="lacre" aria-hidden="true"></span>
-        <span class="sellado-texto">
-          <strong>Destino sellado</strong>
-          <small>Te llevo a un lugar que no tienes timbrado, sin decirte adónde. Se abre al llegar.</small>
-        </span>
-      </label>
-      <p class="ayuda" id="ayuda-salir">Ida y vuelta desde donde estás.</p>
+      <p class="ayuda" id="ayuda-salir">Una vuelta desde donde estás.</p>
       <p id="estado-salir" class="estado" role="status"></p>
       <div id="bloque-favoritas" hidden>
         <h2 class="titulo-seccion">Tus rutas favoritas</h2>
@@ -125,98 +120,111 @@
       <svg class="cordillera" viewBox="0 0 360 76" preserveAspectRatio="none" aria-hidden="true"><use href="#dibujo-cordillera"/></svg>
     </div>
 
-    <!-- Nuevo paseo a medida -->
+    <!-- Armar: el paseo a medida como una frase para completar. Cada palabra en caja abre su hoja con las opciones; las
+         piezas del formulario de siempre (listas, mínimo y máximo, estilo, detalles) viven en esas hojas, así la lógica
+         de búsqueda no cambia. La frase y las hojas las maneja js/frase.js. -->
     <div class="vista" data-vista="formulario" hidden>
-      <h1>Armar un paseo</h1>
       <form id="formulario" novalidate>
-        <div class="campo">
-          <label for="partida-tipo">Partida</label>
-          <select id="partida-tipo"></select>
-          <div id="partida-extra" class="extra"></div>
-        </div>
-        <div class="campo">
-          <label for="termino-tipo">Término</label>
-          <select id="termino-tipo"></select>
-          <div id="termino-extra" class="extra"></div>
-        </div>
+        <span class="rotulo">Arma tu paseo</span>
+        <p class="frase" id="frase">Quiero caminar
+          <button type="button" class="hueco" data-hoja="tiempo" id="hueco-tiempo">…</button>
+          desde <button type="button" class="hueco" data-hoja="desde" id="hueco-desde">…</button>
+          <span id="frase-conector">y</span> <button type="button" class="hueco" data-hoja="hasta" id="hueco-hasta">…</button>
+          por calles <button type="button" class="hueco" data-hoja="estilo" id="hueco-estilo">…</button>.</p>
+        <p class="estimacion" id="frase-estimacion"></p>
 
-        <fieldset class="campo">
-          <legend>Duración a pie</legend>
-          <div class="segmentado" role="radiogroup" aria-label="Unidad">
-            <label><input type="radio" name="unidad" value="pasos" checked><span>Pasos</span></label>
-            <label><input type="radio" name="unidad" value="minutos"><span>Minutos</span></label>
-            <label><input type="radio" name="unidad" value="km"><span>Km</span></label>
-            <label><input type="radio" name="unidad" value="kcal"><span>Kcal</span></label>
-          </div>
-          <div id="pedir-peso" class="pedir-peso" hidden>
-            <p>Para calcular calorías necesito tu peso. Queda guardado solo en este celular.</p>
-            <div class="fila">
-              <label class="mini">Peso (kg)<input id="peso-rapido" type="number" inputmode="decimal" min="30" max="250" step="0.5" aria-label="Peso en kilos"></label>
-              <button type="button" class="boton-secundario" id="usar-kcal">Usar calorías</button>
-            </div>
-            <p id="error-peso" class="estado error"></p>
-          </div>
-          <div class="fila">
-            <label class="mini">Mínimo<input id="minimo" type="number" inputmode="decimal" min="0" step="any" placeholder="—" aria-label="Mínimo"></label>
-            <label class="mini">Máximo<input id="maximo" type="number" inputmode="decimal" min="0" step="any" placeholder="—" aria-label="Máximo"></label>
-          </div>
-          <p class="ayuda" id="ayuda-duracion"></p>
-        </fieldset>
-
-        <details class="mas-opciones" id="mas-opciones">
-        <summary>Más opciones <span class="opcional" id="resumen-opciones"></span></summary>
-        <fieldset class="campo">
-          <legend>Estilo</legend>
-          <div class="segmentado" role="radiogroup" aria-label="Estilo">
-            <label><input type="radio" name="estilo" value="tranquilo" checked><span>Tranquilo</span></label>
-            <label><input type="radio" name="estilo" value="vida"><span>Con vida</span></label>
-            <label><input type="radio" name="estilo" value="noche"><span>Noche</span></label>
-          </div>
-          <p class="ayuda" id="ayuda-estilo"></p>
-        </fieldset>
-
-        <fieldset class="campo">
-          <legend>Pasar por… <span class="opcional">(opcional)</span></legend>
+        <!-- Detalles: botones que se prenden y apagan (lo que antes estaba en "Más opciones"). -->
+        <div class="detalles" id="mas-opciones">
+          <span id="resumen-opciones" hidden></span>
           <div class="chips">
+            <label class="chip-opcion"><input type="checkbox" id="chip-sin-subidas"><span>Sin subidas</span></label>
+            <label class="chip-opcion"><input type="checkbox" id="chip-con-subidas"><span>Con subidas</span></label>
             <label class="chip-opcion"><input type="checkbox" name="pasar" value="interes"><span>Lugares interesantes</span></label>
             <label class="chip-opcion"><input type="checkbox" name="pasar" value="comercio"><span>Cafés y tiendas</span></label>
             <label class="chip-opcion"><input type="checkbox" name="pasar" value="plazas"><span>Plazas</span></label>
+            <label class="chip-opcion"><input type="checkbox" id="explorar"><span>Calles nuevas</span></label>
+            <label class="chip-opcion"><input type="checkbox" id="solo-barrios"><span>Solo mis barrios</span></label>
+            <label class="chip-opcion"><input type="checkbox" id="con-bici"><span>Volver en Bike Itaú</span></label>
           </div>
-        </fieldset>
-
-        <fieldset class="campo">
-          <legend>Subidas</legend>
-          <div class="segmentado" role="radiogroup" aria-label="Subidas">
-            <label><input type="radio" name="subidas" value="evitar"><span>Evitar</span></label>
-            <label><input type="radio" name="subidas" value="igual" checked><span>Da igual</span></label>
-            <label><input type="radio" name="subidas" value="buscar"><span>Buscar</span></label>
+          <div class="subidas-ocultas" hidden>
+            <input type="radio" name="subidas" value="evitar" aria-label="Evitar subidas">
+            <input type="radio" name="subidas" value="igual" checked aria-label="Subidas: da igual">
+            <input type="radio" name="subidas" value="buscar" aria-label="Buscar subidas">
           </div>
-          <p class="ayuda" id="ayuda-subidas" hidden>Prefiere rutas que suben (hacia miradores y cerros): subir quema
-            bastante más que caminar en plano.</p>
-        </fieldset>
-        <label class="interruptor">
-          <input type="checkbox" id="explorar" aria-label="Preferir calles que no conozco">
-          <span>Explorar: preferir calles que no conozco</span>
-        </label>
-        <p class="ayuda" id="ayuda-explorar" hidden></p>
+          <p class="ayuda" id="ayuda-subidas" hidden>Con subidas: prefiere rutas que suben (hacia miradores y cerros); subir
+            quema bastante más que caminar en plano.</p>
+          <p class="ayuda" id="ayuda-explorar" hidden></p>
+          <p class="ayuda" id="ayuda-barrios" hidden><span id="texto-barrios"></span>
+            <button type="button" class="boton-texto" id="elegir-barrios" data-ir="ajustes">Elegir mis barrios</button></p>
+          <p class="ayuda" id="ayuda-bici" hidden>Caminas hasta una estación con bicis y pedaleas por calles
+            bike-friendly hasta la estación con anclajes libres más cercana al término.</p>
+        </div>
 
-        <label class="interruptor">
-          <input type="checkbox" id="solo-barrios" aria-label="Solo por mis barrios">
-          <span>Solo por mis barrios</span>
-        </label>
-        <p class="ayuda" id="ayuda-barrios" hidden><span id="texto-barrios"></span>
-          <button type="button" class="boton-texto" id="elegir-barrios" data-ir="ajustes">Elegir mis barrios</button></p>
-
-        <label class="interruptor">
-          <input type="checkbox" id="con-bici" aria-label="Volver en Bike Itaú">
-          <span>Volver en Bike Itaú</span>
-        </label>
-        <p class="ayuda" id="ayuda-bici" hidden>Caminas hasta una estación con bicis y pedaleas por calles
-          bike-friendly hasta la estación con anclajes libres más cercana al término.</p>
-        </details>
-
-        <button type="submit" class="boton-principal" id="buscar">Buscar rutas</button>
+        <button type="submit" class="boton-principal" id="buscar">Buscar caminos</button>
         <p id="estado-busqueda" class="estado" role="status"></p>
+        <details class="ayuda-plegable"><summary>¿Cómo funciona?</summary>
+          <p class="ayuda">Toca cualquier palabra en caja para cambiarla. Con lo que elijas, la app arma hasta cuatro caminos
+            distintos que calcen con tu tiempo; ninguno es fijo y en el último puedes pedir más. Se acuerda de lo último
+            que elegiste (también lo usa "Salir ahora" en Hoy).</p></details>
+
+        <!-- Las hojas: se abren abajo, sobre todo, al tocar una caja de la frase. -->
+        <div class="hoja-fondo" id="hoja-fondo" hidden></div>
+        <div class="hoja" id="hoja" role="dialog" aria-modal="true" aria-labelledby="hoja-titulo" hidden>
+          <div class="hoja-asa" aria-hidden="true"></div>
+          <h2 id="hoja-titulo">…</h2>
+
+          <section data-hoja="tiempo" hidden>
+            <div class="segmentado" role="radiogroup" aria-label="Unidad">
+              <label><input type="radio" name="unidad" value="minutos"><span>Minutos</span></label>
+              <label><input type="radio" name="unidad" value="pasos" checked><span>Pasos</span></label>
+              <label><input type="radio" name="unidad" value="km"><span>Km</span></label>
+              <label><input type="radio" name="unidad" value="kcal"><span>Kcal</span></label>
+            </div>
+            <div id="pedir-peso" class="pedir-peso" hidden>
+              <p>Para calcular calorías necesito tu peso. Queda guardado solo en este celular.</p>
+              <div class="fila">
+                <label class="mini">Peso (kg)<input id="peso-rapido" type="number" inputmode="decimal" min="30" max="250" step="0.5" aria-label="Peso en kilos"></label>
+                <button type="button" class="boton-secundario" id="usar-kcal">Usar calorías</button>
+              </div>
+              <p id="error-peso" class="estado error"></p>
+            </div>
+            <div class="tiempo-rapido" id="tiempo-rapido"></div>
+            <details class="ajustar-rango">
+              <summary>Ajustar mínimo y máximo</summary>
+              <div class="fila">
+                <label class="mini">Mínimo<input id="minimo" type="number" inputmode="decimal" min="0" step="any" placeholder="—" aria-label="Mínimo"></label>
+                <label class="mini">Máximo<input id="maximo" type="number" inputmode="decimal" min="0" step="any" placeholder="—" aria-label="Máximo"></label>
+              </div>
+            </details>
+            <p class="ayuda" id="ayuda-duracion"></p>
+          </section>
+
+          <section data-hoja="desde" hidden>
+            <select id="partida-tipo" hidden aria-label="Partida"></select>
+            <ul class="opciones" id="opciones-desde"></ul>
+            <div id="partida-extra" class="extra"></div>
+          </section>
+
+          <section data-hoja="hasta" hidden>
+            <select id="termino-tipo" hidden aria-label="Término"></select>
+            <ul class="opciones" id="opciones-hasta"></ul>
+            <div id="termino-extra" class="extra"></div>
+          </section>
+
+          <section data-hoja="estilo" hidden>
+            <div class="opciones opciones-estilo" role="radiogroup" aria-label="Estilo">
+              <label class="opcion"><input type="radio" name="estilo" value="tranquilo" checked>
+                <span class="opcion-texto"><strong>Tranquilas</strong><span>Poco ruido y verde: pasajes, calles residenciales, parques.</span></span></label>
+              <label class="opcion"><input type="radio" name="estilo" value="vida">
+                <span class="opcion-texto"><strong>Con vida</strong><span>Con gente y comercio: veredas de avenidas y paseos peatonales.</span></span></label>
+              <label class="opcion"><input type="radio" name="estilo" value="noche">
+                <span class="opcion-texto"><strong>Iluminadas, para la noche</strong><span>Calles principales con luz y movimiento.</span></span></label>
+            </div>
+            <p class="ayuda" id="ayuda-estilo"></p>
+          </section>
+
+          <button type="button" class="boton-principal" id="hoja-listo">Listo</button>
+        </div>
       </form>
     </div>
 

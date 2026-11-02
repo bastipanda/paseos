@@ -4,7 +4,7 @@ import { categoria } from './tranquilidad.js';
 import { describirTramo } from './explicar.js';
 import { nombreLugar, tipoLugar } from './plazas.js';
 import { icono as iconoSvg, iconoLugar } from './iconos.js';
-import { TINTAS } from './timbres.js';
+import { TINTAS, timbreSVG } from './timbres.js';
 
 export const COLORES = { buena: '#1a9850', media: '#e0a100', mala: '#d73027' };
 const CENTRO_SANTIAGO = [-33.4372, -70.6106];
@@ -119,10 +119,30 @@ export class Mapa {
 
   limpiarRuta() {
     this.capaRuta.clearLayers();
+    this.ocultarTimbresCamino();
     this.ocultarCorto();
     this.ocultarRecorridos();
     this.ocultarDex();
     this.ocultarConocidas();
+  }
+
+  // Los timbres por conseguir en el camino de una opción: su silueta punteada sobre el mapa. `nombre(lugar)` dice qué
+  // mostrar al tocarlo (sin nombre si todavía no lo descubres).
+  mostrarTimbresCamino(lugares, nombre = (l) => l.nombre) {
+    this.ocultarTimbresCamino();
+    this.capaTimbres = L.layerGroup(
+      lugares.map((l) =>
+        L.marker(l.punto, {
+          icon: L.divIcon({ className: 'marcador-timbre', html: timbreSVG(l.tipo, { modo: 'punteado' }), iconSize: [30, 30], iconAnchor: [15, 15] }),
+          zIndexOffset: 400,
+        }).bindTooltip(escapar(nombre(l))),
+      ),
+    ).addTo(this.mapa);
+  }
+
+  ocultarTimbresCamino() {
+    this.capaTimbres?.remove();
+    this.capaTimbres = null;
   }
 
   // Modo explorar: los cuadros que ya conoces, en morado transparente.

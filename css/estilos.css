@@ -482,8 +482,9 @@ button { font: inherit; font-family: var(--letra); }
 }
 .chip-opcion input:checked + span { background: var(--acento); color: var(--acento-texto); border-color: var(--acento); }
 .chip-opcion input:focus-visible + span { outline: 2px solid var(--terracota); }
-.clima { border: 1px solid var(--borde); border-radius: 14px; padding: 9px 12px; margin: 0 0 14px; font-size: 14px; }
-.clima.atencion, .clima.alerta { background: var(--alerta-fondo); color: var(--alerta-texto); border-color: transparent; }
+.clima { border-radius: 14px; padding: 0; margin: 0 0 14px; font-size: 14px; color: var(--texto-suave); }
+.clima strong { color: var(--texto); }
+.clima.atencion, .clima.alerta { background: var(--alerta-fondo); color: var(--alerta-texto); padding: 9px 12px; }
 .clima p { margin: 2px 0; }
 .marcar { margin-top: 0; }
 .marcar p { margin: 0 0 8px; font-weight: 600; }
@@ -543,31 +544,43 @@ button { font: inherit; font-family: var(--letra); }
 .titulo-seccion { font-size: 18px; margin: 18px 0 8px; }
 .salir-ahora { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 8px; }
 .boton-salir {
-  min-height: 62px; border-radius: 14px; border: 1.5px solid var(--texto); background: transparent; color: var(--texto);
-  font-family: var(--mono); font-size: 22px; font-weight: 600; cursor: pointer; display: flex; flex-direction: column;
+  min-height: 50px; border-radius: 12px; border: 1.5px solid var(--borde); background: transparent; color: var(--texto);
+  font-family: var(--mono); font-size: 18px; font-weight: 600; cursor: pointer; display: flex; flex-direction: column;
   align-items: center; justify-content: center; line-height: 1;
 }
 .boton-salir small { font-size: 10px; font-weight: 500; letter-spacing: 0.08em; margin-top: 4px; }
 .boton-salir:active { background: var(--acento); color: var(--acento-texto); }
 .boton-salir:disabled { opacity: 0.5; }
-/* "Destino sellado": un interruptor con forma de sobre lacrado. Prendido, los botones de arriba llevan ahí. */
-.sellado {
-  display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-radius: 14px; cursor: pointer;
-  border: 1.5px solid var(--texto); margin: 0 0 8px;
+/* Para hoy: propuestas con un motivo. Cada una es una tarjeta con su ícono, el porqué y los minutos. */
+.propuestas { display: flex; flex-direction: column; gap: 8px; margin-bottom: 6px; }
+.propuesta { display: flex; align-items: stretch; border: 1.5px solid var(--texto); border-radius: 16px; overflow: hidden; }
+.propuesta-principal {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 11px 13px; border: 0; background: none;
+  color: inherit; text-align: left; cursor: pointer; font-family: var(--letra);
 }
-.sellado input { position: absolute; opacity: 0; pointer-events: none; }
-.lacre {
-  flex: 0 0 auto; width: 22px; height: 22px; border-radius: 50%; background: var(--fondo-suave);
-  border: 1.5px dashed var(--punteado); transition: background 0.15s ease;
+div.propuesta-principal { cursor: default; }
+.propuesta-icono { width: 34px; height: 34px; flex: 0 0 auto; }
+.propuesta-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.propuesta-texto strong { font-size: 16px; }
+.propuesta-texto span { font-family: var(--lectura); font-size: 13.5px; line-height: 1.3; color: var(--texto-suave); }
+.propuesta-dato { font-family: var(--mono); font-size: 13px; font-weight: 600; }
+.propuesta-otro {
+  border: 0; border-left: 1px solid var(--borde); background: none; color: var(--texto-suave); padding: 0 12px;
+  font-size: 13px; font-weight: 600; cursor: pointer;
 }
-.sellado-texto { flex: 1; display: flex; flex-direction: column; }
-.sellado-texto strong { font-size: 16px; }
-.sellado-texto small { font-size: 13px; color: var(--texto-suave); }
-.sellado .estado-sellado { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; color: var(--tenue); }
-.sellado:has(input:checked) { background: var(--acento); color: var(--acento-texto); border-color: var(--acento); }
-.sellado:has(input:checked) small, .sellado:has(input:checked) .estado-sellado { color: var(--acento-texto); opacity: 0.8; }
-.sellado input:checked ~ .lacre { background: #b8322a; border: 0; box-shadow: inset 0 0 0 4px rgba(0, 0, 0, 0.15); }
-.sellado input:focus-visible ~ .lacre { outline: 2px solid var(--terracota); }
+.propuesta.sellada { flex-direction: column; background: var(--acento); color: var(--acento-texto); border-color: var(--acento); }
+.propuesta.sellada .propuesta-texto span { color: var(--acento-texto); opacity: 0.75; }
+.lacre-grande {
+  width: 34px; height: 34px; flex: 0 0 auto; border-radius: 50%; background: #b8322a;
+  box-shadow: inset 0 0 0 5px rgba(0, 0, 0, 0.18), inset 0 0 0 9px rgba(255, 255, 255, 0.08);
+}
+.chips-sellado { display: flex; gap: 6px; padding: 0 13px 12px 59px; flex-wrap: wrap; }
+.chips-sellado button {
+  border: 1.3px solid currentColor; border-radius: 999px; background: none; color: inherit; padding: 5px 11px;
+  font-family: var(--mono); font-size: 12px; font-weight: 600; cursor: pointer; min-height: 32px;
+}
+.chips-sellado button:active { background: var(--acento-texto); color: var(--acento); }
+.titulo-chico { font-size: 14px; font-weight: 700; margin: 16px 0 8px; }
 .boton-ancho { width: 100%; margin: 4px 0 10px; }
 .lista small { font-weight: 400; }
 
@@ -918,3 +931,92 @@ body.ubicarme .rosa { display: block; }
 .leaflet-top.leaflet-right { top: calc(56px + env(safe-area-inset-top)); }
 /* La atribución de OpenStreetMap queda sobre la barra de pestañas, a la vista. */
 .leaflet-bottom { bottom: var(--abajo); }
+
+/* Botón para centrar el mapa en ti (bajo el zoom). En el paseo se esconde: ahí está "Seguirme". */
+.boton-ubicacion {
+  width: 34px; height: 34px; border-radius: 8px; border: 2px solid rgba(0, 0, 0, 0.2); background: var(--fondo);
+  color: var(--texto); display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;
+  background-clip: padding-box;
+}
+.boton-ubicacion .ico { width: 20px; height: 20px; }
+body.siguiendo .control-ubicacion { display: none; }
+
+/* ---------- Armar: la frase para completar (v1.9) ---------- */
+.frase { font-size: 23px; font-weight: 600; line-height: 1.65; letter-spacing: -0.01em; margin: 6px 0 4px; }
+.hueco {
+  display: inline; font: inherit; font-weight: 700; color: var(--texto); background: var(--fondo);
+  border: 1.5px solid var(--texto); border-radius: 10px; padding: 0 8px; margin: 0 1px; cursor: pointer;
+  -webkit-box-decoration-break: clone; box-decoration-break: clone; line-height: 1.5;
+}
+.hueco:active { background: var(--acento); color: var(--acento-texto); }
+.estimacion { font-family: var(--mono); font-size: 11px; letter-spacing: 0.04em; color: var(--texto-suave); margin: 0 0 14px; min-height: 1em; }
+.detalles { margin: 0 0 14px; }
+.detalles .chips { gap: 6px; margin-bottom: 6px; }
+.detalles .chip-opcion span { padding: 6px 11px; min-height: 34px; font-size: 13px; }
+.detalles .chip-opcion span::before { content: "+ "; color: var(--tenue); }
+.detalles .chip-opcion input:checked + span::before { content: "✓ "; color: inherit; }
+.chip-opcion input:disabled + span { opacity: 0.4; }
+.detalles .ayuda { margin: 4px 0 6px; font-size: 13px; }
+
+/* Hoja: se abre abajo, sobre todo, con las opciones de una caja de la frase. */
+body.con-hoja .pestanas { display: none; }
+.hoja-fondo { position: fixed; inset: 0; z-index: 2000; background: rgba(21, 21, 21, 0.35); }
+.hoja {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 2001; max-height: 86vh; overflow-y: auto;
+  background: var(--fondo); border-radius: 22px 22px 0 0; box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.2);
+  padding: 10px 16px calc(16px + env(safe-area-inset-bottom)); animation: subir 0.2s ease;
+}
+@media (min-width: 720px) { .hoja { left: 16px; right: auto; width: 400px; bottom: 16px; border-radius: 22px; } }
+@keyframes subir { from { transform: translateY(30px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .hoja { animation: none; } }
+.hoja-asa { width: 36px; height: 4px; border-radius: 2px; background: var(--punteado); margin: 0 auto 10px; }
+.hoja h2 { margin: 0 0 8px; }
+.hoja #hoja-listo { margin-top: 14px; }
+.opciones { list-style: none; margin: 0; padding: 0; }
+.opcion {
+  width: 100%; display: flex; align-items: center; gap: 12px; padding: 11px 2px; border: 0; border-bottom: 1px solid var(--borde);
+  background: none; color: var(--texto); text-align: left; cursor: pointer; font-family: var(--letra);
+}
+.opcion-icono { flex: 0 0 26px; display: flex; justify-content: center; color: var(--texto); }
+.opcion-icono .ico { width: 22px; height: 22px; }
+.opcion-icono .ico-tipo { color: #2e8a4f; }
+.opcion-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.opcion-texto strong { font-size: 16px; }
+.opcion-texto span { font-family: var(--lectura); font-size: 13px; color: var(--texto-suave); line-height: 1.3; }
+.opcion.elegida .opcion-texto strong { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.opcion-check { width: 20px; height: 20px; }
+.opciones-separador { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--tenue); padding: 16px 2px 4px; }
+.opciones-estilo .opcion input { position: absolute; opacity: 0; pointer-events: none; }
+.opciones-estilo .opcion input:checked + .opcion-texto strong { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.opciones-estilo .opcion input:checked + .opcion-texto::after { content: "✓"; position: absolute; right: 6px; font-weight: 700; }
+.opciones-estilo .opcion { position: relative; }
+.hoja .extra { margin-top: 12px; }
+.tiempo-rapido { display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 8px; margin: 8px 0 10px; }
+.tiempo-rapido button {
+  min-height: 52px; border: 1.5px solid var(--texto); border-radius: 12px; background: none; color: var(--texto);
+  font-family: var(--mono); font-size: 17px; font-weight: 600; cursor: pointer;
+}
+.tiempo-rapido button small { font-size: 10px; font-weight: 500; }
+.tiempo-rapido button:active { background: var(--acento); color: var(--acento-texto); }
+.ajustar-rango > summary { cursor: pointer; font-size: 14px; font-weight: 600; color: var(--texto-suave); min-height: 40px; padding: 8px 0; }
+
+/* El trámite: tipos para ir al más cercano y una búsqueda para elegir el lugar exacto. */
+.mandado-tipos { margin: 4px 0 10px; }
+.mandado-tipos .chip-boton { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; border-color: var(--borde); }
+.mandado-tipos .chip-boton.activo { background: var(--acento); color: var(--acento-texto); border-color: var(--acento); }
+.buscador-mandado input { flex: 1; }
+.buscador-mandado button { flex: 0 0 auto; }
+
+/* Resultados: los timbres por conseguir en el camino. */
+.timbres-camino {
+  display: flex; align-items: center; gap: 12px; margin: 8px 0; padding: 10px 12px; border: 1.5px dashed var(--buena);
+  border-radius: 14px; font-size: 14px;
+}
+.timbres-camino strong { display: block; font-size: 15px; }
+.timbres-camino > span:last-child > span { font-family: var(--lectura); font-size: 13px; color: var(--texto-suave); }
+.timbres-camino-iconos { display: flex; flex: 0 0 auto; }
+.timbres-camino-iconos .timbre { width: 30px; height: 30px; margin-right: -8px; background: var(--fondo); border-radius: 50%; }
+.marcador-timbre .timbre { width: 30px; height: 30px; color: var(--texto); }
+.marcador-timbre .timbre.punteado { color: #6a665c; }
+.marcador-timbre svg path:first-of-type { fill: rgba(252, 251, 248, 0.92); }
+.propuesta-icono.timbre.punteado, .timbres-camino-iconos .timbre.punteado { color: var(--tenue); }

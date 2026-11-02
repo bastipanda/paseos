@@ -2,7 +2,7 @@
 
 import { Mapa, escapar, COLORES } from './mapa.js';
 import * as almacen from './almacen.js';
-import { buscarDireccion } from './busqueda.js';
+import { buscarDireccion, buscarCerca } from './busqueda.js';
 import { cargarEstaciones } from './bikeitau.js';
 import {
   paseosAPie,
@@ -24,6 +24,8 @@ import { nombreLugar, tipoLugar, nombreEstacion } from './plazas.js';
 import { icono, iconoLugar } from './iconos.js';
 import { timbreSVG } from './timbres.js';
 import { mostrarTimbrado } from './timbrado.js';
+import { iniciarFrase, pintarFrase, cerrarHoja } from './frase.js';
+import { TIPOS_MANDADO, MAS_CERCANO, buscarMandados, masCercanos, tiposDeTexto, haciaDonde } from './mandados.js';
 import { cargarDatos, cargarTramites, cargarMetro, cargarComunas, cargarDelitos, cargarDex } from './datos.js';
 import { radioCaptura, revisarRecorrido, anotarRecorrido, numeroDex, estadoDe } from './dex.js';
 import { iniciarDex } from './pantalla-dex.js';
@@ -53,14 +55,18 @@ import {
   formatearKcal,
 } from './duracion.js';
 import { Seguimiento, ubicacionActual } from './seguimiento.js';
+import { iniciarUbicacion, prenderUbicacion, apagarUbicacion, centrarEnMi } from './ubicacion.js';
 
 const panel = $('#panel');
 const mapa = new Mapa('mapa');
+iniciarUbicacion(mapa);
 
 const estado = {
   vista: 'hoy',
   // Puntos elegidos en el mapa o con el buscador: { punto, etiqueta, origen: 'mapa' | 'buscar' }.
   puntos: { partida: null, termino: null },
+  // El trámite elegido en Armar: { tipo } (el más cercano de ese tipo) o { punto, nombre, tipo } (un lugar exacto).
+  mandado: null,
   opciones: [],
   indice: 0,
   // La última búsqueda, para "Buscar más": { pedir, prefs, datos, ronda }. Null si no se puede pedir más.
@@ -118,7 +124,19 @@ function irA(vista) {
     mostrarLugares();
   }
   if (vista === 'ajustes') cargarAjustes();
+  actualizarUbicacion();
 }
+
+// Tu punto en el mapa: prendido siempre que el mapa se ve (vistas con mapa o "Ver en el mapa"). En el paseo lo
+// maneja el seguimiento, que tiene su propio GPS.
+function actualizarUbicacion() {
+  if (document.hidden) return apagarUbicacion({ ocultar: false });
+  if (estado.vista === 'seguimiento') return apagarUbicacion({ ocultar: false });
+  const seVeElMapa = !PAGINAS.includes(estado.vista) || document.body.classList.contains('viendo-mapa');
+  if (seVeElMapa) prenderUbicacion();
+  else apagarUbicacion();
+}
+document.addEventListener('visibilitychange', actualizarUbicacion);
 
 // Cuánto tapan el panel y la barra de pestañas. En el celular se calcula con el alto final del panel (no el de ese
 // instante), porque al cambiar de vista el panel se achica con una animación y el mapa se encuadraría mal.
@@ -161,6 +179,7 @@ function esperarClic(destino, texto, textoBoton = 'Cancelar') {
 // "Ver en el mapa" desde una página (historial, Dex): el mapa completo, con "Volver" para regresar a la página.
 function verEnMapa(titulo) {
   esperarClic('ver', titulo, 'Volver');
+  actualizarUbicacion();
 }
 
 function terminarEspera() {
@@ -169,6 +188,7 @@ function terminarEspera() {
   $('#aviso-mapa').hidden = true;
   document.body.classList.remove('viendo-mapa');
   plegar(false);
+  actualizarUbicacion();
   if (eraConocidas) {
     mapa.ocultarConocidas();
     mostrarResumenConocidas();
@@ -261,6 +281,7 @@ function llenarSelector(cual) {
   };
   if (cual === 'termino') {
     agregar(select, 'igual', 'Volver a la partida (circular)');
+    agregar(select, 'timbre', 'Ir a un timbre nuevo y volver');
     agregar(select, 'plaza', 'Ir a una plaza y volver');
     agregar(select, 'tramite', 'Ir a un trámite y volver (súper, farmacia…)');
     agregar(select, 'metro-calce', 'La estación de metro que calce');
@@ -295,18 +316,12 @@ function pintarExtra(cual, enfocar = true) {
     caja.innerHTML =
       '<p class="ayuda">La app elige una plaza, plazoleta, parque o plaza de juegos a la distancia justa para tu ' +
       'duración, y vuelves por otras calles. Con las flechas del resultado ves otras plazas.</p>';
+  } else if (tipo === 'timbre') {
+    caja.innerHTML =
+      '<p class="ayuda">La app elige un lugar del Pasaporte que todavía no tienes timbrado, a la distancia justa para tu ' +
+      'tiempo, y vuelves por otras calles. Con las flechas del resultado ves otros.</p>';
   } else if (tipo === 'tramite') {
-    const f = almacen.formularioGuardado() || {};
-    caja.innerHTML = `<div class="fila">
-        <select id="tramite-tipo" aria-label="Tipo de trámite">
-          ${Object.entries(TRAMITES).map(([v, t]) => `<option value="${v}"${f.tramite === v ? ' selected' : ''}>${t}</option>`).join('')}
-        </select>
-        <input type="text" id="tramite-nombre" placeholder="Nombre (opcional)" value="${escapar(f.tramiteNombre || '')}" aria-label="Nombre del local (opcional)">
-      </div>
-      <p class="ayuda">La app elige uno a la distancia justa para tu duración (así el trámite suma minutos) y vuelves por
-        otras calles. Si escribes un nombre (por ejemplo "Líder" o "Cruz Verde"), busca solo esos.</p>`;
-    caja.querySelector('#tramite-tipo').addEventListener('change', guardarFormulario);
-    caja.querySelector('#tramite-nombre').addEventListener('input', guardarFormulario);
+    pintarMandado(caja);
   } else if (tipo === 'metro-calce') {
     caja.innerHTML =
       '<p class="ayuda">La app elige una estación de metro a la distancia justa para tu duración. Terminas ahí y ' +
@@ -355,6 +370,101 @@ function pintarExtra(cual, enfocar = true) {
   }
 }
 
+// ---------- Armar: el trámite ("ir a hacer algo y volver") ----------
+
+// Cómo se dice en la frase: "la farmacia más cercana" o el lugar exacto ("Cruz Verde").
+function textoMandado(m) {
+  if (!m) return null;
+  if (m.nombre) return m.nombre;
+  return MAS_CERCANO[m.tipo] || null;
+}
+
+// La hoja del trámite: botones por tipo (el más cercano) y una búsqueda libre ordenada por cercanía, para elegir el
+// lugar exacto. Busca primero en los datos de la app y, si no basta, en OpenStreetMap (Nominatim, una consulta por
+// toque).
+function pintarMandado(caja) {
+  const m = estado.mandado;
+  caja.innerHTML = `<div class="mandado">
+      <p class="ayuda">Vas al lugar que elijas (o al más cercano de un tipo) y vuelves por otras calles. El paseo dura al
+        menos la ida y vuelta; si el lugar está cerca, se alarga hasta tu tiempo.</p>
+      <div class="chips mandado-tipos">${Object.entries(TIPOS_MANDADO)
+        .map(([v, nombre]) => `<button type="button" class="chip-boton${m && !m.nombre && m.tipo === v ? ' activo' : ''}" data-tipo="${v}">${icono(v)} ${nombre}</button>`)
+        .join('')}</div>
+      <div class="fila buscador-mandado">
+        <input type="search" id="mandado-texto" placeholder="O escribe: Cruz Verde, correo, notaría…" enterkeyhint="search" aria-label="Qué tienes que hacer">
+        <button type="button" class="boton-secundario" id="mandado-buscar">Buscar</button>
+      </div>
+      <p class="estado" id="mandado-estado"></p>
+      <ul class="resultados-busqueda" id="mandado-resultados"></ul>
+      ${m?.nombre ? `<div class="punto-elegido"><span>${icono('pin')} ${escapar(m.nombre)}</span></div>` : ''}
+    </div>`;
+  caja.querySelectorAll('[data-tipo]').forEach((b) =>
+    b.addEventListener('click', () => {
+      estado.mandado = { tipo: b.dataset.tipo };
+      guardarFormulario();
+      cerrarHoja();
+    }),
+  );
+  const entrada = caja.querySelector('#mandado-texto');
+  const buscar = () => buscarMandado(entrada.value, caja);
+  caja.querySelector('#mandado-buscar').addEventListener('click', buscar);
+  entrada.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      buscar();
+    }
+  });
+}
+
+async function buscarMandado(texto, caja) {
+  const aviso = caja.querySelector('#mandado-estado');
+  const lista = caja.querySelector('#mandado-resultados');
+  if (texto.trim().length < 2) return mostrarEstado(aviso, 'Escribe qué necesitas (al menos 2 letras).', true);
+  mostrarEstado(aviso, 'Buscando cerca de la partida…');
+  lista.innerHTML = '';
+  let desde;
+  try {
+    desde = (await resolverPunto('partida')).punto;
+  } catch {
+    const c = mapa.mapa.getCenter();
+    desde = [c.lat, c.lng];
+  }
+  try {
+    let resultados = buscarMandados(texto, await cargarTramites(), desde);
+    // Lo que no está en los datos de la app (correo, notaría, una tienda en particular), en OpenStreetMap.
+    if (resultados.length < 4) {
+      const tipos = tiposDeTexto(texto);
+      // OpenStreetMap busca palabras completas: si "correo" no da nada, se prueba "correos" (y al revés).
+      let encontrados = await buscarCerca(texto, desde).catch(() => []);
+      if (!encontrados.length) {
+        const otra = /s$/i.test(texto.trim()) ? texto.trim().slice(0, -1) : `${texto.trim()}s`;
+        encontrados = await buscarCerca(otra, desde).catch(() => []);
+      }
+      const deOsm = encontrados
+        .filter((r) => !resultados.some((x) => distancia(x.punto, r.punto) < 40))
+        .map((r) => ({ ...r, tipo: tipos[0] || 'tramite', distancia: distancia(desde, r.punto) }));
+      resultados = [...resultados, ...deOsm].sort((a, b) => a.distancia - b.distancia).slice(0, 8);
+    }
+    mostrarEstado(aviso, resultados.length ? 'Elige a cuál vas:' : 'No encontré nada con ese nombre cerca. Prueba con otra palabra o elige un tipo.');
+    for (const r of resultados) {
+      const li = document.createElement('li');
+      const donde = `${formatearDistancia(r.distancia)} al ${haciaDonde(desde, r.punto)}`;
+      li.innerHTML = `<button type="button"><strong>${escapar(r.nombre || TIPOS_MANDADO[r.tipo] || 'Lugar')}</strong>${escapar([donde, r.direccion || nombreTipoLugar(r.tipo)].join(' · '))}</button>`;
+      li.querySelector('button').addEventListener('click', () => {
+        estado.mandado = { punto: r.punto, nombre: r.nombre || TIPOS_MANDADO[r.tipo] || 'Lugar', tipo: r.tipo };
+        guardarFormulario();
+        actualizarMarcadores();
+        cerrarHoja();
+      });
+      lista.append(li);
+    }
+  } catch (err) {
+    mostrarEstado(aviso, mensajeDeError(err), true);
+  }
+}
+
+const nombreTipoLugar = (tipo) => mayuscula(tipoLugar({ tipo }));
+
 // Para comparar nombres sin importar tildes ni mayúsculas ("Lider" encuentra "Líder").
 const normalizarTexto = (t) =>
   [...(t || '').normalize('NFD')]
@@ -375,7 +485,7 @@ const TRAMITES = {
 // La vuelta en Bike Itaú todavía no se combina con ir a un lugar y volver ni con terminar en el metro (quedó como
 // idea en el backlog).
 function actualizarBici() {
-  const sinBici = ['plaza', 'tramite', 'metro-calce'].includes($('#termino-tipo').value);
+  const sinBici = ['plaza', 'tramite', 'metro-calce', 'timbre'].includes($('#termino-tipo').value);
   const casilla = $('#con-bici');
   casilla.disabled = sinBici;
   if (sinBici) casilla.checked = false;
@@ -619,9 +729,9 @@ function guardarFormulario() {
     subidas: subidasElegidas(),
     explorar: $('#explorar').checked,
     soloBarrios: $('#solo-barrios').checked,
-    tramite: $('#tramite-tipo')?.value || almacen.formularioGuardado()?.tramite || 'supermercado',
-    tramiteNombre: $('#tramite-nombre') ? $('#tramite-nombre').value : almacen.formularioGuardado()?.tramiteNombre || '',
+    mandado: estado.mandado,
   });
+  pintarFrase();
 }
 
 function restaurarFormulario() {
@@ -639,6 +749,8 @@ function restaurarFormulario() {
       if ([...select.options].some((o) => o.value === tipo)) select.value = tipo;
     }
     if (f.puntos) estado.puntos = { partida: f.puntos.partida || null, termino: f.puntos.termino || null };
+    // Antes de la v1.9 el trámite era solo un tipo (y un nombre que casi nunca calzaba).
+    estado.mandado = f.mandado || (f.tramite ? { tipo: f.tramite } : null);
     const estilo = document.querySelector(`input[name="estilo"][value="${f.estilo}"]`);
     if (estilo) estilo.checked = true;
     for (const c of document.querySelectorAll('input[name="pasar"]')) c.checked = Boolean(f.pasarPor?.[c.value]);
@@ -664,6 +776,7 @@ function restaurarFormulario() {
   pintarExtra('partida', false);
   pintarExtra('termino', false);
   actualizarAyudaDuracion();
+  pintarFrase();
 }
 
 // ---------- Buscar rutas ----------
@@ -746,7 +859,7 @@ $('#formulario').addEventListener('submit', async (e) => {
     mostrarEstado(aviso, 'Ubicando la partida y el término…');
     const tipoTermino = $('#termino-tipo').value;
     const partida = await resolverPunto('partida');
-    const sinTermino = ['igual', 'plaza', 'tramite', 'metro-calce'].includes(tipoTermino);
+    const sinTermino = ['igual', 'plaza', 'tramite', 'metro-calce', 'timbre'].includes(tipoTermino);
     const termino = sinTermino ? partida : await resolverPunto('termino');
     const conBici = $('#con-bici').checked;
     await buscarYMostrar({
@@ -758,12 +871,22 @@ $('#formulario').addEventListener('submit', async (e) => {
           if (!datos.plazas.length) throw new Error('No se pudo cargar la lista de plazas. Intenta de nuevo.');
           return paseosIdaYVuelta({ inicio: partida.punto, rango, lugares: datos.plazas, avance, prefs, ...mas, sinLugares: 'No encontré plazas a una distancia que calce con la duración pedida.' });
         }
+        if (tipoTermino === 'timbre') {
+          const [dexLista, d] = [await cargarDex(), almacen.dex()];
+          // Sin timbrar y no tan cerca como para "llegar" apenas se parte.
+          const lugares = dexLista.filter((l) => !d.capturados[l.id]?.foto && distancia(partida.punto, l.punto) > radioCaptura(l) + 100);
+          return paseosIdaYVuelta({ inicio: partida.punto, rango, lugares, avance, prefs, ...mas, sinLugares: 'No encontré lugares sin timbrar a una distancia que calce con tu tiempo.' });
+        }
         if (tipoTermino === 'tramite') {
-          const tipo = $('#tramite-tipo').value;
-          const filtro = normalizarTexto($('#tramite-nombre').value);
-          const lugares = (await cargarTramites()).filter((l) => l.tipo === tipo && (!filtro || normalizarTexto(l.nombre).includes(filtro)));
-          if (!lugares.length) throw new Error(`No encontré ${TRAMITES[tipo].toLowerCase()} con ese nombre en el mapa.`);
-          return paseosIdaYVuelta({ inicio: partida.punto, rango, lugares, avance, prefs, ...mas, sinLugares: `No encontré un local de ese tipo a una distancia que calce con la duración pedida.` });
+          const m = estado.mandado;
+          if (!m) throw new Error('Elige el trámite: toca "un trámite" en la frase.');
+          // La necesidad manda: el lugar exacto que elegiste, o los más cercanos de ese tipo; el paseo dura al menos la
+          // ida y vuelta y se alarga hasta tu tiempo si el lugar está cerca.
+          const lugares = m.punto
+            ? [{ punto: m.punto, nombre: m.nombre, tipo: m.tipo || 'tramite', tamano: 0 }]
+            : masCercanos((await cargarTramites()).filter((l) => l.tipo === m.tipo), partida.punto, { n: 3 });
+          if (!lugares.length) throw new Error(`No encontré ${MAS_CERCANO[m.tipo]?.replace(/^(el|la) /, '').replace(/ más cercan[oa]$/, '') || 'ese lugar'} a menos de 6 km de la partida.`);
+          return paseosIdaYVuelta({ inicio: partida.punto, rango, lugares, avance, prefs, ...mas, porNecesidad: true, sinLugares: 'El lugar está demasiado cerca o demasiado lejos de la partida (más de 6 km).' });
         }
         if (tipoTermino === 'metro-calce') {
           const { estaciones } = await cargarMetro();
@@ -786,7 +909,7 @@ $('#formulario').addEventListener('submit', async (e) => {
     mostrarEstado(aviso, mensajeDeError(err), true);
   } finally {
     boton.disabled = false;
-    boton.textContent = 'Buscar rutas';
+    boton.textContent = 'Buscar caminos';
   }
 });
 
@@ -801,12 +924,25 @@ async function salirAhora(minutos) {
   try {
     mostrarEstado(aviso, 'Buscando tu ubicación…');
     const punto = await ubicacionActual();
-    if ($('#sorpresa').checked) return await salirSorpresa(punto, rango, aviso);
     await buscarYMostrar({
       aviso,
       origen: 'hoy',
       pedir: (avance, prefs, datos, mas) => paseosAPie({ inicio: punto, fin: punto, rango, avance, prefs, ronda: mas.ronda }),
     });
+  } catch (err) {
+    mostrarEstado(aviso, mensajeDeError(err), true);
+  }
+}
+
+// Destino sellado desde Hoy: como "Salir ahora", pero a un lugar sin timbrar que no se dice hasta llegar.
+async function salirSellado(minutos) {
+  const aviso = $('#estado-salir');
+  if (estado.buscando) return;
+  const metros = aMetros(minutos, 'minutos', almacen.ajustes());
+  try {
+    mostrarEstado(aviso, 'Buscando tu ubicación…');
+    const punto = await ubicacionActual();
+    await salirSorpresa(punto, { min: metros * 0.88, max: metros * 1.12 }, aviso);
   } catch (err) {
     mostrarEstado(aviso, mensajeDeError(err), true);
   }
@@ -908,11 +1044,45 @@ function bloqueCalidad(titulo, evaluacion, modo, estilo) {
   </div>`;
 }
 
+// En el camino: los lugares del Pasaporte por los que pasa esta opción (a la distancia en que se timbran) y que todavía
+// no tienes timbrados. Se cuentan en la tarjeta y se dibujan en el mapa como siluetas punteadas.
+async function pintarTimbresCamino(o) {
+  const caja = $('#timbres-camino');
+  if (!caja || o.misterio) return;
+  try {
+    const dexLista = await cargarDex();
+    if (o !== estado.opciones[estado.indice] || estado.vista !== 'resultados') return;
+    const d = almacen.dex();
+    if (!o.timbresCamino) {
+      const coords = o.partes.filter((p) => p.modo === 'pie').flatMap((p) => p.ruta.coords);
+      o.timbresCamino = revisarRecorrido(coords, dexLista).capturados.filter((l) => estadoDe(l, d) !== 'capturado');
+    }
+    const lista = o.timbresCamino;
+    const verNombres = almacen.ajustes().verNombresDex;
+    const visible = (l) => verNombres || estadoDe(l, d) !== 'nuevo';
+    mapa.mostrarTimbresCamino(lista, (l) => (visible(l) ? l.nombre : `${numeroDex(l.numero)}: por descubrir`));
+    if (!lista.length) return;
+    const nombres = lista.filter(visible).map((l) => l.nombre);
+    const ocultos = lista.length - nombres.length;
+    const partes = [
+      ...nombres.slice(0, 3),
+      nombres.length > 3 && `${nombres.length - 3} más`,
+      ocultos && `${ocultos === 1 ? 'un lugar' : `${ocultos} lugares`} por descubrir`,
+    ].filter(Boolean);
+    caja.innerHTML = `<div class="timbres-camino">
+        <span class="timbres-camino-iconos">${lista.slice(0, 3).map((l) => timbreSVG(l.tipo, { modo: estadoDe(l, d) === 'falta' ? 'pendiente' : 'punteado' })).join('')}</span>
+        <span><strong>En el camino: ${lista.length === 1 ? '1 timbre' : `${lista.length} timbres`} por conseguir</strong>
+        <span>${escapar(mayuscula(listar(partes)))}.</span></span></div>`;
+  } catch (err) {
+    console.error(err);
+  }
+}
+
 function mostrarOpcion() {
   const o = estado.opciones[estado.indice];
   const total = estado.opciones.length;
   const aj = almacen.ajustes();
-  $('#titulo-opcion').textContent = `Opción ${estado.indice + 1} de ${total}`;
+  $('#titulo-opcion').textContent = `Camino ${estado.indice + 1} de ${total}`;
   pintarFlechas();
 
   const estilo = o.estilo || 'tranquilo';
@@ -944,7 +1114,7 @@ function mostrarOpcion() {
   if (clima?.avisos.length) html += `<p class="alerta">${clima.avisos.map(escapar).join(' ')}</p>`;
   if (!o.enRango) html += '<p class="alerta">No encontré una ruta dentro del rango pedido. Esta es la más cercana.</p>';
   if (o.repetida > 0.15 && !o.destino?.idaYVuelta) html += '<p class="alerta">Parte de la ruta va y vuelve por la misma calle.</p>';
-  html += '<div id="seguridad-avisos"></div>';
+  html += '<div id="seguridad-avisos"></div><div id="timbres-camino"></div>';
   if (o.destino && !o.misterio) {
     const d = o.destino;
     const otras = estado.opciones.length > 1 ? ' Con las flechas de arriba ves otros destinos.' : '';
@@ -959,6 +1129,7 @@ function mostrarOpcion() {
       <p class="ayuda">La disponibilidad cambia minuto a minuto.</p></div>`;
   }
   $('#detalle-opcion').innerHTML = html;
+  pintarTimbresCamino(o);
   html = '';
   if (o.explicacion?.length) {
     html += `<details class="plegable"><summary>Por qué esta ruta</summary>
@@ -2029,6 +2200,10 @@ $('#crear-agenda').addEventListener('click', () => {
 
 // Rosa de los vientos: bajo el zoom del mapa; durante el paseo, bajo la franja de la indicación (arriba el zoom no se
 // ve y la franja taparía la esquina). Viene prendida salvo que se apague en Ajustes.
+// Botón para centrar el mapa en ti, justo bajo el zoom (en el paseo está "Seguirme").
+const casaUbicacion = mapa.agregarControl('control-ubicacion');
+casaUbicacion.innerHTML = `<button type="button" class="boton-ubicacion" aria-label="Centrar el mapa en mí">${icono('mira')}</button>`;
+casaUbicacion.querySelector('button').addEventListener('click', centrarEnMi);
 const casaRosa = mapa.agregarControl('control-rosa');
 casaRosa.append($('#rosa'));
 function ubicarRosa(paseando) {
@@ -2082,6 +2257,8 @@ async function mostrarClima(punto) {
 
 const hoy = iniciarHoy({
   salirAhora,
+  salirSellado,
+  irACapturar: (lugar) => irACapturar(lugar, $('#estado-salir')),
   abrirFavorita,
   exportarRespaldo,
   guardarPendiente: (datos) => {
@@ -2093,6 +2270,10 @@ const hoy = iniciarHoy({
 const historial = iniciarHistorial({ mapa, margenes: margenesPanel, verEnMapa, alCambiar: () => {} });
 const dex = iniciarDex({ mapa, margenes: margenesPanel, verEnMapa, cerrarMapa: terminarEspera, irACapturar });
 
+iniciarFrase({
+  puntos: () => estado.puntos,
+  textoMandado: () => textoMandado(estado.mandado),
+});
 restaurarFormulario();
 irA('hoy');
 aplicarEstaciones();
